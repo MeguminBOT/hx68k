@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.debug.DebugTool
+-neko bin/debug.n

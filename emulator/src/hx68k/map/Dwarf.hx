@@ -138,6 +138,18 @@ class Dwarf {
 		}
 	}
 
+	public function firstAddress(file:String, line:Int):Null<Int> {
+		final group = byFile.get(file);
+		if (group == null) return null;
+
+		var best:Null<Row> = null;
+		for (row in group) {
+			if (row.endSequence || row.line != line) continue;
+			if (best == null || row.address < best.address) best = row;
+		}
+		return best == null ? null : best.address;
+	}
+
 	public function at(file:String, address:Int, floor:Int):Null<Row> {
 		final group = byFile.get(file);
 		if (group == null) return null;

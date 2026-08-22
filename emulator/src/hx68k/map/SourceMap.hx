@@ -34,6 +34,35 @@ class SourceMap {
 		return elf.addressOf(symbol);
 	}
 
+	public function functionNamed(name:String):Null<hx68k.map.Hxmap.Function> {
+		for (source in maps.keys()) {
+			for (entry in maps.get(source).functions) if (entry.name == name) return entry;
+		}
+		return null;
+	}
+
+	public function staticNamed(name:String):Null<hx68k.map.Hxmap.Static> {
+		for (source in maps.keys()) {
+			for (entry in maps.get(source).statics) if (entry.name == name) return entry;
+		}
+		return null;
+	}
+
+	public function addressOfLine(file:String, line:Int):Null<Int> {
+		for (source in maps.keys()) {
+			final sidecar = maps.get(source);
+			var best:Null<Int> = null;
+			for (record in sidecar.lines) {
+				if (record.line != line || !StringTools.endsWith(sidecar.files[record.file], file)) continue;
+				if (best == null || record.generated < best) best = record.generated;
+			}
+			if (best == null) continue;
+			final at = dwarf.firstAddress(sidecar.source, best);
+			if (at != null) return at;
+		}
+		return null;
+	}
+
 	public function resolve(address:Int):Null<Place> {
 		final holder = elf.functionAt(address);
 		if (holder == null) return null;

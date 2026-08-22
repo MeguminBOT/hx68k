@@ -14,8 +14,16 @@ pointers with no heap behind them, and text and constant tables that never leave
 and runs correctly on an emulated 68000, and the suite checks the generated C and the map file as
 well as the running program. 64 checks, 0 failures.
 
-Given a 68000 address, the map tool names the Haxe file, line and function it came from: 116 of 116
-probes, none wrong. That chain is what the source-level debugger in track C is for.
+Given a 68000 address, the map tool names the Haxe file, line and function it came from: 122 of 122
+probes, none wrong. The debugger stands on that chain, and it works: a bug planted in a sample is
+found by breaking on a Haxe function, stepping Haxe lines and watching a Haxe static, which is what
+the whole project was for.
+
+```
+break at Main.hx:26  Main.accumulate
+  Main.hx:30  Main.total = 2
+found: Main.hx:30 sets Main.total to 2 where 1 was expected
+```
 
 The generated code is held to the C written beside it, measured in 68000 cycles on the emulated
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,

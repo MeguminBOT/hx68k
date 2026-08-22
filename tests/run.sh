@@ -183,5 +183,34 @@ neko "$MAP" "$DEBUG_ROM" "$GENERATED"
 # 68000 core conformance is a tracked progress metric, not yet a gate:
 # coverage is partial, so a low overall number is expected and honest.
 echo ""
+echo "--- a planted bug, found by stepping Haxe ---"
+build "bug rom" "$ROOT/samples/bug/build.sh" debug
+
+printf "building %-16s" "debugger"
+if (cd "$ROOT/emulator" && haxe debug.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+
+# the line the bug sits on comes from the sample itself, so moving it moves the expectation
+WANT="$(grep -n "planted bug" "$ROOT/samples/bug/hx/Main.hx" | cut -d: -f1)"
+SESSION="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" \
+	--break Main.accumulate --watch Main.total --expect 1,5,14,30)"
+
+echo "$SESSION" | sed 's/^/  /'
+
+printf "debug %-18s" "named the line"
+case "$SESSION" in
+	*"found: Main.hx:$WANT "*) echo "ok" ;;
+	*) echo "FAILED"; echo "  expected the bug on Main.hx:$WANT"; exit 1 ;;
+esac
+
+echo ""
 echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
 "$ROOT/emulator/run-sst.sh" 2>&1 | tail -12
