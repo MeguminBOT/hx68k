@@ -37,6 +37,7 @@ extern uint8_t  md_vram[MD_VRAM_SIZE];
 extern uint16_t md_cram[MD_CRAM_SIZE];
 extern uint16_t md_vsram[MD_VSRAM_SIZE];
 extern uint8_t  md_vdp_reg[32];
+extern uint8_t  md_buttons[3];
 
 extern md_write_t md_log[MD_LOG_MAX];
 extern size_t     md_log_count;

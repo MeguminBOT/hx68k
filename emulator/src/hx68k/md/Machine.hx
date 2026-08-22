@@ -18,7 +18,11 @@ class Machine implements Bus implements Memory {
 	public var cycles(default, null):Int = 0;
 	public var rom(default, null):Bytes = Bytes.alloc(0);
 
+	public final buttons:Vector<Int> = new Vector<Int>(3);
+
 	final banks:Vector<Int> = new Vector<Int>(8);
+	final padControl:Vector<Int> = new Vector<Int>(3);
+	final padData:Vector<Int> = new Vector<Int>(3);
 
 	var z80BusRequest:Bool = false;
 
@@ -26,6 +30,7 @@ class Machine implements Bus implements Memory {
 		vdp = new Vdp(this);
 		cpu = new M68000(this);
 		for (i in 0...banks.length) banks[i] = i;
+		for (i in 0...buttons.length) buttons[i] = 0;
 	}
 
 	public function load(path:String):Void {
@@ -40,6 +45,11 @@ class Machine implements Bus implements Memory {
 
 		z80BusRequest = false;
 		cycles = 0;
+
+		for (i in 0...padControl.length) {
+			padControl[i] = 0;
+			padData[i] = 0;
+		}
 
 		vdp.reset();
 		cpu.reset();
@@ -131,6 +141,14 @@ class Machine implements Bus implements Memory {
 			return;
 		}
 
+		if (at >= 0xA10000 && at < 0xA10020) {
+			final offset = at & 0x1F;
+			final byte = both(value, uds, lds) & 0xFF;
+			if (offset >= 2 && offset <= 6) padData[(offset >> 1) - 1] = byte;
+			else if (offset >= 8 && offset <= 12) padControl[(offset >> 1) - 4] = byte;
+			return;
+		}
+
 		if (at >= 0xA130F0 && at < 0xA13100) {
 			final index = ((at | 1) & 0x0F) >> 1;
 			if (index > 0) banks[index] = (value & 0x3F);
@@ -169,10 +187,19 @@ class Machine implements Bus implements Memory {
 	}
 
 	function io(at:Int):Int {
-		return switch (at & 0x1F) {
-			case 0x00, 0x01: 0xA0;
-			case 0x02, 0x03, 0x04, 0x05, 0x06, 0x07: 0x7F;
-			case _: 0x00;
-		}
+		final offset = at & 0x1F;
+		if (offset <= 1) return 0xA0;
+		if (offset >= 2 && offset <= 6) return pad((offset >> 1) - 1);
+		if (offset >= 8 && offset <= 12) return padControl[(offset >> 1) - 4];
+		return 0x00;
+	}
+
+	function pad(port:Int):Int {
+		final held = buttons[port];
+		final lines = (padData[port] & 0x40) != 0
+			? held & 0x3F
+			: (held & 0x03) | (((held >> 6) & 0x03) << 4);
+		final control = padControl[port];
+		return ((~lines & 0x3F & ~control) | (padData[port] & control)) & 0x7F;
 	}
 }

@@ -375,6 +375,56 @@ static void suite_conformance(const char *rom, const char *sym)
 		          (int32_t)md_read_ram32(probe_addr + (uint32_t)i * 4));
 }
 
+static void suite_hardware(const char *rom, const char *sym)
+{
+	uint32_t probe_addr = 0;
+	uint32_t done_addr = 0;
+	int f;
+	int done = 0;
+
+	suite("hardware: md.hw with no SGDK call in it");
+
+	if (!boot(rom, sym))
+		return;
+
+	if (!sym_lookup("hx_probe", &probe_addr) || !sym_lookup("hx_probe_done", &done_addr)) {
+		check(0, "probe symbols found");
+		return;
+	}
+
+	md_buttons[0] = 0x88; /* start and right */
+
+	for (f = 0; f < 60 && !done; f++) {
+		md_run_frame();
+		done = (int)md_read_ram16(done_addr);
+	}
+
+	check(done, "hardware rom signalled completion");
+	if (!done) {
+		md_dump_context();
+		return;
+	}
+
+	{
+		int32_t cram = (int32_t)md_read_ram32(probe_addr);
+		int32_t vram = (int32_t)md_read_ram32(probe_addr + 4);
+		int32_t pad  = (int32_t)md_read_ram32(probe_addr + 8);
+
+		check(cram == 0x0E80, "colour 0 reads back through the data port (got 0x%04X)", cram);
+		check(md_cram[0] == 0x0E80, "colour 0 landed in CRAM (got 0x%04X)", md_cram[0]);
+		check(vram == 0x1234, "a word written to VRAM reads back (got 0x%04X)", vram);
+		check(pad == 0x88, "the pad reports start and right (got 0x%02X)", pad);
+
+		dump_rom("hardware", "samples/hardware");
+		dump_line("until hx_probe_done 2 1 60");
+		dump_line("buttons 0 %u", md_buttons[0]);
+		dump_line("value hx_probe 0 4 %d", cram);
+		dump_line("value hx_probe 4 4 %d", vram);
+		dump_line("value hx_probe 8 4 %d", pad);
+		dump_line("cram 0 %d", md_cram[0]);
+	}
+}
+
 static int file_exists(const char *p)
 {
 	FILE *f = fopen(p, "rb");
@@ -408,6 +458,13 @@ int main(int argc, char **argv)
 		suite_conformance(rom, sym);
 	else
 		printf("\nconformance: skipped (rom not built)\n");
+
+	snprintf(rom, sizeof(rom), "%s/samples/hardware/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/hardware/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_hardware(rom, sym);
+	else
+		printf("\nhardware: skipped (rom not built)\n");
 
 	if (g_dump)
 		fclose(g_dump);

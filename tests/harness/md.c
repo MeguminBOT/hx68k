@@ -12,6 +12,7 @@ uint8_t  md_vram[MD_VRAM_SIZE];
 uint16_t md_cram[MD_CRAM_SIZE];
 uint16_t md_vsram[MD_VSRAM_SIZE];
 uint8_t  md_vdp_reg[32];
+uint8_t  md_buttons[3];
 
 md_write_t md_log[MD_LOG_MAX];
 size_t     md_log_count;
@@ -24,6 +25,8 @@ uint32_t md_pc_ring[256];
 size_t   md_pc_ring_pos;
 
 static uint8_t  z80_ram[MD_Z80_SIZE];
+static uint8_t  pad_control[3];
+static uint8_t  pad_data[3];
 static int      z80_busreq;
 static int      in_vblank;
 static int      vint_pending;
@@ -210,22 +213,46 @@ static uint16_t vdp_read_hv(void)
 	return (uint16_t)((v << 8) | 0x00);
 }
 
+/*
+ * A three-button pad. TH high puts the directions with B and C on the port, TH low puts
+ * up, down, A and start on it with the two middle bits low, which is how the pad names
+ * itself. Every line is active low, and a line the port drives reads back what was
+ * written to it.
+ */
+static uint32_t pad_read(int port)
+{
+	uint8_t held  = md_buttons[port];
+	uint8_t lines = (pad_data[port] & 0x40)
+	                ? (uint8_t)(held & 0x3F)
+	                : (uint8_t)((held & 0x03) | (((held >> 6) & 0x03) << 4));
+	uint8_t control = pad_control[port];
+
+	return (uint32_t)((((uint8_t)~lines & 0x3F & (uint8_t)~control)
+	                  | (pad_data[port] & control)) & 0x7F);
+}
+
 static uint32_t io_read(uint32_t addr)
 {
-	switch (addr & 0x1F) {
-	case 0x00:
-	case 0x01:
+	uint32_t offset = addr & 0x1F;
+
+	if (offset <= 0x01)
 		return 0xA0; /* overseas, NTSC, no expansion */
-	case 0x02:
-	case 0x03:
-	case 0x04:
-	case 0x05:
-	case 0x06:
-	case 0x07:
-		return 0x7F; /* pad: nothing pressed */
-	default:
-		return 0x00;
-	}
+	if (offset >= 0x02 && offset <= 0x07)
+		return pad_read((int)((offset >> 1) - 1));
+	if (offset >= 0x08 && offset <= 0x0D)
+		return pad_control[(offset >> 1) - 4];
+
+	return 0x00;
+}
+
+static void io_write(uint32_t addr, uint32_t value)
+{
+	uint32_t offset = addr & 0x1F;
+
+	if (offset >= 0x02 && offset <= 0x07)
+		pad_data[(offset >> 1) - 1] = (uint8_t)value;
+	else if (offset >= 0x08 && offset <= 0x0D)
+		pad_control[(offset >> 1) - 4] = (uint8_t)value;
 }
 
 static uint32_t read8_bus(uint32_t addr)
@@ -314,6 +341,11 @@ static void write8_bus(uint32_t addr, uint32_t value)
 
 	if (addr >= 0xA11100 && addr < 0xA11102) {
 		z80_busreq = (value & 0x01) ? 1 : 0;
+		return;
+	}
+
+	if (addr >= 0xA10000 && addr < 0xA10020) {
+		io_write(addr, value);
 		return;
 	}
 
@@ -427,6 +459,8 @@ void md_reset(void)
 	memset(md_vsram, 0, sizeof(md_vsram));
 	memset(md_vdp_reg, 0, sizeof(md_vdp_reg));
 	memset(z80_ram, 0, sizeof(z80_ram));
+	memset(pad_control, 0, sizeof(pad_control));
+	memset(pad_data, 0, sizeof(pad_data));
 
 	md_log_count = 0;
 	md_frame = 0;

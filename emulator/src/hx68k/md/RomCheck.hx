@@ -16,6 +16,7 @@ typedef Job = {
 	var width:Int;
 	var reach:Int;
 	var frames:Int;
+	final held:Array<{port:Int, mask:Int}>;
 	final checks:Array<Check>;
 }
 
@@ -55,6 +56,7 @@ class RomCheck {
 						width: 0,
 						reach: 0,
 						frames: 0,
+						held: [],
 						checks: []
 					});
 				case "until" if (job != null):
@@ -65,6 +67,8 @@ class RomCheck {
 				case "value" if (job != null):
 					job.checks.push(Value(parts[1], Std.parseInt(parts[2]), Std.parseInt(parts[3]),
 						Std.parseInt(parts[4])));
+				case "buttons" if (job != null):
+					job.held.push({port: Std.parseInt(parts[1]), mask: Std.parseInt(parts[2])});
 				case "vram" if (job != null):
 					job.checks.push(Vram(Std.parseInt(parts[1]), Std.parseInt(parts[2])));
 				case "cram" if (job != null):
@@ -80,6 +84,7 @@ class RomCheck {
 		final machine = new Machine();
 		machine.vdp.rendering = false;
 		machine.load(haxe.io.Path.join([root, job.rom]));
+		for (entry in job.held) machine.buttons[entry.port] = entry.mask;
 		final elf = new Elf(haxe.io.Path.join([root, job.elf]));
 
 		final target = address(elf, job.symbol);

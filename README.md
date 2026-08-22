@@ -21,6 +21,10 @@ The generated code is held to the C written beside it, measured in 68000 cycles 
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
 and identical on a third.
 
+**SDK.** phase B0 complete. `md.hw` reaches the VDP, the pads, the Z80's bus and both sound chips
+through one volatile access each, and a sample ROM that calls nothing from SGDK sets a colour and
+reads a pad on both emulators.
+
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
 Around it, a machine: the memory map, the VDP as memory and interrupt source, and the master clock.
@@ -65,8 +69,8 @@ The m68k toolchain is vendored with SGDK; nothing else to install.
 
 ```
 compiler/    Reflaxe backend, Haxe -> C99 -> m68k
-sdk/         hardware layer and SGDK bindings
-samples/     spike, conformance rom
+sdk/         md.hw raw hardware, SGDK bindings later
+samples/     spike, conformance, hardware, bench roms
 tests/       headless 68000 harness (Musashi-based functional oracle)
 emulator/    cycle-accurate cores + SingleStepTests conformance
 vendor/      third-party reference sources

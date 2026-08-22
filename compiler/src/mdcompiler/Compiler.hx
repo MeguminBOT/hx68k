@@ -816,6 +816,25 @@ class Compiler extends DirectToStringCompiler {
 		}
 	}
 
+	function memoryCall(callee:TypedExpr, args:Array<TypedExpr>, pos:haxe.macro.Expr.Position):Null<String> {
+		final cf = switch(callee.expr) {
+			case TField(_, FStatic(cRef, cfRef)) if(cRef.get().name == "Memory" && cRef.get().pack.join(".") == "md"):
+				cfRef.get();
+			case _: null;
+		}
+		if(cf == null) return null;
+
+		final width = switch(cf.name) {
+			case "readU8" | "writeU8": "u8";
+			case "readU16" | "writeU16": "u16";
+			case "readU32" | "writeU32": "u32";
+			case _: Context.error("Unknown Memory operation: " + cf.name, pos);
+		}
+
+		final at = "(*(volatile " + width + "*)(" + compileExpressionOrError(args[0]) + "))";
+		return args.length > 1 ? "(" + at + " = " + compileExpressionOrError(args[1]) + ")" : at;
+	}
+
 	function romValues(cf:ClassField):Null<Array<String>> {
 		final entry = cf.meta.extract(":romData")[0];
 		if(entry == null) return null;
@@ -1067,7 +1086,7 @@ class Compiler extends DirectToStringCompiler {
 
 			case TCall(callee, el): {
 				final intrinsic = poolCall(callee, el, expr.pos) ?? vectorCall(callee, el, expr.pos)
-					?? textCall(callee, el, expr.pos);
+					?? textCall(callee, el, expr.pos) ?? memoryCall(callee, el, expr.pos);
 				if(intrinsic != null) intrinsic else switch(callee.expr) {
 					case TField(_, FEnum(eRef, ef)): {
 						addModuleTypeForCompilation(TEnumDecl(eRef));
