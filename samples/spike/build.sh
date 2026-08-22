@@ -9,5 +9,11 @@ echo "[1/2] haxe -> c"
 haxe build.hxml
 cd rom
 echo "[2/2] c -> rom"
-make.exe -f "$GDK/makefile.gen" "$@"
+# the debug profile pins the DWARF version the map tool reads and keeps every line addressable
+if [ "$1" = "debug" ]; then
+	shift
+	make.exe -f "$GDK/makefile.gen" debug EXTRA_FLAGS="-gdwarf-4 -fno-inline" "$@"
+else
+	make.exe -f "$GDK/makefile.gen" "$@"
+fi
 ls -la out/rom.bin

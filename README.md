@@ -14,6 +14,9 @@ and constant tables that never leave ROM. The ROM boots and runs correctly on an
 the suite checks the generated C and the map file as well as the running program. 64 checks, 0
 failures.
 
+Given a 68000 address, the map tool names the Haxe file, line and function it came from: 116 of 116
+probes, none wrong. That chain is what the source-level debugger in track C is for.
+
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
 
@@ -28,6 +31,17 @@ for the hardware behaviours the fixtures revealed.
 
 Builds both sample ROMs and the headless 68000 harness, boots them, asserts on the results, and
 exits nonzero on failure.
+
+## Map a 68000 address back to Haxe
+
+```
+cd samples/conformance && ./build.sh debug
+cd emulator && haxe map.hxml
+neko emulator/bin/map.n samples/conformance/rom/out/debug/rom.out samples/conformance/rom/src 0x000D58
+```
+
+With no address it checks every function it recorded; with `--statics` it lists each Haxe static
+and the address it landed on.
 
 ## Build the spike
 

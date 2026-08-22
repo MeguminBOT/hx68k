@@ -33,12 +33,20 @@ class Compiler extends DirectToStringCompiler {
 
 	static final IDENT = ~/[^A-Za-z0-9_]/g;
 
+	static inline final MARK_OPEN = "\x01";
+	static inline final MARK_CLOSE = "\x02";
+
 	var entryPoint:Null<String> = null;
 	var includes:Map<String, Bool> = [];
 	var interfaceTypes:Map<String, Bool> = [];
 	var interfaceTables:Map<String, Bool> = [];
 	var vectorSizes:Map<Int, String> = [];
 	var currentClass:Null<ClassType> = null;
+	var lineStarts:Map<String, Array<Int>> = [];
+	var sourceIndex:Map<String, Int> = [];
+	var sources:Array<String> = [];
+	var marks:Array<{file:Int, line:Int, symbol:Null<String>, haxe:Null<String>}> = [];
+	var statics:Array<String> = [];
 	var currentReturn:Null<Type> = null;
 
 	public override function onCompileStart() {
@@ -221,6 +229,73 @@ class Compiler extends DirectToStringCompiler {
 		final native = cf.getNameOrNative();
 		if(c.isExtern) return native;
 		return classPrefix(c) + "_" + (cf.name == "new" ? "init" : safe(native));
+	}
+
+	function lineOf(file:String, offset:Int):Int {
+		var starts = lineStarts.get(file);
+		if(starts == null) {
+			starts = [0];
+			final bytes = try sys.io.File.getBytes(file) catch(e:Dynamic) null;
+			if(bytes != null) for(i in 0...bytes.length) if(bytes.get(i) == 10) starts.push(i + 1);
+			lineStarts.set(file, starts);
+		}
+		var low = 0;
+		var high = starts.length - 1;
+		while(low < high) {
+			final mid = (low + high + 1) >> 1;
+			if(starts[mid] <= offset) low = mid else high = mid - 1;
+		}
+		return low + 1;
+	}
+
+	function sourceOf(file:String):Int {
+		final known = sourceIndex.get(file);
+		if(known != null) return known;
+		final index = sources.length;
+		sources.push(file);
+		sourceIndex.set(file, index);
+		return index;
+	}
+
+	function mark(pos:haxe.macro.Expr.Position, symbol:Null<String> = null, haxe:Null<String> = null):String {
+		final info = Context.getPosInfos(pos);
+		if(!sys.FileSystem.exists(info.file)) return "";
+		marks.push({file: sourceOf(info.file), line: lineOf(info.file, info.min), symbol: symbol, haxe: haxe});
+		return MARK_OPEN + (marks.length - 1) + MARK_CLOSE;
+	}
+
+	function markStatic(pos:haxe.macro.Expr.Position, symbol:String, haxe:String, ctype:String):Void {
+		final info = Context.getPosInfos(pos);
+		if(!sys.FileSystem.exists(info.file)) return;
+		statics.push('static $symbol ${sourceOf(info.file)} ${lineOf(info.file, info.min)} $haxe $ctype');
+	}
+
+	function writeMap(prefix:String, content:String):String {
+		final records = [];
+		final lines = content.split("\n");
+
+		for(i in 0...lines.length) {
+			var text = lines[i];
+			var first = true;
+			while(true) {
+				final open = text.indexOf(MARK_OPEN);
+				if(open < 0) break;
+				final close = text.indexOf(MARK_CLOSE, open);
+				final index = Std.parseInt(text.substring(open + 1, close));
+				text = text.substring(0, open) + text.substring(close + 1);
+				if(!first) continue;
+				first = false;
+				final m = marks[index];
+				records.push(m.symbol == null ? 'line ${i + 1} ${m.file} ${m.line}'
+					: 'function ${m.symbol} ${i + 1} ${m.file} ${m.line} ${m.haxe}');
+			}
+			lines[i] = text;
+		}
+
+		final head = ["hxmap 1", 'source $prefix.c', "root " + haxe.io.Path.removeTrailingSlashes(Sys.getCwd().split("\\").join("/"))];
+		for(i in 0...sources.length) head.push('file $i ' + sources[i].split("\\").join("/"));
+		setExtraFile(prefix + ".hxmap", head.concat(statics).concat(records).join("\n") + "\n");
+		return lines.join("\n");
 	}
 
 	static function isInterfaceType(t:Type):Null<ClassType> {
@@ -556,6 +631,7 @@ class Compiler extends DirectToStringCompiler {
 		final size = vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "";
 
 		appendToExtraFile(HEADER, 'extern $ctype $name$size;\n', P_GLOBALS);
+		markStatic(v.field.pos, name, classType.name + "." + v.field.name, plain + (size == "" ? "" : size));
 
 		if(rom != null) {
 			body.push('$ctype $name$size = { ' + rom.join(", ") + " };");
@@ -602,7 +678,8 @@ class Compiler extends DirectToStringCompiler {
 		if(expr == null) return;
 		final outer = currentReturn;
 		currentReturn = isCtor ? null : f.ret;
-		body.push(signature + "\n{\n" + block(expr).tab() + "\n}");
+		final origin = mark(f.field.pos, name, classType.name + "." + f.field.name);
+		body.push(origin + signature + "\n{\n" + block(expr).tab() + "\n}");
 		currentReturn = outer;
 	}
 
@@ -740,6 +817,10 @@ class Compiler extends DirectToStringCompiler {
 
 		currentClass = classType;
 		vectorSizes = [];
+		sourceIndex = [];
+		sources = [];
+		marks = [];
+		statics = [];
 
 		final prefix = classPrefix(classType);
 		final instanceVars = inheritedVars(classType).concat(storedVars(classType));
@@ -770,7 +851,7 @@ class Compiler extends DirectToStringCompiler {
 		}
 
 		if(body.length == 0) return null;
-		return '#include "${HEADER}"\n\n' + body.join("\n\n") + "\n";
+		return writeMap(prefix, '#include "${HEADER}"\n\n' + body.join("\n\n") + "\n");
 	}
 
 	static function enumIsSimple(e:EnumType):Bool {
@@ -854,7 +935,7 @@ class Compiler extends DirectToStringCompiler {
 	function statement(expr:TypedExpr):Null<String> {
 		final s = compileExpression(expr, true);
 		if(s == null || s.length == 0) return null;
-		return needsSemicolon(expr) ? s + ";" : s;
+		return mark(expr.pos) + (needsSemicolon(expr) ? s + ";" : s);
 	}
 
 	static function needsSemicolon(expr:TypedExpr):Bool {

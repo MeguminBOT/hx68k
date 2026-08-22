@@ -1,0 +1,65 @@
+package hx68k.map;
+
+typedef Place = {
+	final address:Int;
+	final generated:String;
+	final generatedLine:Int;
+	final file:String;
+	final line:Int;
+	final name:String;
+	final symbol:String;
+}
+
+class SourceMap {
+	public final elf:Elf;
+	public final dwarf:Dwarf;
+	public final maps:Map<String, Hxmap> = [];
+
+	final owners:Map<String, Hxmap> = [];
+
+	public function new(elf:Elf, directory:String) {
+		this.elf = elf;
+		this.dwarf = new Dwarf(elf);
+
+		for (name in sys.FileSystem.readDirectory(directory)) {
+			if (!StringTools.endsWith(name, ".hxmap")) continue;
+			final map = new Hxmap(haxe.io.Path.join([directory, name]));
+			maps.set(map.source, map);
+			for (entry in map.functions) owners.set(entry.symbol, map);
+		}
+		if (!maps.iterator().hasNext()) throw "no .hxmap sidecars in " + directory;
+	}
+
+	public function addressOf(symbol:String):Null<Int> {
+		return elf.addressOf(symbol);
+	}
+
+	public function resolve(address:Int):Null<Place> {
+		final holder = elf.functionAt(address);
+		if (holder == null) return null;
+
+		final map = owners.get(holder.name);
+		if (map == null) return null;
+
+		final row = dwarf.at(map.source, address, holder.address);
+		if (row == null) return null;
+
+		final site = map.at(row.line);
+		if (site == null) return null;
+
+		return {
+			address: address,
+			generated: map.source,
+			generatedLine: row.line,
+			file: haxe.io.Path.join([map.root, site.file]),
+			line: site.line,
+			name: site.name,
+			symbol: holder.name
+		};
+	}
+
+	public function toString(place:Place):String {
+		return "0x" + StringTools.hex(place.address, 6) + "  " + place.file + ":" + place.line
+			+ "  " + place.name + "  (" + place.generated + ":" + place.generatedLine + ")";
+	}
+}
