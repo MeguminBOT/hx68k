@@ -3,12 +3,25 @@ package hx68k.cpu.z80;
 import haxe.ds.Vector;
 
 class Decoder {
+	static var shared:Null<Vector<Z80->Void>> = null;
+
+	public static function run(c:Z80, op:Int):Void {
+		if (shared == null) shared = build();
+		final handler = shared[op];
+		if (handler != null) handler(c);
+	}
+
 	public static function build():Vector<Z80->Void> {
+		if (shared != null) return shared;
 		final t = new Vector<Z80->Void>(256);
 		for (i in 0...256) t[i] = null;
 
 		t[0x00] = function(c:Z80) {};
 		t[0x76] = function(c:Z80) c.halted = true;
+		t[0xCB] = function(c:Z80) Bits.execute(c);
+		t[0xED] = function(c:Z80) Extended.execute(c);
+		t[0xDD] = function(c:Z80) Indexed.execute(c, 0);
+		t[0xFD] = function(c:Z80) Indexed.execute(c, 1);
 
 		loads(t);
 		arithmetic(t);
@@ -91,7 +104,7 @@ class Decoder {
 		}
 	}
 
-	static function apply(c:Z80, kind:Int, value:Int):Void {
+	public static function apply(c:Z80, kind:Int, value:Int):Void {
 		switch (kind) {
 			case 0: Arithmetic.add(c, value, 0);
 			case 1: Arithmetic.add(c, value, c.f & Z80.CARRY);
