@@ -224,6 +224,22 @@ case "$SESSION" in
 	*) echo "FAILED"; echo "  expected the bug on Main.hx:$WANT"; exit 1 ;;
 esac
 
+# a commercial ROM is the widest test there is, and the one thing here that cannot be committed
+GAME="$ROOT/_realRomTest/sth2.md"
+if [ -f "$GAME" ]; then
+	echo ""
+	echo "--- a commercial ROM, booted on hx68k-emu ---"
+	printf "building %-16s" "game check"
+	if (cd "$ROOT/emulator" && haxe game.hxml) > "$LOG" 2>&1; then
+		echo "ok"
+	else
+		echo "FAILED"
+		cat "$LOG"
+		exit 1
+	fi
+	neko "$ROOT/emulator/bin/game.n" "$GAME" 120 --digest E902E100
+fi
+
 echo ""
 echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
 "$ROOT/emulator/run-sst.sh" 2>&1 | tail -12

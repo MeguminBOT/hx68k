@@ -45,6 +45,10 @@ only here: the one that waits for the sound driver to answer. The per-pixel rend
 window and sprites with their priority order, checked by seventeen scenarios written from the
 hardware documentation.
 
+A commercial ROM runs on it: Sonic the Hedgehog 2 boots, uploads its sound driver to the Z80,
+plays it, and draws its title screen. Nothing about the game was written for this emulator and
+nothing in the emulator was written for the game.
+
 The Z80 is held to the same standard and meets it: all 1,604 opcode groups, **1,604,000 of
 1,604,000 tests passing on final state, T-state count and the pin log**, prefixes and undocumented
 flags included.
