@@ -55,6 +55,17 @@ CONF="$ROOT/samples/conformance/rom/src/Main.c"
 codegen "jump table"  "$CONF" 'switch\(\(\(.*\)\.tag\)\)'
 codegen "tagged union" "$ROOT/samples/conformance/rom/src/hx.h" 'union \{'
 codegen "pool storage" "$ROOT/samples/spike/rom/src/Entity.c" 'static Entity Entity__slots\[64\]'
+codegen "rom table"   "$CONF" 'const s32 Main_digitsOfPi\[8\] = \{'
+
+# a ROM address has no RAM mirror prefix, so the table really is in the cartridge
+printf "codegen %-14s" "rom placement"
+if awk '$3 == "Main_digitsOfPi" && strtonum("0x" $1) < 0x400000 { found = 1 } END { exit !found }' 	"$ROOT/samples/conformance/rom/out/release/symbol.txt"; then
+	echo "ok"
+else
+	echo "FAILED"
+	grep -w Main_digitsOfPi "$ROOT/samples/conformance/rom/out/release/symbol.txt" || true
+	exit 1
+fi
 absent  "no heap"     '(malloc|calloc|realloc|free)\('
 
 echo ""

@@ -266,6 +266,10 @@ static const probe_t conformance_expected[] = {
 	{ "enum payload",           42 },
 	{ "simple enum switch",     2 },
 	{ "enum abstract switch",   20 },
+	{ "literals live in ROM",   1 + 2 + 4 },
+	{ "ROM table read",         31415926 },
+	{ "text length and char",   8 * 100 + 'M' },
+	{ "integer formatting",     5 * 1000 + 420 },
 };
 
 #define CONFORMANCE_COUNT (sizeof(conformance_expected) / sizeof(conformance_expected[0]))

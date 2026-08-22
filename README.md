@@ -8,9 +8,10 @@ hardware SDK, and an emulator with a source-level debugger.
 ## Status
 
 **Compiler.** Haxe compiles to a real ROM with classes, pooled allocation, sized integers,
-fixed-capacity vectors, fixed point, enums as tagged unions and pattern matching as a jump table.
-The ROM boots and runs correctly on an emulated 68000, and the suite checks the generated C as well
-as the running program. 55 checks, 0 failures.
+fixed-capacity vectors, fixed point, enums as tagged unions, pattern matching as a jump table, and
+text and constant tables that never leave ROM. The ROM boots and runs correctly on an emulated
+68000, and the suite checks the generated C and the map file as well as the running program. 59
+checks, 0 failures.
 
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**

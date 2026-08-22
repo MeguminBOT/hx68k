@@ -1,6 +1,7 @@
 package;
 
 import md.Fix16;
+import md.Format;
 import md.Int16;
 import md.Int8;
 import md.Pool;
@@ -8,11 +9,14 @@ import md.Probe;
 import md.System;
 import md.UInt16;
 import md.UInt32;
+import md.Text;
 import md.UInt8;
 import md.Vector;
 
 class Main {
 	@:md.size(8) static var slots:Vector<Int>;
+	@:md.size(16) static var buffer:Vector<UInt8>;
+	@:romData([3, 1, 4, 1, 5, 9, 2, 6]) static var digitsOfPi:Vector<Int>;
 
 	static var counter:Int = 0;
 	static var sideEffect:Int = 0;
@@ -62,6 +66,10 @@ class Main {
 		Probe.report(payload(n));
 		Probe.report(colour(n));
 		Probe.report(phase(n));
+		Probe.report(romResidency(n));
+		Probe.report(romTable(n));
+		Probe.report(textLength(n));
+		Probe.report(formatting(n));
 
 		Probe.done();
 
@@ -322,6 +330,37 @@ class Main {
 			case Play: 20 * n;
 			case Over: 30;
 		}
+	}
+
+	static function romResidency(n:Int):Int {
+		var score = 0;
+		if ((Text.address("MEGAHAXE CONFORMANCE") & 0xFFFFFF) < 0x400000) score += 1;
+		if ((Text.pointer(digitsOfPi) & 0xFFFFFF) < 0x400000) score += 2;
+		if ((Text.pointer(buffer) & 0xFFFFFF) >= 0xFF0000) score += 4;
+		return score * n;
+	}
+
+	static function romTable(n:Int):Int {
+		var total = 0;
+		var i = 0;
+		while (i < digitsOfPi.length) {
+			total = total * 10 + digitsOfPi[i];
+			i++;
+		}
+		return total * n;
+	}
+
+	static function textLength(n:Int):Int {
+		final label = "MEGAHAXE";
+		return Text.length(label) * 100 + Text.charAt(label, 0) * n;
+	}
+
+	static function formatting(n:Int):Int {
+		final end = Format.writeInt(-4207 * n, buffer, 0);
+		final digits = (Text.charAt(Text.of(buffer), 1) - 48) * 100
+			+ (Text.charAt(Text.of(buffer), 2) - 48) * 10
+			+ (Text.charAt(Text.of(buffer), 3) - 48);
+		return end * 1000 + digits;
 	}
 
 	static function unary(a:Int):Int {

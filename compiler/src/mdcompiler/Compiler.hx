@@ -161,6 +161,12 @@ class Compiler extends DirectToStringCompiler {
 		}
 	}
 
+	function rejectStringMember(c:ClassType, member:String, pos:haxe.macro.Expr.Position):Void {
+		if(c.name != "String" || c.pack.length != 0) return;
+		Context.error("String has no runtime on this target. Use md.Text." + member + " or another "
+			+ "md.Text operation on the pointer.", pos);
+	}
+
 	function memberName(cf:ClassField):String {
 		return safe(cf.getNameOrNative());
 	}
@@ -182,9 +188,13 @@ class Compiler extends DirectToStringCompiler {
 
 	function storage(cf:ClassField):String {
 		if(!isVector(cf.type)) return "";
+		final rom = romValues(cf);
+		if(rom != null) return "[" + rom.length + "]";
+
 		final entry = cf.meta.extract(":md.size")[0];
 		if(entry == null)
-			Context.error("A Vector field needs its capacity: @:md.size(n).", cf.pos);
+			Context.error("A Vector field needs its capacity: @:md.size(n), or the data itself "
+				+ "through @:romData.", cf.pos);
 		return switch(entry.params[0].expr) {
 			case EConst(CInt(v)): "[" + v + "]";
 			case _: Context.error("@:md.size requires a constant Int.", entry.pos);
@@ -251,11 +261,17 @@ class Compiler extends DirectToStringCompiler {
 	function emitVar(classType:ClassType, v:ClassVarData, body:Array<String>):Void {
 		final name = fieldName(classType, v.field, true);
 		final vector = isVector(v.field.type);
+		final rom = romValues(v.field);
 		final plain = vector ? elementType(v.field.type, v.field.pos) : toC(v.field.type, v.field.pos);
-		final ctype = v.field.meta.has(":md.volatile") ? "volatile " + plain : plain;
-		final size = vector ? storage(v.field) : "";
+		final ctype = (rom != null ? "const " : "") + (v.field.meta.has(":md.volatile") ? "volatile " + plain : plain);
+		final size = vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "";
 
 		appendToExtraFile(HEADER, 'extern $ctype $name$size;\n', P_GLOBALS);
+
+		if(rom != null) {
+			body.push('$ctype $name$size = { ' + rom.join(", ") + " };");
+			return;
+		}
 
 		if(vector) {
 			body.push('$ctype $name$size;');
@@ -329,15 +345,24 @@ class Compiler extends DirectToStringCompiler {
 		}
 	}
 
-	function vectorCapacity(e:TypedExpr):Null<String> {
-		final cf = switch(e.expr) {
+	function vectorField(e:TypedExpr):Null<ClassField> {
+		return switch(e.expr) {
 			case TField(_, FStatic(_, cfRef)): cfRef.get();
 			case TField(_, FInstance(_, _, cfRef)): cfRef.get();
-			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): return vectorCapacity(inner);
-			case TLocal(v): return vectorSizes.get(v.id);
+			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): vectorField(inner);
 			case _: null;
 		}
+	}
+
+	function vectorCapacity(e:TypedExpr):Null<String> {
+		final cf = switch(e.expr) {
+			case TLocal(v): return vectorSizes.get(v.id);
+			case _: vectorField(e);
+		}
 		if(cf == null) return null;
+
+		final rom = romValues(cf);
+		if(rom != null) return Std.string(rom.length);
 
 		final entry = cf.meta.extract(":md.size")[0];
 		if(entry == null) return null;
@@ -370,6 +395,42 @@ class Compiler extends DirectToStringCompiler {
 			: target + "[" + index + "]";
 
 		return cf.name == "get" ? slot : slot + " = " + compileExpressionOrError(args[2]);
+	}
+
+	function textCall(callee:TypedExpr, args:Array<TypedExpr>, pos:haxe.macro.Expr.Position):Null<String> {
+		final cf = switch(callee.expr) {
+			case TField(_, FStatic(cRef, cfRef)) if(cRef.get().name == "Text" && cRef.get().pack.join(".") == "md"):
+				cfRef.get();
+			case _: null;
+		}
+		if(cf == null) return null;
+
+		final target = compileExpressionOrError(args[0]);
+		return switch(cf.name) {
+			case "length": "((s32)strlen(" + target + "))";
+			case "charAt": "((s32)(u8)(" + target + ")[" + compileExpressionOrError(args[1]) + "])";
+			case "address" | "pointer": "((s32)(" + target + "))";
+			case "of": "((const char*)(" + target + "))";
+			case _: Context.error("Unknown Text operation: " + cf.name, pos);
+		}
+	}
+
+	function romValues(cf:ClassField):Null<Array<String>> {
+		final entry = cf.meta.extract(":romData")[0];
+		if(entry == null) return null;
+		if(entry.params.length != 1) Context.error("@:romData takes one array of constants.", entry.pos);
+
+		final items = switch(entry.params[0].expr) {
+			case EArrayDecl(items): items;
+			case _: Context.error("@:romData needs an array, as in @:romData([1, 2, 3]).", entry.pos);
+		}
+
+		return items.map(item -> switch(item.expr) {
+			case EConst(CInt(v)): v;
+			case EConst(CString(s)): '"' + escape(s) + '"';
+			case EUnop(OpNeg, false, {expr: EConst(CInt(v))}): "-" + v;
+			case _: Context.error("@:romData holds constants only.", item.pos);
+		});
 	}
 
 	public function compileClassImpl(classType:ClassType, varFields:Array<ClassVarData>,
@@ -524,11 +585,14 @@ class Compiler extends DirectToStringCompiler {
 			case TBlock(_): "{\n" + block(expr).tab() + "\n}";
 
 			case TVar(v, e): {
+				var rom = false;
 				if(e != null) {
 					final capacity = vectorCapacity(e);
 					if(capacity != null) vectorSizes.set(v.id, capacity);
+					final field = vectorField(e);
+					rom = field != null && field.meta.has(":romData");
 				}
-				final decl = toC(v.t, expr.pos) + " " + varName(v);
+				final decl = (rom ? "const " : "") + toC(v.t, expr.pos) + " " + varName(v);
 				e == null ? decl : decl + " = " + compileExpressionOrError(e);
 			}
 
@@ -566,7 +630,8 @@ class Compiler extends DirectToStringCompiler {
 			}
 
 			case TCall(callee, el): {
-				final intrinsic = poolCall(callee, el, expr.pos) ?? vectorCall(callee, el, expr.pos);
+				final intrinsic = poolCall(callee, el, expr.pos) ?? vectorCall(callee, el, expr.pos)
+					?? textCall(callee, el, expr.pos);
 				if(intrinsic != null) intrinsic else switch(callee.expr) {
 					case TField(_, FEnum(eRef, ef)): {
 						addModuleTypeForCompilation(TEnumDecl(eRef));
@@ -575,6 +640,7 @@ class Compiler extends DirectToStringCompiler {
 
 					case TField(obj, FInstance(cRef, _, cfRef)) if(isMethod(cfRef.get())): {
 						final c = cRef.get();
+						rejectStringMember(c, cfRef.get().name, expr.pos);
 						if(c.isExtern) noteInclude(c) else addModuleTypeForCompilation(TClassDecl(cRef));
 						final args = [compileExpressionOrError(obj)].concat(el.map(a -> compileExpressionOrError(a)));
 						methodName(c, cfRef.get()) + "(" + args.join(", ") + ")";
@@ -711,6 +777,7 @@ class Compiler extends DirectToStringCompiler {
 			}
 			case FInstance(cRef, _, cfRef): {
 				final cf = cfRef.get();
+				rejectStringMember(cRef.get(), cf.name, pos);
 				if(isMethod(cf))
 					Context.error("A method used as a value would need a closure, which this target has no heap for.", pos);
 				addModuleTypeForCompilation(TClassDecl(cRef));
