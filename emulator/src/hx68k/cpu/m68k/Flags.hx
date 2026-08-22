@@ -1,6 +1,6 @@
-package hxmd.cpu.m68k;
+package hx68k.cpu.m68k;
 
-import hxmd.cpu.m68k.Addressing.*;
+import hx68k.cpu.m68k.Addressing.*;
 
 class Flags {
 	public static inline function setNz(c:M68000, v:Int, size:Int):Void {

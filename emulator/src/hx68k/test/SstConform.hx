@@ -1,7 +1,7 @@
-package hxmd.test;
+package hx68k.test;
 
-import hxmd.cpu.m68k.M68000;
-import hxmd.test.SstFormat;
+import hx68k.cpu.m68k.M68000;
+import hx68k.test.SstFormat;
 import haxe.io.Path;
 import sys.FileSystem;
 

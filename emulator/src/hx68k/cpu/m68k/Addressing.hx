@@ -1,4 +1,4 @@
-package hxmd.cpu.m68k;
+package hx68k.cpu.m68k;
 
 class Addressing {
 	public static inline function signExt8(v:Int):Int {

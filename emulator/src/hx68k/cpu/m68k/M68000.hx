@@ -1,7 +1,7 @@
-package hxmd.cpu.m68k;
+package hx68k.cpu.m68k;
 
 import haxe.ds.Vector;
-import hxmd.cpu.m68k.Bus.FunctionCode;
+import hx68k.cpu.m68k.Bus.FunctionCode;
 
 class M68000 {
 	public var d:Vector<Int>;

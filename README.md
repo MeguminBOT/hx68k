@@ -1,4 +1,4 @@
-# MegaHaxe
+# HX68K
 
 Haxe for the Sega Mega Drive / Genesis.
 

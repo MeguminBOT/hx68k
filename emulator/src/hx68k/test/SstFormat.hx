@@ -1,4 +1,4 @@
-package hxmd.test;
+package hx68k.test;
 
 import haxe.io.Bytes;
 

@@ -1,8 +1,8 @@
-package hxmd.cpu.m68k;
+package hx68k.cpu.m68k;
 
 import haxe.ds.Vector;
-import hxmd.cpu.m68k.Addressing.*;
-import hxmd.cpu.m68k.Flags.*;
+import hx68k.cpu.m68k.Addressing.*;
+import hx68k.cpu.m68k.Flags.*;
 
 class Exceptions {
 	static inline final VEC_ILLEGAL = 4;

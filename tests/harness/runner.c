@@ -80,8 +80,8 @@ static int32_t expect_entity_sum(int32_t frames)
 
 static void suite_spike(const char *rom, const char *sym)
 {
-	const char *text = "MEGAHAXE SPIKE";
-	const size_t text_len = 14;
+	const char *text = "HX68K SPIKE";
+	const size_t text_len = 11;
 	uint32_t main_addr = 0;
 	uint32_t frame_addr = 0;
 	uint32_t live_addr = 0;
@@ -268,7 +268,7 @@ static const probe_t conformance_expected[] = {
 	{ "enum abstract switch",   20 },
 	{ "literals live in ROM",   1 + 2 + 4 },
 	{ "ROM table read",         31415926 },
-	{ "text length and char",   8 * 100 + 'M' },
+	{ "text length and char",   5 * 100 + 'H' },
 	{ "integer formatting",     5 * 1000 + 420 },
 };
 

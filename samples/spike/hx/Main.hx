@@ -12,7 +12,7 @@ class Main {
 
 	@:md.main
 	static function main():Void {
-		VDP.drawText("MEGAHAXE SPIKE", 12, 12);
+		VDP.drawText("HX68K SPIKE", 12, 12);
 
 		var head:Entity = null;
 		var i = 0;

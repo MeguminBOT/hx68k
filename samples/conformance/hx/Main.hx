@@ -334,7 +334,7 @@ class Main {
 
 	static function romResidency(n:Int):Int {
 		var score = 0;
-		if ((Text.address("MEGAHAXE CONFORMANCE") & 0xFFFFFF) < 0x400000) score += 1;
+		if ((Text.address("HX68K CONFORMANCE") & 0xFFFFFF) < 0x400000) score += 1;
 		if ((Text.pointer(digitsOfPi) & 0xFFFFFF) < 0x400000) score += 2;
 		if ((Text.pointer(buffer) & 0xFFFFFF) >= 0xFF0000) score += 4;
 		return score * n;
@@ -351,7 +351,7 @@ class Main {
 	}
 
 	static function textLength(n:Int):Int {
-		final label = "MEGAHAXE";
+		final label = "HX68K";
 		return Text.length(label) * 100 + Text.charAt(label, 0) * n;
 	}
 

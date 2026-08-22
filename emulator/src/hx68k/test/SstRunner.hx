@@ -1,6 +1,6 @@
-package hxmd.test;
+package hx68k.test;
 
-import hxmd.test.SstFormat;
+import hx68k.test.SstFormat;
 import sys.FileSystem;
 import haxe.io.Path;
 

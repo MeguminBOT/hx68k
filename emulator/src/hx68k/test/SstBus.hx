@@ -1,8 +1,8 @@
-package hxmd.test;
+package hx68k.test;
 
 import haxe.ds.IntMap;
-import hxmd.cpu.m68k.Bus;
-import hxmd.test.SstFormat;
+import hx68k.cpu.m68k.Bus;
+import hx68k.test.SstFormat;
 
 class SstBus implements Bus {
 	public var mem:IntMap<Int>;
