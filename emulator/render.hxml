@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.test.RenderCheck
+-neko bin/render.n

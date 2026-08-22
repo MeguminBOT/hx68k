@@ -109,6 +109,18 @@ fi
 neko "$ROOT/emulator/bin/rom.n" "$HERE/.observables.txt" "$ROOT"
 
 echo ""
+echo "--- the VDP renderer against the hardware documentation ---"
+printf "building %-16s" "renderer"
+if (cd "$ROOT/emulator" && haxe render.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/render.n" "$ROOT"
+
+echo ""
 echo "--- source map (Haxe line to 68000 address) ---"
 
 # the debug profile keeps DWARF and stops inlining, and writes over out/rom.bin as it goes,

@@ -16,6 +16,9 @@ class Vdp {
 	public final vram:Bytes = Bytes.alloc(0x10000);
 	public final cram:Vector<Int> = new Vector<Int>(64);
 	public final vsram:Vector<Int> = new Vector<Int>(40);
+	public final renderer:Renderer = new Renderer();
+
+	public var rendering:Bool = true;
 
 	public var line(default, null):Int = 0;
 	public var frame(default, null):Int = 0;
@@ -64,6 +67,8 @@ class Vdp {
 	}
 
 	function nextLine():Void {
+		if (rendering && line < ACTIVE_LINES) renderer.line(this, line);
+
 		if (line <= ACTIVE_LINES) {
 			if (hintCounter <= 0) {
 				hintCounter = registers[10];

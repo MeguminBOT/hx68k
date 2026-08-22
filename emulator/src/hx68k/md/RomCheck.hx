@@ -78,6 +78,7 @@ class RomCheck {
 
 	static function run(job:Job, root:String):Int {
 		final machine = new Machine();
+		machine.vdp.rendering = false;
 		machine.load(haxe.io.Path.join([root, job.rom]));
 		final elf = new Elf(haxe.io.Path.join([root, job.elf]));
 
