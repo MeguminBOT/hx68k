@@ -439,8 +439,16 @@ static const probe_t hardware_expected[] = {
 	{ "the pad reports start and right", 0x88 },
 };
 
-static const probe_t events_expected[] = {
-	{ "three handlers dispatched",  10 - 5 + 105 },
+static const probe_t art_expected[] = {
+	{ "image palette colour 1",     0x000A },
+	{ "image palette colour 2",     0x0040 },
+	{ "image tilemap entry",        16 },
+	{ "sprite list holds the sprite", 80 + 128 },
+	{ "the tune is in ROM",         1 },
+	{ "the tune converted to XGM",  0x248E },
+};
+
+static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 5 + 105 },
 	{ "three handlers registered",  3 },
 	{ "the interrupt handler ran",  1 },
 	{ "vertical interrupts seen",   PROBE_ANY },
@@ -501,6 +509,14 @@ int main(int argc, char **argv)
 	} else {
 		printf("\nhardware: skipped (rom not built)\n");
 	}
+
+	snprintf(rom, sizeof(rom), "%s/samples/art/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/art/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_probe_rom("art: resources through hxres and rescomp", "art", "samples/art",
+			rom, sym, art_expected, COUNT(art_expected), 0);
+	else
+		printf("\nart: skipped (rom not built)\n");
 
 	snprintf(rom, sizeof(rom), "%s/samples/events/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/events/rom/out/release/symbol.txt", root);

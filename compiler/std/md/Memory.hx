@@ -7,4 +7,6 @@ extern class Memory {
 	static function writeU8(address:Int, value:Int):Void;
 	static function writeU16(address:Int, value:Int):Void;
 	static function writeU32(address:Int, value:Int):Void;
+
+	static function addressOf<T>(value:T):Int;
 }

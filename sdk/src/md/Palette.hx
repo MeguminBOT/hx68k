@@ -7,6 +7,8 @@ extern class Palette {
 		how:Transfer):Void;
 	@:native("PAL_getColors") static function colours(index:UInt16, into:Vector<UInt16>, count:UInt16):Void;
 
+	@:native("PAL_setPaletteColors") static function setFromResource(index:UInt16,
+		palette:md.res.Palette, how:Transfer):Void;
 	@:native("PAL_setPalette") static function setPalette(which:UInt16, from:Vector<UInt16>, how:Transfer):Void;
 	@:native("PAL_getPalette") static function palette(which:UInt16, into:Vector<UInt16>):Void;
 

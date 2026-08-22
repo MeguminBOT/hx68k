@@ -910,6 +910,8 @@ class Compiler extends DirectToStringCompiler {
 		}
 		if(cf == null) return null;
 
+		if(cf.name == "addressOf") return "((s32)(" + compileExpressionOrError(args[0]) + "))";
+
 		final width = switch(cf.name) {
 			case "readU8" | "writeU8": "u8";
 			case "readU16" | "writeU16": "u16";

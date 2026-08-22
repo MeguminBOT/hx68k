@@ -63,6 +63,7 @@ absent() {
 build "spike rom"   "$ROOT/samples/spike/build.sh"
 build "conformance" "$ROOT/samples/conformance/build.sh"
 build "hardware rom" "$ROOT/samples/hardware/build.sh"
+build "art rom"     "$ROOT/samples/art/build.sh"
 build "events rom"  "$ROOT/samples/events/build.sh"
 build "sdk rom"     "$ROOT/samples/sdk/build.sh"
 build "harness"     "$HERE/harness/build.sh"

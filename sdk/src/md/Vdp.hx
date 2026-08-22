@@ -42,6 +42,13 @@ extern class Vdp {
 	@:native("VDP_fillTileData") static function fillTileData(value:UInt8, index:UInt16, count:UInt16,
 		wait:Bool):Void;
 	@:native("VDP_loadDefaultFont") static function loadDefaultFont(how:Transfer):Bool;
+	@:native("VDP_drawImage") static function drawImage(plane:Plane, image:md.res.Image, x:UInt16,
+		y:UInt16):Bool;
+	@:native("VDP_drawImageEx") static function drawImageOn(plane:Plane, image:md.res.Image,
+		baseTile:UInt16, x:UInt16, y:UInt16, loadPalette:Bool, dma:Bool):Bool;
+	@:native("VDP_loadTileSet") static function loadTileSet(tiles:md.res.TileSet, index:UInt16,
+		how:Transfer):Bool;
+	@:native("VDP_getSpriteListAddress") static function spriteListAddress():UInt16;
 
 	@:native("VDP_drawText") static function drawText(text:String, x:UInt16, y:UInt16):Void;
 	@:native("VDP_drawTextBG") static function drawTextOn(plane:Plane, text:String, x:UInt16, y:UInt16):Void;
