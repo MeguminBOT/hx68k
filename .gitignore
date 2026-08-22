@@ -1,0 +1,15 @@
+vendor/
+
+# generated ROM sources and build output, all reproducible from build.sh
+samples/*/rom/out/
+samples/*/rom/src/*
+!samples/*/rom/src/testio.c
+!samples/*/rom/src/testio.h
+
+emulator/bin/
+tests/harness/.build/
+tests/.build.log
+
+*.o
+*.bin
+*.out

@@ -1,0 +1,3 @@
+-cp src
+-main hxmd.test.SstRunner
+-neko bin/sst.n

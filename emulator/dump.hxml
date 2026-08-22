@@ -1,0 +1,3 @@
+-cp src
+-main hxmd.test.SstDump
+-neko bin/dump.n
