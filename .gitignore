@@ -5,6 +5,8 @@ samples/*/rom/out/
 samples/*/rom/src/*
 !samples/*/rom/src/testio.c
 !samples/*/rom/src/testio.h
+!samples/*/rom/src/native.c
+!samples/*/rom/src/native.h
 
 emulator/bin/
 tests/harness/.build/

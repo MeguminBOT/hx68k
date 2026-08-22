@@ -17,6 +17,10 @@ failures.
 Given a 68000 address, the map tool names the Haxe file, line and function it came from: 116 of 116
 probes, none wrong. That chain is what the source-level debugger in track C is for.
 
+The generated code is held to the C written beside it, measured in 68000 cycles on the emulated
+machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
+and identical on a third.
+
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
 Around it, a machine: the memory map, the VDP as memory and interrupt source, and the master clock.

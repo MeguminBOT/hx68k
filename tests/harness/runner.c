@@ -315,6 +315,9 @@ static const probe_t conformance_expected[] = {
 	{ "inherited field",        6 * 3 + 1 },
 	{ "interface dispatch",     8 * 100 + 6 },
 	{ "bounds guard",           2 * 10 + 8 },
+	{ "bitwise precedence",     (4 | 6) & 3 },
+	{ "compare precedence",     7 },
+	{ "rom constant fold",      4 * 10 + 9 + 7 },
 };
 
 #define CONFORMANCE_COUNT (sizeof(conformance_expected) / sizeof(conformance_expected[0]))

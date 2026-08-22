@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.md.Bench
+-neko bin/bench.n

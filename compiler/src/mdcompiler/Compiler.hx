@@ -40,7 +40,7 @@ class Compiler extends DirectToStringCompiler {
 	var includes:Map<String, Bool> = [];
 	var interfaceTypes:Map<String, Bool> = [];
 	var interfaceTables:Map<String, Bool> = [];
-	var vectorSizes:Map<Int, String> = [];
+	var vectorFields:Map<Int, ClassField> = [];
 	var currentClass:Null<ClassType> = null;
 	var lineStarts:Map<String, Array<Int>> = [];
 	var sourceIndex:Map<String, Int> = [];
@@ -535,6 +535,19 @@ class Compiler extends DirectToStringCompiler {
 			+ "(" + [selfArg(slot.owner, c, target)].concat(args).join(", ") + ")";
 	}
 
+	function section(meta:MetaAccess):String {
+		final entry = meta.extract(":md.section")[0];
+		if(entry == null) return "";
+		return switch(entry.params[0].expr) {
+			case EConst(CString(name)): ' __attribute__((section("' + name + '")))';
+			case _: Context.error("@:md.section requires a constant String.", entry.pos);
+		}
+	}
+
+	function attributes(meta:MetaAccess):String {
+		return (meta.has(":md.noinline") ? "__attribute__((noinline)) " : "");
+	}
+
 	function emitStruct(prefix:String, fields:Array<ClassField>, vtable:Bool):Void {
 		appendToExtraFile(HEADER, 'typedef struct $prefix $prefix;\n', P_TYPEDEFS);
 
@@ -630,16 +643,18 @@ class Compiler extends DirectToStringCompiler {
 		final ctype = (rom != null ? "const " : "") + (v.field.meta.has(":md.volatile") ? "volatile " + plain : plain);
 		final size = vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "";
 
+		final placed = section(v.field.meta);
+
 		appendToExtraFile(HEADER, 'extern $ctype $name$size;\n', P_GLOBALS);
 		markStatic(v.field.pos, name, classType.name + "." + v.field.name, plain + (size == "" ? "" : size));
 
 		if(rom != null) {
-			body.push('$ctype $name$size = { ' + rom.join(", ") + " };");
+			body.push('$ctype $name$size$placed = { ' + rom.join(", ") + " };");
 			return;
 		}
 
 		if(vector) {
-			body.push('$ctype $name$size;');
+			body.push('$ctype $name$size$placed;');
 			return;
 		}
 
@@ -647,7 +662,7 @@ class Compiler extends DirectToStringCompiler {
 			case null: null;
 			case e: compileExpression(e);
 		}
-		body.push(init != null ? '$ctype $name = $init;' : '$ctype $name;');
+		body.push(init != null ? '$ctype $name$placed = $init;' : '$ctype $name$placed;');
 	}
 
 	function elementType(t:Type, pos:haxe.macro.Expr.Position):String {
@@ -664,9 +679,10 @@ class Compiler extends DirectToStringCompiler {
 
 		final params = f.args.map(a -> toC(a.type, f.field.pos) + " " + safe(a.getName()));
 		if(!f.isStatic) params.unshift('$prefix* self');
-		final signature = ret + " " + name + "(" + (params.length == 0 ? "void" : params.join(", ")) + ")";
+		final signature = ret + " " + name + "(" + (params.length == 0 ? "void" : params.join(", ")) + ")"
+			+ section(f.field.meta);
 
-		appendToExtraFile(HEADER, signature + ";\n", P_PROTOS);
+		appendToExtraFile(HEADER, attributes(f.field.meta) + signature + ";\n", P_PROTOS);
 
 		if(f.field.meta.has(":md.main")) {
 			if(!f.isStatic) Context.error("@:md.main must mark a static function.", f.field.pos);
@@ -679,7 +695,7 @@ class Compiler extends DirectToStringCompiler {
 		final outer = currentReturn;
 		currentReturn = isCtor ? null : f.ret;
 		final origin = mark(f.field.pos, name, classType.name + "." + f.field.name);
-		body.push(origin + signature + "\n{\n" + block(expr).tab() + "\n}");
+		body.push(origin + attributes(f.field.meta) + signature + "\n{\n" + block(expr).tab() + "\n}");
 		currentReturn = outer;
 	}
 
@@ -718,6 +734,7 @@ class Compiler extends DirectToStringCompiler {
 		return switch(e.expr) {
 			case TField(_, FStatic(_, cfRef)): cfRef.get();
 			case TField(_, FInstance(_, _, cfRef)): cfRef.get();
+			case TLocal(v): vectorFields.get(v.id);
 			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): vectorField(inner);
 			case _: null;
 		}
@@ -736,14 +753,8 @@ class Compiler extends DirectToStringCompiler {
 	}
 
 	function vectorCapacity(e:TypedExpr):Null<String> {
-		return switch(e.expr) {
-			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): vectorCapacity(inner);
-			case TLocal(v): vectorSizes.get(v.id);
-			case _: {
-				final cf = vectorField(e);
-				cf == null ? null : declaredCapacity(cf);
-			}
-		}
+		final cf = vectorField(e);
+		return cf == null ? null : declaredCapacity(cf);
 	}
 
 	function vectorCall(callee:TypedExpr, args:Array<TypedExpr>, pos:haxe.macro.Expr.Position):Null<String> {
@@ -763,12 +774,28 @@ class Compiler extends DirectToStringCompiler {
 			return capacity;
 		}
 
+		final field = vectorField(args[0]);
+		if(cf.name == "get" && field != null) {
+			final rom = romValues(field);
+			final constant = constantIndex(args[1]);
+			if(rom != null && constant != null && constant >= 0 && constant < rom.length)
+				return rom[constant];
+		}
+
 		final index = compileExpressionOrError(args[1]);
 		final slot = (Context.defined("md-debug") && capacity != null)
 			? target + "[hx_bounds(" + index + ", " + capacity + ")]"
 			: target + "[" + index + "]";
 
 		return cf.name == "get" ? slot : slot + " = " + compileExpressionOrError(args[2]);
+	}
+
+	static function constantIndex(e:TypedExpr):Null<Int> {
+		return switch(e.expr) {
+			case TConst(TInt(v)): v;
+			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): constantIndex(inner);
+			case _: null;
+		}
 	}
 
 	function textCall(callee:TypedExpr, args:Array<TypedExpr>, pos:haxe.macro.Expr.Position):Null<String> {
@@ -816,7 +843,7 @@ class Compiler extends DirectToStringCompiler {
 		if(classType.superClass != null) addModuleTypeForCompilation(TClassDecl(classType.superClass.t));
 
 		currentClass = classType;
-		vectorSizes = [];
+		vectorFields = [];
 		sourceIndex = [];
 		sources = [];
 		marks = [];
@@ -973,9 +1000,8 @@ class Compiler extends DirectToStringCompiler {
 			case TVar(v, e): {
 				var rom = false;
 				if(e != null) {
-					final capacity = vectorCapacity(e);
-					if(capacity != null) vectorSizes.set(v.id, capacity);
 					final field = vectorField(e);
+					if(field != null) vectorFields.set(v.id, field);
 					rom = field != null && field.meta.has(":romData");
 				}
 				final decl = (rom ? "const " : "") + toC(v.t, expr.pos) + " " + varName(v);
@@ -1000,8 +1026,11 @@ class Compiler extends DirectToStringCompiler {
 			case TBinop(OpNullCoal | OpAssignOp(OpNullCoal), _, _):
 				Context.error("Null coalescing is not supported on this target.", expr.pos);
 
-			case TBinop(op, e1, e2):
-				compileExpressionOrError(e1) + " " + op.binopToString() + " " + compileExpressionOrError(e2);
+			case TBinop(op, e1, e2): {
+				final text = compileExpressionOrError(e1) + " " + op.binopToString() + " "
+					+ compileExpressionOrError(e2);
+				op.isAssign() ? text : "(" + text + ")";
+			}
 
 			case TUnop(op, postFix, e): {
 				final inner = compileExpressionOrError(e);

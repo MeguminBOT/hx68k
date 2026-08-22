@@ -76,6 +76,9 @@ codegen "final direct" "$CONF" 'Tile_area\('
 codegen "bounds guard" "$CONF" 'hx_bounds\('
 codegen "flat layout"  "$HDR" 'const void\* __vt;'
 missing "no idle slot" "$HDR" '\(\*tag\)'
+codegen "rom fold"     "$CONF" 'tempLeft = 4;'
+codegen "noinline"     "$CONF" '__attribute__\(\(noinline\)\)'
+codegen "section"      "$CONF" '__attribute__\(\(section\(".data"\)\)\)'
 codegen "fat pointer"  "$HDR" 'const Sized__vt\* vt;'
 codegen "interface call" "$CONF" '\.vt->span\('
 codegen "interface table" "$ROOT/samples/conformance/rom/src/hx_interfaces.c" 'const Sized__vt Square__Sized'
@@ -119,6 +122,19 @@ else
 	exit 1
 fi
 neko "$ROOT/emulator/bin/render.n" "$ROOT"
+
+echo ""
+echo "--- generated code against the C written beside it, in 68000 cycles ---"
+build "bench rom" "$ROOT/samples/bench/build.sh"
+printf "building %-16s" "bench tool"
+if (cd "$ROOT/emulator" && haxe bench.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/bench.n" 	"$ROOT/samples/bench/rom/out/release/rom.bin" 	"$ROOT/samples/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c
 
 echo ""
 echo "--- source map (Haxe line to 68000 address) ---"

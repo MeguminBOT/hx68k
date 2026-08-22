@@ -20,6 +20,10 @@ class Main {
 	@:romData([3, 1, 4, 1, 5, 9, 2, 6]) static var digitsOfPi:Vector<Int>;
 
 	static var counter:Int = 0;
+	static var four:Int = 4;
+	static var six:Int = 6;
+	static var three:Int = 3;
+	@:md.section(".data") static var placed:Int = 7;
 	static var sideEffect:Int = 0;
 
 	@:md.main
@@ -76,6 +80,9 @@ class Main {
 		Probe.report(inheritedField(n));
 		Probe.report(interfaceCall(n));
 		Probe.report(boundsGuard(n));
+		Probe.report(precedenceMix(n));
+		Probe.report(precedenceCompare(n));
+		Probe.report(romConstant(n));
 
 		Probe.done();
 
@@ -373,6 +380,18 @@ class Main {
 		final a:Sized = new Square(4 * n);
 		final b:Sized = new Gauge(5 * n);
 		return a.span() * 100 + b.span();
+	}
+
+	@:md.noinline static function romConstant(n:Int):Int {
+		return (digitsOfPi[2] * 10 + digitsOfPi[5] + placed) * n;
+	}
+
+	static function precedenceMix(n:Int):Int {
+		return (four | six & three) * n;
+	}
+
+	static function precedenceCompare(n:Int):Int {
+		return (four & six == 4 ? 7 : 3) * n;
 	}
 
 	static function boundsGuard(n:Int):Int {

@@ -1,0 +1,11 @@
+-cp ../../compiler/src
+-cp ../../compiler/std
+-cp ../../compiler/std/md/_std
+-lib reflaxe
+-D md
+-D MegaDrive
+-D md-output=rom/src
+--macro mdcompiler.CompilerInit.Start()
+-cp hx
+-dce full
+-main Main
