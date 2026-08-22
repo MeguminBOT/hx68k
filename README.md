@@ -21,9 +21,10 @@ The generated code is held to the C written beside it, measured in 68000 cycles 
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
 and identical on a third.
 
-**SDK.** phase B0 complete. `md.hw` reaches the VDP, the pads, the Z80's bus and both sound chips
-through one volatile access each, and a sample ROM that calls nothing from SGDK sets a colour and
-reads a pad on both emulators.
+**SDK.** `md.hw` reaches the VDP, the pads, the Z80's bus and both sound chips through one volatile
+access each, and a sample ROM that calls nothing from SGDK sets a colour and reads a pad on both
+emulators. Above it, `md.*` binds SGDK's VDP, palette, joypad, DMA, system, timer, maths, SRAM and
+Z80 layers, checked by a sample that drives each of them.
 
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**

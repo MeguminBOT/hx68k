@@ -121,8 +121,10 @@ static void vdp_dma(void)
 		return;
 	}
 
+	/* bit 6 of register 23 is part of the source address, and dropping it lands a
+	   transfer from work RAM half a megabyte short of where it was meant to read */
 	src = (uint32_t)(md_vdp_reg[21] | (md_vdp_reg[22] << 8) |
-	                 ((md_vdp_reg[23] & 0x3F) << 16)) << 1;
+	                 ((md_vdp_reg[23] & 0x7F) << 16)) << 1;
 
 	if (mode == 3) {
 		for (i = 0; i < len; i++) {
@@ -221,13 +223,15 @@ static uint16_t vdp_read_hv(void)
  */
 static uint32_t pad_read(int port)
 {
-	uint8_t held  = md_buttons[port];
-	uint8_t lines = (pad_data[port] & 0x40)
-	                ? (uint8_t)(held & 0x3F)
-	                : (uint8_t)((held & 0x03) | (((held >> 6) & 0x03) << 4));
 	uint8_t control = pad_control[port];
+	/* TH is only driven when the port owns it; left as an input it sits high on its pull-up */
+	int     high    = (control & 0x40) ? (pad_data[port] & 0x40) != 0 : 1;
+	/* TH low leaves the two middle bits low whatever is held, which is the pad's own name */
+	uint8_t released = (uint8_t)~md_buttons[port];
+	uint8_t lines    = high ? (uint8_t)(released & 0x3F)
+	                        : (uint8_t)((released & 0x03) | (((released >> 6) & 0x03) << 4));
 
-	return (uint32_t)((((uint8_t)~lines & 0x3F & (uint8_t)~control)
+	return (uint32_t)((((lines | 0x40) & (uint8_t)~control)
 	                  | (pad_data[port] & control)) & 0x7F);
 }
 

@@ -195,11 +195,10 @@ class Machine implements Bus implements Memory {
 	}
 
 	function pad(port:Int):Int {
-		final held = buttons[port];
-		final lines = (padData[port] & 0x40) != 0
-			? held & 0x3F
-			: (held & 0x03) | (((held >> 6) & 0x03) << 4);
 		final control = padControl[port];
-		return ((~lines & 0x3F & ~control) | (padData[port] & control)) & 0x7F;
+		final high = (control & 0x40) != 0 ? (padData[port] & 0x40) != 0 : true;
+		final released = ~buttons[port];
+		final lines = high ? released & 0x3F : (released & 0x03) | (((released >> 6) & 0x03) << 4);
+		return (((lines | 0x40) & ~control) | (padData[port] & control)) & 0x7F;
 	}
 }

@@ -264,6 +264,9 @@ typedef struct {
 	int32_t     expected;
 } probe_t;
 
+#define PROBE_ANY  0x7FFFFFFF
+#define COUNT(a)   (sizeof(a) / sizeof((a)[0]))
+
 static const probe_t conformance_expected[] = {
 	{ "add/sub/mul",            (7 + 5) * 3 - 11 },
 	{ "int division",           1000 / 7 },
@@ -375,14 +378,20 @@ static void suite_conformance(const char *rom, const char *sym)
 		          (int32_t)md_read_ram32(probe_addr + (uint32_t)i * 4));
 }
 
-static void suite_hardware(const char *rom, const char *sym)
+/*
+ * A probe ROM: boot it, hold whatever buttons the test wants, run until it says it is done,
+ * check what it reported, and write the same numbers out for hx68k-emu to be held to.
+ */
+static void suite_probe_rom(const char *label, const char *name, const char *dir, const char *rom,
+                            const char *sym, const probe_t *expect, size_t count, uint16_t buttons)
 {
 	uint32_t probe_addr = 0;
 	uint32_t done_addr = 0;
 	int f;
 	int done = 0;
+	size_t i;
 
-	suite("hardware: md.hw with no SGDK call in it");
+	suite(label);
 
 	if (!boot(rom, sym))
 		return;
@@ -392,39 +401,56 @@ static void suite_hardware(const char *rom, const char *sym)
 		return;
 	}
 
-	md_buttons[0] = 0x88; /* start and right */
+	md_buttons[0] = (uint8_t)buttons;
 
 	for (f = 0; f < 60 && !done; f++) {
 		md_run_frame();
 		done = (int)md_read_ram16(done_addr);
 	}
 
-	check(done, "hardware rom signalled completion");
+	check(done, "rom signalled completion");
 	if (!done) {
 		md_dump_context();
 		return;
 	}
 
-	{
-		int32_t cram = (int32_t)md_read_ram32(probe_addr);
-		int32_t vram = (int32_t)md_read_ram32(probe_addr + 4);
-		int32_t pad  = (int32_t)md_read_ram32(probe_addr + 8);
+	dump_rom(name, dir);
+	dump_line("until hx_probe_done 2 1 60");
+	dump_line("buttons 0 %u", buttons);
 
-		check(cram == 0x0E80, "colour 0 reads back through the data port (got 0x%04X)", cram);
-		check(md_cram[0] == 0x0E80, "colour 0 landed in CRAM (got 0x%04X)", md_cram[0]);
-		check(vram == 0x1234, "a word written to VRAM reads back (got 0x%04X)", vram);
-		check(pad == 0x88, "the pad reports start and right (got 0x%02X)", pad);
+	for (i = 0; i < count; i++) {
+		int32_t got = (int32_t)md_read_ram32(probe_addr + (uint32_t)i * 4);
 
-		dump_rom("hardware", "samples/hardware");
-		dump_line("until hx_probe_done 2 1 60");
-		dump_line("buttons 0 %u", md_buttons[0]);
-		dump_line("value hx_probe 0 4 %d", cram);
-		dump_line("value hx_probe 4 4 %d", vram);
-		dump_line("value hx_probe 8 4 %d", pad);
-		dump_line("cram 0 %d", md_cram[0]);
+		if (expect[i].expected != PROBE_ANY)
+			check(got == expect[i].expected, "%-28s got %-8d want %d",
+				expect[i].name, got, expect[i].expected);
+		else
+			check(1, "%-28s got %d", expect[i].name, got);
+
+		dump_line("value hx_probe %u 4 %d", (unsigned)i * 4, got);
 	}
+
+	dump_line("cram 0 %d", md_cram[0]);
 }
 
+static const probe_t hardware_expected[] = {
+	{ "colour 0 through the port",  0x0E80 },
+	{ "a word through VRAM",        0x1234 },
+	{ "the pad reports start and right", 0x88 },
+};
+
+static const probe_t sdk_expected[] = {
+	{ "VDP_setBackgroundColor",     2 },
+	{ "PAL_setColor reads back",    0x0246 },
+	{ "VDP_setTileMapXY landed",    0x0021 },
+	{ "VDP_fillTileMapRect landed", 0x0055 },
+	{ "DMA_transfer landed",        0xA4A5 },
+	{ "JOY_readJoypad agrees with the port", 0x88 },
+	{ "JOY_getPortType is a pad",   0x0D },
+	{ "JOY_getJoypadType is three-button", 0x00 },
+	{ "SYS_isNTSC",                 1 },
+	{ "F16_sqrt of 16",             4 << 6 },
+};
 static int file_exists(const char *p)
 {
 	FILE *f = fopen(p, "rb");
@@ -461,10 +487,21 @@ int main(int argc, char **argv)
 
 	snprintf(rom, sizeof(rom), "%s/samples/hardware/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/hardware/rom/out/release/symbol.txt", root);
-	if (file_exists(rom))
-		suite_hardware(rom, sym);
-	else
+	if (file_exists(rom)) {
+		suite_probe_rom("hardware: md.hw with no SGDK call in it", "hardware", "samples/hardware",
+			rom, sym, hardware_expected, COUNT(hardware_expected), 0x88);
+		check(md_cram[0] == 0x0E80, "colour 0 landed in CRAM (got 0x%04X)", md_cram[0]);
+	} else {
 		printf("\nhardware: skipped (rom not built)\n");
+	}
+
+	snprintf(rom, sizeof(rom), "%s/samples/sdk/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/sdk/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_probe_rom("sdk: SGDK through the bindings", "sdk", "samples/sdk",
+			rom, sym, sdk_expected, COUNT(sdk_expected), 0x88);
+	else
+		printf("\nsdk: skipped (rom not built)\n");
 
 	if (g_dump)
 		fclose(g_dump);

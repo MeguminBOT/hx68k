@@ -20,7 +20,7 @@ class Main {
 		final seed = Probe.seed();
 
 		build();
-		System.disableInts();
+		System.disableInterrupts();
 
 		Probe.mark();
 		final native = Native.arrayPass(seed);
@@ -36,7 +36,7 @@ class Main {
 		final nativeObjects = Native.objectPass(seed);
 		Probe.mark();
 
-		System.enableInts();
+		System.enableInterrupts();
 
 		Probe.report(narrow);
 		Probe.report(native);

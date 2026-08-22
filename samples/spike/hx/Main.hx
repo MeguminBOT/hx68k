@@ -1,9 +1,9 @@
 package;
 
-import md.PAL;
+import md.Palette;
 import md.Pool;
 import md.System;
-import md.VDP;
+import md.Vdp;
 
 class Main {
 	static var frame:Int = 0;
@@ -12,7 +12,7 @@ class Main {
 
 	@:md.main
 	static function main():Void {
-		VDP.drawText("HX68K SPIKE", 12, 12);
+		Vdp.drawText("HX68K SPIKE", 12, 12);
 
 		var head:Entity = null;
 		var i = 0;
@@ -36,7 +36,7 @@ class Main {
 			}
 			sum = acc;
 
-			PAL.setColor(0, ramp(frame));
+			Palette.setColour(0, ramp(frame));
 			System.doVBlankProcess();
 		}
 	}
