@@ -270,6 +270,11 @@ static const probe_t conformance_expected[] = {
 	{ "ROM table read",         31415926 },
 	{ "text length and char",   5 * 100 + 'H' },
 	{ "integer formatting",     5 * 1000 + 420 },
+	{ "virtual dispatch",       9 + 20 },
+	{ "final class direct",     17 * 100 + 17 },
+	{ "inherited field",        6 * 3 + 1 },
+	{ "interface dispatch",     8 * 100 + 6 },
+	{ "bounds guard",           2 * 10 + 8 },
 };
 
 #define CONFORMANCE_COUNT (sizeof(conformance_expected) / sizeof(conformance_expected[0]))

@@ -9,6 +9,7 @@ import reflaxe.DirectToStringCompiler;
 import reflaxe.data.ClassFuncData;
 import reflaxe.data.ClassVarData;
 import reflaxe.data.EnumOptionData;
+import reflaxe.input.ClassHierarchyTracker;
 
 using StringTools;
 using reflaxe.helpers.BaseTypeHelper;
@@ -20,6 +21,7 @@ using reflaxe.helpers.TypedExprHelper;
 class Compiler extends DirectToStringCompiler {
 	public static inline final HEADER = "hx.h";
 	public static inline final ENTRY = "hx_entry.c";
+	public static inline final IFACES = "hx_interfaces.c";
 
 	static inline final P_PROLOGUE = 0;
 	static inline final P_INCLUDES = 5;
@@ -33,17 +35,28 @@ class Compiler extends DirectToStringCompiler {
 
 	var entryPoint:Null<String> = null;
 	var includes:Map<String, Bool> = [];
+	var interfaceTypes:Map<String, Bool> = [];
+	var interfaceTables:Map<String, Bool> = [];
 	var vectorSizes:Map<Int, String> = [];
+	var currentClass:Null<ClassType> = null;
+	var currentReturn:Null<Type> = null;
 
 	public override function onCompileStart() {
 		entryPoint = null;
 		includes = [];
+		interfaceTypes = [];
+		interfaceTables = [];
 
 		final main = getMainModule();
 		if(main != null) addModuleTypeForCompilation(main);
 
 		setExtraFile(HEADER, "");
 		appendToExtraFile(HEADER, "#ifndef _HX_H_\n#define _HX_H_\n\n#include <genesis.h>", P_PROLOGUE);
+		appendToExtraFile(HEADER, "extern s32 hx_bounds_hits;\n", P_GLOBALS);
+		if(Context.defined("md-debug"))
+			appendToExtraFile(HEADER, "static inline s32 hx_bounds(s32 index, s32 capacity)\n{\n"
+				+ "\tif((u32)index >= (u32)capacity) { hx_bounds_hits++; return 0; }\n"
+				+ "\treturn index;\n}\n", P_PROTOS);
 		appendToExtraFile(HEADER, "#endif", P_EPILOGUE);
 	}
 
@@ -53,7 +66,8 @@ class Compiler extends DirectToStringCompiler {
 			Context.error("No entry point. Mark a static function with @:md.main.", Context.currentPos());
 			return;
 		}
-		setExtraFile(ENTRY, '#include "${HEADER}"\n\nint main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();\n\treturn 0;\n}\n');
+		setExtraFile(ENTRY, '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n'
+			+ 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();\n\treturn 0;\n}\n');
 	}
 
 	static function safe(s:String):String {
@@ -128,6 +142,8 @@ class Compiler extends DirectToStringCompiler {
 					}
 				} else if(c.name == "String") {
 					"const char*";
+				} else if(c.isInterface) {
+					interfaceType(c);
 				} else {
 					classPrefix(c) + "*";
 				}
@@ -173,7 +189,7 @@ class Compiler extends DirectToStringCompiler {
 
 	static function isPointerShaped(t:Type):Bool {
 		return switch(haxe.macro.TypeTools.follow(t)) {
-			case TInst(_, _): true;
+			case TInst(cRef, _): !cRef.get().isInterface;
 			case TAbstract(aRef, _): aRef.get().name == "Vector" && aRef.get().pack.join(".") == "md";
 			case _: false;
 		}
@@ -207,16 +223,276 @@ class Compiler extends DirectToStringCompiler {
 		return classPrefix(c) + "_" + (cf.name == "new" ? "init" : safe(native));
 	}
 
-	function emitStruct(classType:ClassType, prefix:String, fields:Array<ClassVarData>):Void {
+	static function isInterfaceType(t:Type):Null<ClassType> {
+		return switch(haxe.macro.TypeTools.follow(t)) {
+			case TInst(cRef, _): cRef.get().isInterface ? cRef.get() : null;
+			case _: null;
+		}
+	}
+
+	function ifaceSlotSignature(cf:ClassField):String {
+		final sig = functionType(cf, cf.pos);
+		final params = ["void*"];
+		for(a in sig.args) params.push(toC(a, cf.pos));
+		return toC(sig.ret, cf.pos) + " (*)(" + params.join(", ") + ")";
+	}
+
+	function interfaceType(c:ClassType):String {
+		final name = classPrefix(c);
+		if(interfaceTypes.exists(name)) return name;
+		interfaceTypes.set(name, true);
+
+		final vt = name + "__vt";
+		appendToExtraFile(HEADER, 'typedef struct $name $name;\ntypedef struct $vt $vt;\n', P_TYPEDEFS);
+
+		final members = [];
+		for(cf in c.fields.get()) {
+			if(!isMethod(cf)) continue;
+			final sig = functionType(cf, cf.pos);
+			final params = ["void*"];
+			for(a in sig.args) params.push(toC(a, cf.pos));
+			members.push("\t" + toC(sig.ret, cf.pos) + " (*" + memberName(cf) + ")(" + params.join(", ") + ");");
+		}
+		if(members.length == 0) members.push("\tu8 empty;");
+
+		appendToExtraFile(HEADER, 'struct $vt {\n' + members.join("\n") + "\n};\n\n"
+			+ 'struct $name {\n\tvoid* self;\n\tconst $vt* vt;\n};\n\n', P_STRUCTS);
+		return name;
+	}
+
+	function interfaceTable(cls:ClassType, iface:ClassType):String {
+		final name = classPrefix(cls) + "__" + classPrefix(iface);
+		if(interfaceTables.exists(name)) return name;
+		interfaceTables.set(name, true);
+
+		final vt = interfaceType(iface) + "__vt";
+		final values = [];
+		for(cf in iface.fields.get()) {
+			if(!isMethod(cf)) continue;
+			final impl = resolveMethod(cls, cf.name);
+			if(impl == null || impl.field.expr() == null)
+				Context.error(cls.name + " has no body for " + cf.name + ", which " + iface.name
+					+ " needs.", cls.pos);
+			values.push("\t(" + ifaceSlotSignature(cf) + ")" + methodName(impl.owner, impl.field));
+		}
+		if(values.length == 0) values.push("\t0");
+
+		appendToExtraFile(HEADER, 'extern const $vt $name;\n', P_GLOBALS);
+		if(getExtraFileContent(IFACES, P_PROLOGUE).length == 0)
+			appendToExtraFile(IFACES, '#include "${HEADER}"\n\n', P_PROLOGUE);
+		appendToExtraFile(IFACES, 'const $vt $name = {\n' + values.join(",\n") + "\n};\n\n", P_GLOBALS);
+		return name;
+	}
+
+	static function isStoredVar(cf:ClassField):Bool {
+		return switch(cf.kind) {
+			case FVar(read, write): !read.match(AccCall | AccInline | AccRequire(_, _)) && !write.match(AccCall);
+			case _: false;
+		}
+	}
+
+	static function superOf(c:ClassType):Null<ClassType> {
+		return c.superClass == null ? null : c.superClass.t.get();
+	}
+
+	static function storedVars(c:ClassType):Array<ClassField> {
+		return c.fields.get().filter(cf -> isStoredVar(cf));
+	}
+
+	function inheritedVars(c:ClassType):Array<ClassField> {
+		final base = superOf(c);
+		if(base == null) return [];
+		return inheritedVars(base).concat(storedVars(base));
+	}
+
+	function virtualSlots(c:ClassType):Array<{owner:ClassType, field:ClassField}> {
+		final base = superOf(c);
+		final out = base == null ? [] : virtualSlots(base);
+		for(cf in c.fields.get()) {
+			if(!isMethod(cf)) continue;
+			if(Lambda.exists(out, s -> s.field.name == cf.name)) continue;
+			if(ClassHierarchyTracker.funcHasChildOverride(c, cf, false)) out.push({owner: c, field: cf});
+		}
+		return out;
+	}
+
+	function vtType(c:ClassType):Null<String> {
+		final slots = virtualSlots(c);
+		if(slots.length == 0) return null;
+		return classPrefix(slots[slots.length - 1].owner) + "__vt";
+	}
+
+	function resolveMethod(c:ClassType, name:String):Null<{owner:ClassType, field:ClassField}> {
+		var k:Null<ClassType> = c;
+		while(k != null) {
+			for(cf in k.fields.get()) if(isMethod(cf) && cf.name == name) return {owner: k, field: cf};
+			k = superOf(k);
+		}
+		return null;
+	}
+
+	function functionType(cf:ClassField, pos:haxe.macro.Expr.Position):{args:Array<Type>, ret:Type} {
+		return switch(haxe.macro.TypeTools.follow(cf.type)) {
+			case TFun(args, ret): {args: args.map(a -> a.t), ret: ret};
+			case _: Context.error(cf.name + " is not a method.", pos);
+		}
+	}
+
+	function slotParams(owner:ClassType, cf:ClassField):Array<String> {
+		final params = [classPrefix(owner) + "*"];
+		for(a in functionType(cf, cf.pos).args) params.push(toC(a, cf.pos));
+		return params;
+	}
+
+	function slotMember(owner:ClassType, cf:ClassField):String {
+		final sig = functionType(cf, cf.pos);
+		return "\t" + toC(sig.ret, cf.pos) + " (*" + memberName(cf) + ")("
+			+ slotParams(owner, cf).join(", ") + ");";
+	}
+
+	static function receiverRef(e:TypedExpr):Null<Ref<ClassType>> {
+		return switch(haxe.macro.TypeTools.follow(e.t)) {
+			case TInst(cRef, _): cRef;
+			case _: null;
+		}
+	}
+
+	function virtualTarget(c:ClassType, cf:ClassField):Null<{owner:ClassType, field:ClassField}> {
+		if(c.isFinal) return null;
+		final resolved = resolveMethod(c, cf.name);
+		if(resolved == null) return null;
+		return ClassHierarchyTracker.funcHasChildOverride(c, resolved.field, false) ? resolved : null;
+	}
+
+	static function isSimpleReceiver(e:TypedExpr):Bool {
+		return switch(e.expr) {
+			case TLocal(_) | TConst(TThis) | TTypeExpr(_): true;
+			case TField(obj, _): isSimpleReceiver(obj);
+			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): isSimpleReceiver(inner);
+			case _: false;
+		}
+	}
+
+	static function isClassPointer(t:Type):Bool {
+		return switch(haxe.macro.TypeTools.follow(t)) {
+			case TInst(cRef, _): {
+				final c = cRef.get();
+				!c.isExtern && !c.isInterface && !(c.name == "String" && c.pack.length == 0);
+			}
+			case _: false;
+		}
+	}
+
+	function upcast(target:Type, from:Type, value:String, pos:haxe.macro.Expr.Position):String {
+		final iface = isInterfaceType(target);
+		if(iface != null) {
+			final source = switch(haxe.macro.TypeTools.follow(from)) {
+				case TInst(cRef, _): cRef.get();
+				case _: null;
+			}
+			if(source == null || source.isInterface) return value;
+			return "((" + interfaceType(iface) + "){ (void*)" + value + ", &"
+				+ interfaceTable(source, iface) + " })";
+		}
+		if(!isClassPointer(target) || !isClassPointer(from)) return value;
+		final a = toC(target, pos);
+		return a == toC(from, pos) ? value : "(" + a + ")" + value;
+	}
+
+	function coerce(target:Type, e:TypedExpr):String {
+		return upcast(target, e.t, compileExpressionOrError(e), e.pos);
+	}
+
+	function selfArg(owner:ClassType, receiver:ClassType, value:String):String {
+		return classPrefix(owner) == classPrefix(receiver) ? value : "(" + classPrefix(owner) + "*)" + value;
+	}
+
+	function callArgs(callee:Type, el:Array<TypedExpr>):Array<String> {
+		final types = switch(haxe.macro.TypeTools.follow(callee)) {
+			case TFun(args, _): args.map(a -> a.t);
+			case _: null;
+		}
+		final out = [];
+		for(i in 0...el.length)
+			out.push(types != null && i < types.length ? coerce(types[i], el[i])
+				: compileExpressionOrError(el[i]));
+		return out;
+	}
+
+	function ctorArgs(cf:ClassField):Array<{name:String, ctype:String}> {
+		return switch(haxe.macro.TypeTools.follow(cf.type)) {
+			case TFun(args, _): [for(i in 0...args.length) {
+				name: args[i].name == null || args[i].name == "" ? "a" + i : safe(args[i].name),
+				ctype: toC(args[i].t, cf.pos)
+			}];
+			case _: Context.error("A constructor must be a function.", cf.pos);
+		}
+	}
+
+	function instanceCall(obj:TypedExpr, declared:ClassType, cf:ClassField, el:Array<TypedExpr>,
+			pos:haxe.macro.Expr.Position):String {
+		final ref = receiverRef(obj);
+		if(ref != null) addModuleTypeForCompilation(TClassDecl(ref));
+		final c = ref == null ? declared : ref.get();
+		final args = callArgs(cf.type, el);
+		final target = compileExpressionOrError(obj);
+
+		if(c.isInterface) {
+			if(!isSimpleReceiver(obj))
+				Context.error("An interface call reads its receiver twice. Bind it to a local first.", pos);
+			interfaceType(c);
+			return "(" + target + ").vt->" + memberName(cf)
+				+ "(" + ["(" + target + ").self"].concat(args).join(", ") + ")";
+		}
+
+		final slot = virtualTarget(c, cf);
+
+		if(slot == null) {
+			final impl = resolveMethod(c, cf.name);
+			if(impl == null) Context.error(c.name + " has no method " + cf.name + ".", pos);
+			return methodName(impl.owner, impl.field)
+				+ "(" + [selfArg(impl.owner, c, target)].concat(args).join(", ") + ")";
+		}
+
+		if(!isSimpleReceiver(obj))
+			Context.error("A virtual call reads its receiver twice. Bind it to a local first.", pos);
+		return "((const " + vtType(c) + "*)" + target + "->__vt)->" + memberName(cf)
+			+ "(" + [selfArg(slot.owner, c, target)].concat(args).join(", ") + ")";
+	}
+
+	function emitStruct(prefix:String, fields:Array<ClassField>, vtable:Bool):Void {
 		appendToExtraFile(HEADER, 'typedef struct $prefix $prefix;\n', P_TYPEDEFS);
 
-		final members = fields.map(v -> {
-			final ctype = isVector(v.field.type) ? elementType(v.field.type, v.field.pos)
-				: toC(v.field.type, v.field.pos);
-			"\t" + ctype + " " + memberName(v.field) + storage(v.field) + ";";
-		});
+		final members = vtable ? ["\tconst void* __vt;"] : [];
+		for(cf in fields) {
+			final ctype = isVector(cf.type) ? elementType(cf.type, cf.pos) : toC(cf.type, cf.pos);
+			members.push("\t" + ctype + " " + memberName(cf) + storage(cf) + ";");
+		}
 		if(members.length == 0) members.push("\tu8 empty;");
 		appendToExtraFile(HEADER, 'struct $prefix {\n' + members.join("\n") + "\n};\n\n", P_STRUCTS);
+	}
+
+	function emitVtableType(prefix:String, slots:Array<{owner:ClassType, field:ClassField}>):Void {
+		final name = prefix + "__vt";
+		appendToExtraFile(HEADER, 'typedef struct $name $name;\n', P_TYPEDEFS);
+		final members = slots.map(s -> slotMember(s.owner, s.field));
+		appendToExtraFile(HEADER, 'struct $name {\n' + members.join("\n") + "\n};\n\n", P_STRUCTS);
+	}
+
+	function emitVtable(classType:ClassType, prefix:String, slots:Array<{owner:ClassType, field:ClassField}>,
+			body:Array<String>):Void {
+		final values = slots.map(slot -> {
+			final impl = resolveMethod(classType, slot.field.name);
+			if(impl == null || impl.field.expr() == null)
+				Context.error(classType.name + " has no body for " + slot.field.name + ", so its vtable "
+					+ "slot would be empty.", classType.pos);
+			final sig = functionType(slot.field, slot.field.pos);
+			final signature = toC(sig.ret, slot.field.pos)
+				+ " (*)(" + slotParams(slot.owner, slot.field).join(", ") + ")";
+			"\t(" + signature + ")" + methodName(impl.owner, impl.field);
+		});
+		body.push("static const " + vtType(classType) + " " + prefix + "__vtable = {\n"
+			+ values.join(",\n") + "\n};");
 	}
 
 	function emitPool(prefix:String, capacity:Int, body:Array<String>):Void {
@@ -246,16 +522,29 @@ class Compiler extends DirectToStringCompiler {
 			+ '\treturn (s32)${prefix}__used - (s32)${prefix}__freeCount;\n}');
 	}
 
-	function emitCreate(prefix:String, ctor:ClassFuncData, body:Array<String>):Void {
-		final params = ctor.args.map(a -> toC(a.type, ctor.field.pos) + " " + safe(a.getName()));
-		final names = ctor.args.map(a -> safe(a.getName()));
+	function emitCreate(prefix:String, init:ClassType, args:Array<{name:String, ctype:String}>,
+			vtable:Bool, body:Array<String>):Void {
+		final params = args.map(a -> a.ctype + " " + a.name);
 		final signature = '$prefix* ${prefix}_create(' + (params.length == 0 ? "void" : params.join(", ")) + ")";
+		final initPrefix = classPrefix(init);
+		final names = [initPrefix == prefix ? "self" : '($initPrefix*)self'].concat(args.map(a -> a.name));
 
 		appendToExtraFile(HEADER, signature + ";\n", P_PROTOS);
 		body.push(signature + "\n{\n"
 			+ '\t$prefix* self = ${prefix}_alloc();\n'
-			+ '\tif(self != NULL) ${prefix}_init(' + ["self"].concat(names).join(", ") + ");\n"
+			+ "\tif(self == NULL) return NULL;\n"
+			+ '\t${initPrefix}_init(' + names.join(", ") + ");\n"
+			+ (vtable ? '\tself->__vt = &${prefix}__vtable;\n' : "")
 			+ "\treturn self;\n}");
+	}
+
+	function inheritedCtor(c:ClassType):Null<{owner:ClassType, field:ClassField}> {
+		var k:Null<ClassType> = c;
+		while(k != null) {
+			if(k.constructor != null) return {owner: k, field: k.constructor.get()};
+			k = superOf(k);
+		}
+		return null;
 	}
 
 	function emitVar(classType:ClassType, v:ClassVarData, body:Array<String>):Void {
@@ -311,7 +600,10 @@ class Compiler extends DirectToStringCompiler {
 
 		final expr = f.expr;
 		if(expr == null) return;
+		final outer = currentReturn;
+		currentReturn = isCtor ? null : f.ret;
 		body.push(signature + "\n{\n" + block(expr).tab() + "\n}");
+		currentReturn = outer;
 	}
 
 	function poolCall(callee:TypedExpr, args:Array<TypedExpr>, pos:haxe.macro.Expr.Position):Null<String> {
@@ -354,13 +646,7 @@ class Compiler extends DirectToStringCompiler {
 		}
 	}
 
-	function vectorCapacity(e:TypedExpr):Null<String> {
-		final cf = switch(e.expr) {
-			case TLocal(v): return vectorSizes.get(v.id);
-			case _: vectorField(e);
-		}
-		if(cf == null) return null;
-
+	function declaredCapacity(cf:ClassField):Null<String> {
 		final rom = romValues(cf);
 		if(rom != null) return Std.string(rom.length);
 
@@ -369,6 +655,17 @@ class Compiler extends DirectToStringCompiler {
 		return switch(entry.params[0].expr) {
 			case EConst(CInt(v)): v;
 			case _: null;
+		}
+	}
+
+	function vectorCapacity(e:TypedExpr):Null<String> {
+		return switch(e.expr) {
+			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): vectorCapacity(inner);
+			case TLocal(v): vectorSizes.get(v.id);
+			case _: {
+				final cf = vectorField(e);
+				cf == null ? null : declaredCapacity(cf);
+			}
 		}
 	}
 
@@ -391,7 +688,7 @@ class Compiler extends DirectToStringCompiler {
 
 		final index = compileExpressionOrError(args[1]);
 		final slot = (Context.defined("md-debug") && capacity != null)
-			? target + "[(" + index + ") % " + capacity + "]"
+			? target + "[hx_bounds(" + index + ", " + capacity + ")]"
 			: target + "[" + index + "]";
 
 		return cf.name == "get" ? slot : slot + " = " + compileExpressionOrError(args[2]);
@@ -437,23 +734,24 @@ class Compiler extends DirectToStringCompiler {
 			funcFields:Array<ClassFuncData>):Null<String> {
 		if(classType.isExtern) return null;
 
-		if(classType.superClass != null)
-			Context.error("Inheritance is not supported on this target yet.", classType.pos);
-		if(classType.interfaces.length > 0)
-			Context.error("Interfaces are not supported on this target yet.", classType.pos);
+		if(classType.isInterface) return null;
 
+		if(classType.superClass != null) addModuleTypeForCompilation(TClassDecl(classType.superClass.t));
+
+		currentClass = classType;
 		vectorSizes = [];
 
 		final prefix = classPrefix(classType);
-		final instanceVars = varFields.filter(v -> !v.isStatic);
+		final instanceVars = inheritedVars(classType).concat(storedVars(classType));
+		final slots = virtualSlots(classType);
 		final capacity = poolCapacity(classType);
-		final ctor = Lambda.find(funcFields, f -> !f.isStatic && f.field.name == "new");
-		final hasInstances = instanceVars.length > 0 || ctor != null
-			|| Lambda.exists(funcFields, f -> !f.isStatic);
+		final hasInstances = instanceVars.length > 0 || slots.length > 0 || classType.superClass != null
+			|| classType.constructor != null || Lambda.exists(funcFields, f -> !f.isStatic);
 
 		final body = [];
 
-		if(hasInstances) emitStruct(classType, prefix, instanceVars);
+		if(hasInstances) emitStruct(prefix, instanceVars, slots.length > 0);
+		if(slots.length > 0 && slots[slots.length - 1].owner == classType) emitVtableType(prefix, slots);
 		if(capacity != null) {
 			if(capacity <= 0) Context.error("@:md.pool capacity must be positive.", classType.pos);
 			emitPool(prefix, capacity, body);
@@ -462,7 +760,14 @@ class Compiler extends DirectToStringCompiler {
 		for(v in varFields) if(v.isStatic) emitVar(classType, v, body);
 		for(f in funcFields) emitFunc(classType, prefix, f, body);
 
-		if(ctor != null && capacity != null) emitCreate(prefix, ctor, body);
+		if(capacity != null) {
+			final made = inheritedCtor(classType);
+			if(made == null)
+				Context.error(classType.name + " has a pool but no constructor to fill a slot with.",
+					classType.pos);
+			if(slots.length > 0) emitVtable(classType, prefix, slots, body);
+			emitCreate(prefix, made.owner, ctorArgs(made.field), slots.length > 0, body);
+		}
 
 		if(body.length == 0) return null;
 		return '#include "${HEADER}"\n\n' + body.join("\n\n") + "\n";
@@ -593,7 +898,7 @@ class Compiler extends DirectToStringCompiler {
 					rom = field != null && field.meta.has(":romData");
 				}
 				final decl = (rom ? "const " : "") + toC(v.t, expr.pos) + " " + varName(v);
-				e == null ? decl : decl + " = " + compileExpressionOrError(e);
+				e == null ? decl : decl + " = " + coerce(v.t, e);
 			}
 
 			case TBinop(OpUShr, e1, e2):
@@ -607,6 +912,9 @@ class Compiler extends DirectToStringCompiler {
 				final target = compileExpressionOrError(e1);
 				target + " = (s32)((u32)(" + target + ") >> (" + compileExpressionOrError(e2) + "))";
 			}
+
+			case TBinop(OpAssign, e1, e2):
+				compileExpressionOrError(e1) + " = " + coerce(e1.t, e2);
 
 			case TBinop(OpNullCoal | OpAssignOp(OpNullCoal), _, _):
 				Context.error("Null coalescing is not supported on this target.", expr.pos);
@@ -629,6 +937,24 @@ class Compiler extends DirectToStringCompiler {
 				compileExpressionOrError(args[0]);
 			}
 
+			case TCall({expr: TConst(TSuper)}, el): {
+				final base = currentClass == null ? null : superOf(currentClass);
+				if(base == null) Context.error("super() has no base class to call.", expr.pos);
+				final made = inheritedCtor(base);
+				if(made == null) Context.error(base.name + " has no constructor for super() to call.", expr.pos);
+				final args = ["(" + classPrefix(made.owner) + "*)self"].concat(callArgs(made.field.type, el));
+				classPrefix(made.owner) + "_init(" + args.join(", ") + ")";
+			}
+
+			case TCall({expr: TField({expr: TConst(TSuper)}, FInstance(_, _, cfRef))}, el): {
+				final base = currentClass == null ? null : superOf(currentClass);
+				if(base == null) Context.error("super has no base class here.", expr.pos);
+				final impl = resolveMethod(base, cfRef.get().name);
+				if(impl == null) Context.error(base.name + " has no " + cfRef.get().name + ".", expr.pos);
+				final args = ["(" + classPrefix(impl.owner) + "*)self"].concat(callArgs(impl.field.type, el));
+				methodName(impl.owner, impl.field) + "(" + args.join(", ") + ")";
+			}
+
 			case TCall(callee, el): {
 				final intrinsic = poolCall(callee, el, expr.pos) ?? vectorCall(callee, el, expr.pos)
 					?? textCall(callee, el, expr.pos);
@@ -640,19 +966,26 @@ class Compiler extends DirectToStringCompiler {
 
 					case TField(obj, FInstance(cRef, _, cfRef)) if(isMethod(cfRef.get())): {
 						final c = cRef.get();
-						rejectStringMember(c, cfRef.get().name, expr.pos);
-						if(c.isExtern) noteInclude(c) else addModuleTypeForCompilation(TClassDecl(cRef));
-						final args = [compileExpressionOrError(obj)].concat(el.map(a -> compileExpressionOrError(a)));
-						methodName(c, cfRef.get()) + "(" + args.join(", ") + ")";
+						final cf = cfRef.get();
+						rejectStringMember(c, cf.name, expr.pos);
+						if(c.isExtern) {
+							noteInclude(c);
+							final args = [compileExpressionOrError(obj)].concat(callArgs(cf.type, el));
+							methodName(c, cf) + "(" + args.join(", ") + ")";
+						} else {
+							addModuleTypeForCompilation(TClassDecl(cRef));
+							instanceCall(obj, c, cf, el, expr.pos);
+						}
 					}
 					case _: {
-						final args = el.map(a -> compileExpressionOrError(a)).join(", ");
+						final args = callArgs(callee.t, el).join(", ");
 						compileExpressionOrError(callee) + "(" + args + ")";
 					}
 				}
 			}
 
-			case TReturn(e): e == null ? "return" : "return " + compileExpressionOrError(e);
+			case TReturn(e): e == null ? "return"
+				: "return " + (currentReturn == null ? compileExpressionOrError(e) : coerce(currentReturn, e));
 
 			case TBreak: "break";
 
@@ -681,7 +1014,10 @@ class Compiler extends DirectToStringCompiler {
 				if(poolCapacity(c) == null)
 					Context.error('${c.name} has no pool to allocate from. Add @:md.pool(n) above the class.', expr.pos);
 				addModuleTypeForCompilation(TClassDecl(cRef));
-				prefix + "_create(" + args.map(a -> compileExpressionOrError(a)).join(", ") + ")";
+				final made = inheritedCtor(c);
+				final compiled = made == null ? args.map(a -> compileExpressionOrError(a))
+					: callArgs(made.field.type, args);
+				prefix + "_create(" + compiled.join(", ") + ")";
 			}
 			case TFunction(_): Context.error("Closures are not supported on this target.", expr.pos);
 			case TThrow(_) | TTry(_, _): Context.error("Exceptions are not supported on this target.", expr.pos);
@@ -796,7 +1132,7 @@ class Compiler extends DirectToStringCompiler {
 			case TBool(b): b ? "TRUE" : "FALSE";
 			case TNull: "NULL";
 			case TThis: "self";
-			case TSuper: Context.error("super is not supported on this target yet.", pos);
+			case TSuper: Context.error("super reaches a base constructor or method, and nothing else.", pos);
 		}
 	}
 

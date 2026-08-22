@@ -1,5 +1,6 @@
 package;
 
+import md.Debug;
 import md.Fix16;
 import md.Format;
 import md.Int16;
@@ -70,6 +71,11 @@ class Main {
 		Probe.report(romTable(n));
 		Probe.report(textLength(n));
 		Probe.report(formatting(n));
+		Probe.report(virtualDispatch(n));
+		Probe.report(finalDispatch(n));
+		Probe.report(inheritedField(n));
+		Probe.report(interfaceCall(n));
+		Probe.report(boundsGuard(n));
 
 		Probe.done();
 
@@ -361,6 +367,37 @@ class Main {
 			+ (Text.charAt(Text.of(buffer), 2) - 48) * 10
 			+ (Text.charAt(Text.of(buffer), 3) - 48);
 		return end * 1000 + digits;
+	}
+
+	static function interfaceCall(n:Int):Int {
+		final a:Sized = new Square(4 * n);
+		final b:Sized = new Gauge(5 * n);
+		return a.span() * 100 + b.span();
+	}
+
+	static function boundsGuard(n:Int):Int {
+		final before = Debug.boundsHits;
+		slots[9 * n] = 1;
+		final alias = slots;
+		alias[12 * n] = 2;
+		return (Debug.boundsHits - before) * 10 + slots.length;
+	}
+
+	static function virtualDispatch(n:Int):Int {
+		final a:Shape = new Square(3 * n);
+		final b:Shape = new Ring(5 * n);
+		return a.area() + b.area();
+	}
+
+	static function finalDispatch(n:Int):Int {
+		final t = new Tile(10 * n);
+		final s:Shape = t;
+		return t.area() * 100 + s.area();
+	}
+
+	static function inheritedField(n:Int):Int {
+		final c = new Ring(6 * n);
+		return c.size * c.spokes + c.tag();
 	}
 
 	static function unary(a:Int):Int {

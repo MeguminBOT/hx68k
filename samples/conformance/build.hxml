@@ -5,6 +5,7 @@
 -D md
 -D MegaDrive
 -D md-output=rom/src
+-D md-debug
 --macro mdcompiler.CompilerInit.Start()
 -cp hx
 -dce full
