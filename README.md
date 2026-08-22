@@ -37,12 +37,16 @@ that drives each of them. Resources are declared in Haxe and compiled by SGDK's 
 `.res` file a build macro writes, so an image, a sprite and a tune reach the ROM with nothing
 written by hand twice.
 
-**Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
-implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
-Around it, a machine: the memory map, the VDP as memory and interrupt source, and the master clock.
-Both sample ROMs boot on it and reproduce all 68 observables the Musashi harness recorded running
-the same ROM. The per-pixel renderer draws planes, window and sprites with their priority order,
-checked by seventeen scenarios written from the hardware documentation.
+**Emulator.** phases C0, C1, C3 and C7a complete, C2 under way. A cycle-accurate 68000 validated
+against SingleStepTests: all 127 opcode groups implemented, **317,500 of 317,500 tests passing on
+final state, cycle counts and bus transactions.** Around it, a machine: the memory map, the VDP as
+memory and interrupt source, and the master clock. Both sample ROMs boot on it and reproduce all 68
+observables the Musashi harness recorded running the same ROM. The per-pixel renderer draws planes,
+window and sprites with their priority order, checked by seventeen scenarios written from the
+hardware documentation.
+
+The Z80 is being built the same way: 252 of its 1,604 opcode groups are implemented, and all of
+them pass on final state, T-state count and the pin log.
 
 See [docs/68000-NOTES.md](docs/68000-NOTES.md)
 for the hardware behaviours the fixtures revealed.

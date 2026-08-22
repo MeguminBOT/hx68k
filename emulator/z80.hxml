@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.test.Z80Conform
+-neko bin/z80.n

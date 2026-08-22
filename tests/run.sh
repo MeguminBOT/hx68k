@@ -214,3 +214,7 @@ esac
 echo ""
 echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
 "$ROOT/emulator/run-sst.sh" 2>&1 | tail -12
+
+echo ""
+echo "--- z80 cycle-accuracy conformance (SingleStepTests) ---"
+"$ROOT/emulator/run-z80.sh" 2>&1 | tail -9
