@@ -19,6 +19,11 @@ extern class System {
 	@:native("SYS_computeChecksum") static function checksum():UInt16;
 	@:native("SYS_isChecksumOk") static function checksumOk():Bool;
 
+	@:native("SYS_setVIntCallback") static function onVerticalInterrupt(handler:Void->Void):Void;
+	@:native("SYS_setHIntCallback") static function onHorizontalInterrupt(handler:Void->Void):Void;
+	@:native("SYS_setExtIntCallback") static function onExternalInterrupt(handler:Void->Void):Void;
+	@:native("SYS_setVBlankCallback") static function onVBlank(handler:Void->Void):Void;
+
 	@:native("SYS_reset") static function reset():Void;
 	@:native("SYS_hardReset") static function hardReset():Void;
 }

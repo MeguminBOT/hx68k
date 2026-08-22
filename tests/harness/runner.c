@@ -439,8 +439,15 @@ static const probe_t hardware_expected[] = {
 	{ "the pad reports start and right", 0x88 },
 };
 
-static const probe_t sdk_expected[] = {
-	{ "VDP_setBackgroundColor",     2 },
+static const probe_t events_expected[] = {
+	{ "three handlers dispatched",  10 - 5 + 105 },
+	{ "three handlers registered",  3 },
+	{ "the interrupt handler ran",  1 },
+	{ "vertical interrupts seen",   PROBE_ANY },
+	{ "a function passed and called", 42 },
+};
+
+static const probe_t sdk_expected[] = {	{ "VDP_setBackgroundColor",     2 },
 	{ "PAL_setColor reads back",    0x0246 },
 	{ "VDP_setTileMapXY landed",    0x0021 },
 	{ "VDP_fillTileMapRect landed", 0x0055 },
@@ -494,6 +501,14 @@ int main(int argc, char **argv)
 	} else {
 		printf("\nhardware: skipped (rom not built)\n");
 	}
+
+	snprintf(rom, sizeof(rom), "%s/samples/events/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/events/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_probe_rom("events: function references and callbacks", "events", "samples/events",
+			rom, sym, events_expected, COUNT(events_expected), 0);
+	else
+		printf("\nevents: skipped (rom not built)\n");
 
 	snprintf(rom, sizeof(rom), "%s/samples/sdk/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/sdk/rom/out/release/symbol.txt", root);

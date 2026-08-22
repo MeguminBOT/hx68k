@@ -9,10 +9,10 @@ hardware SDK, and an emulator with a source-level debugger.
 
 **Compiler.** Haxe compiles to a real ROM with classes, pooled allocation, sized integers,
 fixed-capacity vectors, fixed point, enums as tagged unions, pattern matching as a jump table,
-inheritance with vtables only where something is overridden, interfaces as fat pointers, and text
-and constant tables that never leave ROM. The ROM boots and runs correctly on an emulated 68000, and
-the suite checks the generated C and the map file as well as the running program. 64 checks, 0
-failures.
+inheritance with vtables only where something is overridden, interfaces as fat pointers, function
+pointers with no heap behind them, and text and constant tables that never leave ROM. The ROM boots
+and runs correctly on an emulated 68000, and the suite checks the generated C and the map file as
+well as the running program. 64 checks, 0 failures.
 
 Given a 68000 address, the map tool names the Haxe file, line and function it came from: 116 of 116
 probes, none wrong. That chain is what the source-level debugger in track C is for.

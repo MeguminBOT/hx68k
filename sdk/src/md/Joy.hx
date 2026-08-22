@@ -28,6 +28,9 @@ extern class Joy {
 	@:native("JOY_getJoypadType") static function padType(port:UInt16):UInt8;
 	@:native("JOY_setSupport") static function setSupport(port:UInt16, support:UInt16):Void;
 
+	@:native("JOY_setEventHandler") static function onChange(
+		handler:(port:UInt16, changed:UInt16, state:UInt16) -> Void):Void;
+
 	@:native("JOY_waitPress") static function waitPress(port:UInt16, buttons:UInt16):UInt16;
 	@:native("JOY_waitPressBtn") static function waitAnyPress():Void;
 }

@@ -63,6 +63,7 @@ absent() {
 build "spike rom"   "$ROOT/samples/spike/build.sh"
 build "conformance" "$ROOT/samples/conformance/build.sh"
 build "hardware rom" "$ROOT/samples/hardware/build.sh"
+build "events rom"  "$ROOT/samples/events/build.sh"
 build "sdk rom"     "$ROOT/samples/sdk/build.sh"
 build "harness"     "$HERE/harness/build.sh"
 
@@ -81,6 +82,8 @@ missing "no idle slot" "$HDR" '\(\*tag\)'
 codegen "rom fold"     "$CONF" 'tempLeft = 4;'
 codegen "noinline"     "$CONF" '__attribute__\(\(noinline\)\)'
 codegen "section"      "$CONF" '__attribute__\(\(section\(".data"\)\)\)'
+codegen "handler table" "$ROOT/samples/events/rom/src/Main.c" 's32 \(\*Main_handlers\[4\]\)\(s32\);'
+codegen "lifted lambda" "$ROOT/samples/events/rom/src/Main.c" 'Main_lambda0'
 codegen "fat pointer"  "$HDR" 'const Sized__vt\* vt;'
 codegen "interface call" "$CONF" '\.vt->span\('
 codegen "interface table" "$ROOT/samples/conformance/rom/src/hx_interfaces.c" 'const Sized__vt Square__Sized'

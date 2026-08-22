@@ -65,7 +65,7 @@ class Hxmap {
 						file: Std.parseInt(parts[2]),
 						line: Std.parseInt(parts[3]),
 						name: parts[4],
-						ctype: parts[5]
+						ctype: parts.slice(5).join(" ")
 					});
 				case _:
 			}

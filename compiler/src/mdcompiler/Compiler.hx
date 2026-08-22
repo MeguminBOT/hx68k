@@ -47,6 +47,7 @@ class Compiler extends DirectToStringCompiler {
 	var sources:Array<String> = [];
 	var marks:Array<{file:Int, line:Int, symbol:Null<String>, haxe:Null<String>}> = [];
 	var statics:Array<String> = [];
+	var lifted:Array<String> = [];
 	var currentReturn:Null<Type> = null;
 
 	public override function onCompileStart() {
@@ -112,10 +113,10 @@ class Compiler extends DirectToStringCompiler {
 	function toC(t:Type, pos:haxe.macro.Expr.Position):String {
 		return switch(t) {
 			case TAbstract(aRef, params) if(aRef.get().name == "Vector" && aRef.get().pack.join(".") == "md"):
-				toC(params[0], pos) + "*";
+				declare(params[0], "*", pos);
 
 			case TInst(cRef, params) if(cRef.get().name == "VectorData"):
-				toC(params[0], pos) + "*";
+				declare(params[0], "*", pos);
 
 			case TAbstract(aRef, params): {
 				final a = aRef.get();
@@ -162,7 +163,7 @@ class Compiler extends DirectToStringCompiler {
 			}
 			case TType(_, _): toC(haxe.macro.TypeTools.follow(t, true), pos);
 			case TLazy(f): toC(f(), pos);
-			case TFun(_, _): Context.error("Function values are not supported yet.", pos);
+			case TFun(args, ret): functionPointer(args, ret, "", pos);
 			case TDynamic(_): Context.error("Dynamic is not supported on this target.", pos);
 			case _: Context.error('Unsupported type: ${t}', pos);
 		}
@@ -494,11 +495,12 @@ class Compiler extends DirectToStringCompiler {
 		return out;
 	}
 
-	function ctorArgs(cf:ClassField):Array<{name:String, ctype:String}> {
+	function ctorArgs(cf:ClassField):Array<{name:String, declaration:String}> {
 		return switch(haxe.macro.TypeTools.follow(cf.type)) {
 			case TFun(args, _): [for(i in 0...args.length) {
 				name: args[i].name == null || args[i].name == "" ? "a" + i : safe(args[i].name),
-				ctype: toC(args[i].t, cf.pos)
+				declaration: declare(args[i].t,
+					args[i].name == null || args[i].name == "" ? "a" + i : safe(args[i].name), cf.pos)
 			}];
 			case _: Context.error("A constructor must be a function.", cf.pos);
 		}
@@ -548,14 +550,92 @@ class Compiler extends DirectToStringCompiler {
 		return (meta.has(":md.noinline") ? "__attribute__((noinline)) " : "");
 	}
 
+	function functionPointer(args:Array<{t:Type, opt:Bool, name:String}>, ret:Type, name:String,
+			pos:haxe.macro.Expr.Position):String {
+		final params = args.map(a -> toC(a.t, pos));
+		return toC(ret, pos) + " (*" + name + ")(" + (params.length == 0 ? "void" : params.join(", ")) + ")";
+	}
+
+	function declare(t:Type, name:String, pos:haxe.macro.Expr.Position):String {
+		return switch(haxe.macro.TypeTools.follow(t)) {
+			case TFun(args, ret): functionPointer(args, ret, name, pos);
+			case TAbstract(aRef, params) if(aRef.get().name == "Vector" && aRef.get().pack.join(".") == "md"):
+				declare(params[0], "*" + name, pos);
+			case TInst(cRef, params) if(cRef.get().name == "VectorData"):
+				declare(params[0], "*" + name, pos);
+			case _: {
+				final base = toC(t, pos);
+				if(name == "") base else if(StringTools.startsWith(name, "*")) base + name else base + " " + name;
+			}
+		}
+	}
+
+	function declareField(cf:ClassField, name:String):String {
+		final vector = isVector(cf.type);
+		final slot = name + (vector ? storage(cf) : "");
+		return vector ? declare(elementOf(cf.type, cf.pos), slot, cf.pos) : declare(cf.type, slot, cf.pos);
+	}
+
+	function elementOf(t:Type, pos:haxe.macro.Expr.Position):Type {
+		return switch(haxe.macro.TypeTools.follow(t)) {
+			case TAbstract(_, params): params[0];
+			case _: Context.error("Not a vector type.", pos);
+		}
+	}
+
+	function lift(f:TFunc, pos:haxe.macro.Expr.Position):String {
+		final owner = currentClass == null ? "hx" : classPrefix(currentClass);
+		final name = owner + "_lambda" + lifted.length;
+
+		final bound:Map<Int, Bool> = [];
+		for(a in f.args) bound.set(a.v.id, true);
+		rejectCaptures(f.expr, bound, pos);
+
+		final params = f.args.map(a -> declare(a.v.t, varName(a.v), pos));
+		final signature = toC(f.t, pos) + " " + name + "("
+			+ (params.length == 0 ? "void" : params.join(", ")) + ")";
+		appendToExtraFile(HEADER, signature + ";\n", P_PROTOS);
+
+		final outer = currentReturn;
+		currentReturn = f.t;
+		final origin = mark(pos, name, (currentClass == null ? "" : currentClass.name) + ".lambda");
+		lifted.push(origin + signature + "\n{\n" + block(f.expr).tab() + "\n}");
+		currentReturn = outer;
+
+		return name;
+	}
+
+	function rejectCaptures(e:TypedExpr, bound:Map<Int, Bool>, pos:haxe.macro.Expr.Position):Void {
+		switch(e.expr) {
+			case TLocal(v):
+				if(!bound.exists(v.id))
+					Context.error("This function takes " + v.name + " with it, and there is no heap "
+						+ "to take it on. Pass it as an argument or keep it in a static.", pos);
+			case TConst(TThis):
+				Context.error("This function takes `this` with it, which needs a capture this "
+					+ "target has no heap for.", pos);
+			case TVar(v, init): {
+				bound.set(v.id, true);
+				if(init != null) rejectCaptures(init, bound, pos);
+			}
+			case TFor(v, iterator, body): {
+				bound.set(v.id, true);
+				rejectCaptures(iterator, bound, pos);
+				rejectCaptures(body, bound, pos);
+			}
+			case TFunction(inner): {
+				for(a in inner.args) bound.set(a.v.id, true);
+				rejectCaptures(inner.expr, bound, pos);
+			}
+			case _: haxe.macro.TypedExprTools.iter(e, child -> rejectCaptures(child, bound, pos));
+		}
+	}
+
 	function emitStruct(prefix:String, fields:Array<ClassField>, vtable:Bool):Void {
 		appendToExtraFile(HEADER, 'typedef struct $prefix $prefix;\n', P_TYPEDEFS);
 
 		final members = vtable ? ["\tconst void* __vt;"] : [];
-		for(cf in fields) {
-			final ctype = isVector(cf.type) ? elementType(cf.type, cf.pos) : toC(cf.type, cf.pos);
-			members.push("\t" + ctype + " " + memberName(cf) + storage(cf) + ";");
-		}
+		for(cf in fields) members.push("\t" + declareField(cf, memberName(cf)) + ";");
 		if(members.length == 0) members.push("\tu8 empty;");
 		appendToExtraFile(HEADER, 'struct $prefix {\n' + members.join("\n") + "\n};\n\n", P_STRUCTS);
 	}
@@ -610,9 +690,9 @@ class Compiler extends DirectToStringCompiler {
 			+ '\treturn (s32)${prefix}__used - (s32)${prefix}__freeCount;\n}');
 	}
 
-	function emitCreate(prefix:String, init:ClassType, args:Array<{name:String, ctype:String}>,
+	function emitCreate(prefix:String, init:ClassType, args:Array<{name:String, declaration:String}>,
 			vtable:Bool, body:Array<String>):Void {
-		final params = args.map(a -> a.ctype + " " + a.name);
+		final params = args.map(a -> a.declaration);
 		final signature = '$prefix* ${prefix}_create(' + (params.length == 0 ? "void" : params.join(", ")) + ")";
 		final initPrefix = classPrefix(init);
 		final names = [initPrefix == prefix ? "self" : '($initPrefix*)self'].concat(args.map(a -> a.name));
@@ -639,22 +719,28 @@ class Compiler extends DirectToStringCompiler {
 		final name = fieldName(classType, v.field, true);
 		final vector = isVector(v.field.type);
 		final rom = romValues(v.field);
-		final plain = vector ? elementType(v.field.type, v.field.pos) : toC(v.field.type, v.field.pos);
-		final ctype = (rom != null ? "const " : "") + (v.field.meta.has(":md.volatile") ? "volatile " + plain : plain);
-		final size = vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "";
+		final slot = name + (vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "");
+		final plain = vector ? declare(elementOf(v.field.type, v.field.pos), slot, v.field.pos)
+			: declare(v.field.type, slot, v.field.pos);
+		final decl = (rom != null ? "const " : "") + (v.field.meta.has(":md.volatile") ? "volatile " + plain : plain);
 
 		final placed = section(v.field.meta);
 
-		appendToExtraFile(HEADER, 'extern $ctype $name$size;\n', P_GLOBALS);
-		markStatic(v.field.pos, name, classType.name + "." + v.field.name, plain + (size == "" ? "" : size));
+		appendToExtraFile(HEADER, 'extern $decl;\n', P_GLOBALS);
+		final written = vector
+			? StringTools.trim(declare(elementOf(v.field.type, v.field.pos), "", v.field.pos))
+				+ (rom != null ? "[" + rom.length + "]" : storage(v.field))
+			: StringTools.trim(declare(v.field.type, "", v.field.pos));
+		markStatic(v.field.pos, name, classType.name + "." + v.field.name,
+			(rom != null ? "const " : "") + written);
 
 		if(rom != null) {
-			body.push('$ctype $name$size$placed = { ' + rom.join(", ") + " };");
+			body.push('$decl$placed = { ' + rom.join(", ") + " };");
 			return;
 		}
 
 		if(vector) {
-			body.push('$ctype $name$size$placed;');
+			body.push('$decl$placed;');
 			return;
 		}
 
@@ -662,7 +748,7 @@ class Compiler extends DirectToStringCompiler {
 			case null: null;
 			case e: compileExpression(e);
 		}
-		body.push(init != null ? '$ctype $name$placed = $init;' : '$ctype $name$placed;');
+		body.push(init != null ? '$decl$placed = $init;' : '$decl$placed;');
 	}
 
 	function elementType(t:Type, pos:haxe.macro.Expr.Position):String {
@@ -677,7 +763,7 @@ class Compiler extends DirectToStringCompiler {
 		final name = f.isStatic ? fieldName(classType, f.field, true) : methodName(classType, f.field);
 		final ret = isCtor ? "void" : toC(f.ret, f.field.pos);
 
-		final params = f.args.map(a -> toC(a.type, f.field.pos) + " " + safe(a.getName()));
+		final params = f.args.map(a -> declare(a.type, safe(a.getName()), f.field.pos));
 		if(!f.isStatic) params.unshift('$prefix* self');
 		final signature = ret + " " + name + "(" + (params.length == 0 ? "void" : params.join(", ")) + ")"
 			+ section(f.field.meta);
@@ -867,6 +953,7 @@ class Compiler extends DirectToStringCompiler {
 		sources = [];
 		marks = [];
 		statics = [];
+		lifted = [];
 
 		final prefix = classPrefix(classType);
 		final instanceVars = inheritedVars(classType).concat(storedVars(classType));
@@ -895,6 +982,8 @@ class Compiler extends DirectToStringCompiler {
 			if(slots.length > 0) emitVtable(classType, prefix, slots, body);
 			emitCreate(prefix, made.owner, ctorArgs(made.field), slots.length > 0, body);
 		}
+
+		for(text in lifted) body.push(text);
 
 		if(body.length == 0) return null;
 		return writeMap(prefix, '#include "${HEADER}"\n\n' + body.join("\n\n") + "\n");
@@ -1023,7 +1112,7 @@ class Compiler extends DirectToStringCompiler {
 					if(field != null) vectorFields.set(v.id, field);
 					rom = field != null && field.meta.has(":romData");
 				}
-				final decl = (rom ? "const " : "") + toC(v.t, expr.pos) + " " + varName(v);
+				final decl = (rom ? "const " : "") + declare(v.t, varName(v), expr.pos);
 				e == null ? decl : decl + " = " + coerce(v.t, e);
 			}
 
@@ -1148,7 +1237,7 @@ class Compiler extends DirectToStringCompiler {
 					: callArgs(made.field.type, args);
 				prefix + "_create(" + compiled.join(", ") + ")";
 			}
-			case TFunction(_): Context.error("Closures are not supported on this target.", expr.pos);
+			case TFunction(f): lift(f, expr.pos);
 			case TThrow(_) | TTry(_, _): Context.error("Exceptions are not supported on this target.", expr.pos);
 			case TFor(_, _, _): Context.error("for-in is not supported on this target yet. Use a while loop.", expr.pos);
 			case TEnumIndex(e): enumTag(e, expr.pos);
