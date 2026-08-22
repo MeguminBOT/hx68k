@@ -6,6 +6,8 @@ extern class Z80Bus {
 	@:native("Z80_getAndRequestBus") static function requestAndReport(wait:Bool):Bool;
 	@:native("Z80_releaseBus") static function release():Void;
 	@:native("Z80_isBusTaken") static function taken():Bool;
+	@:native("Z80_isDriverReady") static function driverReady():Bool;
+	@:native("Z80_getLoadedDriver") static function loadedDriver():Int16;
 
 	@:native("Z80_startReset") static function startReset():Void;
 	@:native("Z80_endReset") static function endReset():Void;

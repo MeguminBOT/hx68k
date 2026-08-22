@@ -130,6 +130,19 @@ fi
 neko "$ROOT/emulator/bin/render.n" "$ROOT"
 
 echo ""
+echo "--- the sound driver, on the only emulator here with a Z80 ---"
+build "sound rom" "$ROOT/samples/sound/build.sh"
+printf "building %-16s" "sound check"
+if (cd "$ROOT/emulator" && haxe sound.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/sound.n" "$ROOT"
+
+echo ""
 echo "--- generated code against the C written beside it, in 68000 cycles ---"
 build "bench rom" "$ROOT/samples/bench/build.sh"
 printf "building %-16s" "bench tool"

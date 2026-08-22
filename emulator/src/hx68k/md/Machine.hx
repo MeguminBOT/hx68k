@@ -4,13 +4,17 @@ import haxe.io.Bytes;
 import haxe.ds.Vector;
 import hx68k.cpu.m68k.Bus;
 import hx68k.cpu.m68k.M68000;
+import hx68k.cpu.z80.Z80;
 
 class Machine implements Bus implements Memory {
 	public static inline final MASTER_PER_68K = 7;
+	public static inline final MASTER_PER_Z80 = 15;
 	public static inline final RAM_SIZE = 0x10000;
 	public static inline final Z80_RAM_SIZE = 0x2000;
 
 	public final cpu:M68000;
+	public final z80:Z80;
+	public final z80Bus:Z80Bus;
 	public final vdp:Vdp;
 	public final ram:Bytes = Bytes.alloc(RAM_SIZE);
 	public final z80Ram:Bytes = Bytes.alloc(Z80_RAM_SIZE);
@@ -25,10 +29,14 @@ class Machine implements Bus implements Memory {
 	final padData:Vector<Int> = new Vector<Int>(3);
 
 	var z80BusRequest:Bool = false;
+	var z80Running:Bool = false;
+	var z80Master:Int = 0;
 
 	public function new() {
 		vdp = new Vdp(this);
 		cpu = new M68000(this);
+		z80Bus = new Z80Bus(this, z80Ram);
+		z80 = new Z80(z80Bus);
 		for (i in 0...banks.length) banks[i] = i;
 		for (i in 0...buttons.length) buttons[i] = 0;
 	}
@@ -44,7 +52,19 @@ class Machine implements Bus implements Memory {
 		for (i in 0...banks.length) banks[i] = i;
 
 		z80BusRequest = false;
+		z80Running = false;
+		z80Master = 0;
 		cycles = 0;
+
+		z80Bus.reset();
+		z80.pc = 0;
+		z80.sp = 0;
+		z80.i = 0;
+		z80.r = 0;
+		z80.iff1 = false;
+		z80.iff2 = false;
+		z80.im = 0;
+		z80.halted = false;
 
 		for (i in 0...padControl.length) {
 			padControl[i] = 0;
@@ -93,6 +113,27 @@ class Machine implements Bus implements Memory {
 	inline function advance(n:Int):Void {
 		cycles += n;
 		vdp.tick(n * MASTER_PER_68K);
+		runZ80(n * MASTER_PER_68K);
+	}
+
+	function runZ80(master:Int):Void {
+		z80Master += master;
+
+		if (!z80Running || z80BusRequest) {
+			if (z80Master > MASTER_PER_Z80) z80Master = MASTER_PER_Z80;
+			return;
+		}
+
+		while (z80Master >= MASTER_PER_Z80) {
+			if (z80.halted) {
+				z80Master = 0;
+				return;
+			}
+
+			final before = z80Bus.states;
+			z80.step();
+			z80Master -= (z80Bus.states - before) * MASTER_PER_Z80;
+		}
 	}
 
 	public function readWord(address:Int):Int {
@@ -141,6 +182,26 @@ class Machine implements Bus implements Memory {
 			return;
 		}
 
+		if (at >= 0xA11200 && at < 0xA11300) {
+			final released = (both(value, uds, lds) & 0x0100) != 0;
+			if (!released) {
+				z80Running = false;
+				z80.pc = 0;
+				z80.sp = 0;
+				z80.i = 0;
+				z80.r = 0;
+				z80.iff1 = false;
+				z80.iff2 = false;
+				z80.im = 0;
+				z80.halted = false;
+				z80Bus.reset();
+			} else if (!z80Running) {
+				z80Running = true;
+				z80Master = 0;
+			}
+			return;
+		}
+
 		if (at >= 0xA10000 && at < 0xA10020) {
 			final offset = at & 0x1F;
 			final byte = both(value, uds, lds) & 0xFF;
@@ -154,6 +215,12 @@ class Machine implements Bus implements Memory {
 			if (index > 0) banks[index] = (value & 0x3F);
 			return;
 		}
+	}
+
+	public function writeByte(address:Int, value:Int):Void {
+		final at = address & 0xFFFFFE;
+		final odd = (address & 1) != 0;
+		store(at, odd ? value & 0xFF : (value & 0xFF) << 8, !odd, odd);
 	}
 
 	inline function both(value:Int, uds:Bool, lds:Bool):Int {

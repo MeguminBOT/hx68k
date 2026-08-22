@@ -29,20 +29,21 @@ The generated code is held to the C written beside it, measured in 68000 cycles 
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
 and identical on a third.
 
-**SDK.** phases B0, B1a and B2 complete, and B1b but for sound playback. `md.hw` reaches the VDP,
-the pads, the Z80's bus and both sound chips through one volatile access each, and a sample ROM that
-calls nothing from SGDK sets a colour and reads a pad on both emulators. Above it, `md.*` binds
-SGDK's VDP, palette, joypad, DMA, system, timer, maths, SRAM and Z80 layers, checked by a sample
-that drives each of them. Resources are declared in Haxe and compiled by SGDK's rescomp from a
-`.res` file a build macro writes, so an image, a sprite and a tune reach the ROM with nothing
-written by hand twice.
+**SDK.** `md.hw` reaches the VDP, the pads, the Z80's bus and both sound chips through one volatile
+access each, and a sample ROM that calls nothing from SGDK sets a colour and reads a pad on both
+emulators. Above it, `md.*` binds SGDK's VDP, palette, joypad, DMA, system, timer, maths, SRAM and
+Z80 layers, checked by a sample that drives each of them. Resources are declared in Haxe and
+compiled by SGDK's rescomp from a `.res` file a build macro writes, so an image, a sprite and a tune
+reach the ROM with nothing written by hand twice.
 
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
-Around it, a machine: the memory map, the VDP as memory and interrupt source, and the master clock.
-Both sample ROMs boot on it and reproduce all 68 observables the Musashi harness recorded running
-the same ROM. The per-pixel renderer draws planes, window and sprites with their priority order,
-checked by seventeen scenarios written from the hardware documentation.
+Around it, a machine: the memory map, the VDP as memory and interrupt source, the Z80 with its own
+bus and its share of the master clock, and the clock itself. Six sample ROMs boot on it and
+reproduce every observable the Musashi harness recorded running the same ROM, and a seventh runs
+only here: the one that waits for the sound driver to answer. The per-pixel renderer draws planes,
+window and sprites with their priority order, checked by seventeen scenarios written from the
+hardware documentation.
 
 The Z80 is held to the same standard and meets it: all 1,604 opcode groups, **1,604,000 of
 1,604,000 tests passing on final state, T-state count and the pin log**, prefixes and undocumented
