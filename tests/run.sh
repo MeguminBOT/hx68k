@@ -97,6 +97,18 @@ echo ""
 "$HERE/harness/.build/mdtest" "$ROOT" "$@"
 
 echo ""
+echo "--- the same ROMs on hx68k-emu, against what Musashi saw ---"
+printf "building %-16s" "machine"
+if (cd "$ROOT/emulator" && haxe rom.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/rom.n" "$HERE/.observables.txt" "$ROOT"
+
+echo ""
 echo "--- source map (Haxe line to 68000 address) ---"
 
 # the debug profile keeps DWARF and stops inlining, and writes over out/rom.bin as it goes,

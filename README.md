@@ -19,6 +19,9 @@ probes, none wrong. That chain is what the source-level debugger in track C is f
 
 **Emulator.** A cycle-accurate 68000 validated against SingleStepTests: all 127 opcode groups
 implemented, **317,500 of 317,500 tests passing on final state, cycle counts and bus transactions.**
+Around it, a machine: the memory map, the VDP as memory and interrupt source, and the master clock.
+Both sample ROMs boot on it and reproduce all 68 observables the Musashi harness recorded running
+the same ROM.
 
 See [docs/68000-NOTES.md](docs/68000-NOTES.md)
 for the hardware behaviours the fixtures revealed.

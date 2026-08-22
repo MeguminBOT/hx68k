@@ -9,6 +9,7 @@ samples/*/rom/src/*
 emulator/bin/
 tests/harness/.build/
 tests/.build.log
+tests/.observables.txt
 
 *.o
 *.bin

@@ -273,6 +273,41 @@ class M68000 {
 		faulted = true;
 	}
 
+	public function reset():Void {
+		faulted = false;
+		setS(true);
+		t = false;
+		imask = 7;
+		xf = false;
+		nf = false;
+		zf = false;
+		vf = false;
+		cf = false;
+
+		final dfc = dataFc();
+		a[7] = ((rawRead(0, dfc) << 16) | rawRead(2, dfc)) | 0;
+		pc = ((rawRead(4, dfc) << 16) | rawRead(6, dfc)) | 0;
+
+		ird = rawRead(pc, progFc());
+		faultIr = ird;
+		pc = (pc + 2) | 0;
+		irc = rawRead(pc, progFc());
+		pc = (pc + 2) | 0;
+	}
+
+	public function interrupt(level:Int):Void {
+		final oldSr = getSr();
+		final target = (pc - 4) | 0;
+
+		idle(6);
+		rawRead(0xFFFFF0 | (level << 1), FunctionCode.CPU_SPACE);
+
+		setS(true);
+		t = false;
+		imask = level;
+		exception(24 + level, target, 6, oldSr);
+	}
+
 	public function step():Void {
 		faulted = false;
 		pcAtStart = pc;

@@ -10,6 +10,33 @@ static int g_checks;
 static int g_fails;
 static int g_suite_fails;
 
+/*
+ * What the oracle saw, written out so hx68k-emu can be held to the same numbers
+ * running the same ROM. Paths are relative to the repository root.
+ */
+static FILE *g_dump;
+
+static void dump_rom(const char *name, const char *dir)
+{
+	if (!g_dump)
+		return;
+	fprintf(g_dump, "rom %s %s/rom/out/release/rom.bin %s/rom/out/release/rom.out\n",
+	        name, dir, dir);
+}
+
+static void dump_line(const char *fmt, ...)
+{
+	va_list ap;
+
+	if (!g_dump)
+		return;
+
+	va_start(ap, fmt);
+	vfprintf(g_dump, fmt, ap);
+	va_end(ap);
+	fprintf(g_dump, "\n");
+}
+
 static void check(int ok, const char *fmt, ...)
 {
 	va_list ap;
@@ -217,6 +244,19 @@ static void suite_spike(const char *rom, const char *sym)
 
 	check(text_ok, "drawText tilemap matches the string's repeat pattern (%s)",
 	      text_which >= 0 ? base_names[text_which] : "not found");
+
+	dump_rom("spike", "samples/spike");
+	dump_line("until Main_frame 4 %d 90", last_frame_value);
+	dump_line("value Main_live 0 4 %d", (int32_t)md_read_ram32(live_addr));
+	dump_line("value Main_sum 0 4 %d", (int32_t)md_read_ram32(sum_addr));
+	dump_line("cram 0 %d", md_cram[0]);
+	if (text_which >= 0) {
+		for (i = 0; i < text_len; i++) {
+			uint32_t w = md_plane_width();
+			uint32_t a = (bases[text_which] + ((12 * w) + 12 + (uint32_t)i) * 2) & 0xFFFE;
+			dump_line("vram %u %u", a, (unsigned)((md_vram[a] << 8) | md_vram[a | 1]));
+		}
+	}
 }
 
 typedef struct {
@@ -323,6 +363,13 @@ static void suite_conformance(const char *rom, const char *sym)
 		check(got == want, "%-24s got %-12d want %d",
 		      conformance_expected[i].name, got, want);
 	}
+
+	dump_rom("conformance", "samples/conformance");
+	dump_line("until hx_probe_done 2 1 60");
+	dump_line("value hx_probe_count 0 2 %u", reported);
+	for (i = 0; i < reported; i++)
+		dump_line("value hx_probe %u 4 %d", (unsigned)i * 4,
+		          (int32_t)md_read_ram32(probe_addr + (uint32_t)i * 4));
 }
 
 static int file_exists(const char *p)
@@ -345,16 +392,22 @@ int main(int argc, char **argv)
 			md_trace = 1;
 	}
 
-	snprintf(rom, sizeof(rom), "%s/samples/spike/rom/out/rom.bin", root);
+	snprintf(rom, sizeof(rom), "%s/tests/.observables.txt", root);
+	g_dump = fopen(rom, "w");
+
+	snprintf(rom, sizeof(rom), "%s/samples/spike/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/spike/rom/out/release/symbol.txt", root);
 	suite_spike(rom, sym);
 
-	snprintf(rom, sizeof(rom), "%s/samples/conformance/rom/out/rom.bin", root);
+	snprintf(rom, sizeof(rom), "%s/samples/conformance/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/conformance/rom/out/release/symbol.txt", root);
 	if (file_exists(rom))
 		suite_conformance(rom, sym);
 	else
 		printf("\nconformance: skipped (rom not built)\n");
+
+	if (g_dump)
+		fclose(g_dump);
 
 	printf("\n%d checks, %d failures\n", g_checks, g_fails);
 	return g_fails ? 1 : 0;

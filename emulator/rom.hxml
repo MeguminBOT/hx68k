@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.md.RomCheck
+-neko bin/rom.n
