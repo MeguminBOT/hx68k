@@ -36,6 +36,11 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+It also says where the beam was when the code touched the VDP, and what was running then. Writes
+are split by what actually matters: with the display off, with it on but the beam blanked, and with
+it on while the beam is drawing. Over 60 frames of the art ROM, every one of its 267 writes is
+placed against the beam, and 140,966 of its 140,991 reads belong to SGDK's `VDP_waitVBlank`.
+
 The VDP reads back the same way, in the terms the documentation uses rather than as addresses: the
 layout the registers describe, plane cells decoded into tile and palette and priority, the sprite
 list in link order, tiles as their palette indices, and how much of VRAM has been written. Viewing

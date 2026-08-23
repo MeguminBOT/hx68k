@@ -17,12 +17,11 @@ typedef Profile = {
 class Profiler {
 	public final debugger:Debugger;
 
-	static inline final OUTSIDE = "outside any symbol";
-
-	final names:Map<Int, String> = [];
+	final names:Names;
 
 	public function new(debugger:Debugger) {
 		this.debugger = debugger;
+		this.names = new Names(debugger.map);
 	}
 
 	public function run(frames:Int):Profile {
@@ -37,7 +36,7 @@ class Profiler {
 		final started = machine.cycles;
 
 		while (machine.vdp.frame != target) {
-			final name = nameAt(debugger.at());
+			final name = names.at(debugger.at());
 			final line = machine.vdp.line;
 			final before = machine.cycles;
 
@@ -104,21 +103,5 @@ class Profiler {
 		}
 
 		return out;
-	}
-
-	function nameAt(address:Int):String {
-		final cached = names.get(address);
-		if (cached != null) return cached;
-
-		final place = debugger.map.resolve(address);
-		var name = place == null ? null : place.name;
-
-		if (name == null) {
-			final symbol = debugger.map.elf.functionAt(address);
-			name = symbol == null ? OUTSIDE : symbol.name;
-		}
-
-		names.set(address, name);
-		return name;
 	}
 }

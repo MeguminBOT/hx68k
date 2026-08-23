@@ -345,6 +345,37 @@ else
 	exit 1
 fi
 
+echo ""
+echo "--- where the beam was when the code touched the VDP ---"
+if RASTER="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/art/rom/out/release/rom.bin" \
+	"$ROOT/samples/art/rom/out/release/rom.out" \
+	"$ROOT/samples/art/rom/src" \
+	--raster 60 --settle 0)"; then
+	RASTERED=0
+else
+	RASTERED=$?
+fi
+
+echo "$RASTER" | sed -n '1,2p' | sed 's/^/  /'
+echo "$RASTER" | sed -n '/who touched it/,$p' | sed 's/^/  /'
+
+# every write is placed against the beam, and every one is attributed to a symbol
+printf "raster %-19s" "every write placed"
+if [ "$RASTERED" -eq 0 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "$RASTER" | tail -4
+	exit 1
+fi
+
+printf "raster %-19s" "named the waiter"
+case "$RASTER" in
+	*VDP_waitVBlank*) echo "ok" ;;
+	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;
+esac
+
 # a commercial ROM is the widest test there is, and the one thing here that cannot be committed
 GAME="$ROOT/_realRomTest/sth2.md"
 if [ -f "$GAME" ]; then

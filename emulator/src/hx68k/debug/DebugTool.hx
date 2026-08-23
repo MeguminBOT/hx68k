@@ -10,7 +10,7 @@ class DebugTool {
 		if (args.length < 3) {
 			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
 				+ " --break <Class.function> [--watch <Class.static> [--expect n,n,n]]"
-				+ " [--trace n] [--profile frames] [--view] [--settle frames]");
+				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--settle frames]");
 			Sys.exit(2);
 		}
 
@@ -18,6 +18,7 @@ class DebugTool {
 		var watch = "";
 		var traced = 0;
 		var profiled = 0;
+		var rastered = 0;
 		var settle = 10;
 		var expected:Array<Int> = [];
 
@@ -31,6 +32,7 @@ class DebugTool {
 				case "--expect": expected = value(args, i).split(",").map(text -> Std.parseInt(text));
 				case "--trace": traced = count(args, i);
 				case "--profile": profiled = count(args, i);
+				case "--raster": rastered = count(args, i);
 				case "--settle": settle = count(args, i);
 				case _: i--;
 			}
@@ -44,8 +46,69 @@ class DebugTool {
 		final debugger = new Debugger(machine, new SourceMap(new Elf(args[1]), args[2]));
 
 		if (viewing) Sys.exit(view(debugger, stop, settle));
+		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
+	}
+
+	static function raster(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {
+		if (!reach(debugger, stop, settle)) return 1;
+
+		final beam = new Raster(debugger).frames(frames);
+		Sys.println("over " + frames + " frames and " + beam.instructions + " instructions the VDP took "
+			+ beam.writes + " writes and " + beam.reads + " reads, from "
+			+ beam.touches.length + " of them");
+		Sys.println("  " + beam.offscreen + " of those writes went in with the display off, "
+			+ beam.blanked + " while the beam was blanked, and " + beam.active
+			+ " while it was drawing");
+
+		Sys.println("");
+		final counts = Raster.perLine(beam, beam.lines);
+		for (band in 0...Std.int((beam.lines + 7) / 8)) {
+			final row = new StringBuf();
+			row.add(StringTools.lpad(Std.string(band * 8), " ", 5) + "  ");
+			for (line in band * 8...band * 8 + 8) {
+				row.add(line < counts.length ? weight(counts[line]) : " ");
+			}
+			Sys.println(row.toString());
+		}
+
+		Sys.println("");
+		Sys.println("who touched it, in writes and reads");
+		final wrote = new Map<String, Int>();
+		final read = new Map<String, Int>();
+		final order = new Array<String>();
+
+		for (touch in beam.touches) {
+			if (!wrote.exists(touch.name)) {
+				order.push(touch.name);
+				wrote.set(touch.name, 0);
+				read.set(touch.name, 0);
+			}
+			wrote.set(touch.name, wrote.get(touch.name) + touch.writes);
+			read.set(touch.name, read.get(touch.name) + touch.reads);
+		}
+		order.sort((a, b) -> (wrote.get(b) + read.get(b)) - (wrote.get(a) + read.get(a)));
+
+		var shown = 0;
+		for (name in order) {
+			if (shown++ >= 8) break;
+			Sys.println("  " + StringTools.lpad(Std.string(wrote.get(name)), " ", 7)
+				+ StringTools.lpad(Std.string(read.get(name)), " ", 9) + "  " + name);
+		}
+
+		final split = beam.offscreen + beam.blanked + beam.active;
+		Sys.println("");
+		Sys.println("placed " + split + " of " + beam.writes + " writes against the beam");
+
+		return beam.writes > 0 && split == beam.writes ? 0 : 1;
+	}
+
+	static function weight(writes:Int):String {
+		if (writes == 0) return ".";
+		if (writes < 8) return "-";
+		if (writes < 64) return "+";
+		return "#";
 	}
 
 	static function value(args:Array<String>, i:Int):String {

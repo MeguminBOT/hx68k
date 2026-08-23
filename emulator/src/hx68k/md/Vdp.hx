@@ -22,6 +22,8 @@ class Vdp {
 
 	public var line(default, null):Int = 0;
 	public var frame(default, null):Int = 0;
+	public var writes(default, null):Int = 0;
+	public var reads(default, null):Int = 0;
 
 	final memory:Memory;
 
@@ -56,6 +58,8 @@ class Vdp {
 		vint = false;
 		hint = false;
 		hintCounter = 0;
+		writes = 0;
+		reads = 0;
 	}
 
 	public function tick(master:Int):Void {
@@ -118,11 +122,13 @@ class Vdp {
 	}
 
 	public function writeData(value:Int):Void {
+		writes++;
 		pending = false;
 		if (filling) fillVram(value) else store(value);
 	}
 
 	public function readData():Int {
+		reads++;
 		pending = false;
 		final value = switch (code & 0x0F) {
 			case 0x00: readVram(address);
@@ -135,6 +141,7 @@ class Vdp {
 	}
 
 	public function readStatus():Int {
+		reads++;
 		pending = false;
 
 		var value = 0x3400 | 0x0200;
@@ -145,6 +152,7 @@ class Vdp {
 	}
 
 	public function readCounter():Int {
+		reads++;
 		final v = line <= 0xEA ? line : line - 0xEB + 0xE5;
 		final step = Std.int(dot * 211 / MASTER_PER_LINE);
 		final h = step <= 0xB6 ? step : step - 0xB7 + 0xE4;
