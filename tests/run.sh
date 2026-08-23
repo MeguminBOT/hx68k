@@ -255,6 +255,24 @@ case "$LOCALS" in
 	*) echo "FAILED"; echo "  the frame base was not the call frame address"; exit 1 ;;
 esac
 
+# reading it needs the frame rule out of .debug_frame, so the value proves that chain end to end
+WANT_ARGUMENT="$(sed -n 's/.*accumulate(\([0-9]*\));.*/\1/p' "$BUG_SAMPLE")"
+PARAMETER="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" \
+	--break Main.accumulate --read "$WANT_PARAMETER" | tail -1)"
+echo "  $PARAMETER"
+
+printf "locals %-17s" "read at a frame"
+if [ "${PARAMETER##*= }" = "$WANT_ARGUMENT" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  wanted $WANT_ARGUMENT, which is what the sample passes to accumulate"
+	exit 1
+fi
+
 echo ""
 echo "--- who called whom, read off the stack ---"
 
@@ -288,9 +306,16 @@ case "$(echo "$STACK" | grep -c "_start_entry")" in
 esac
 
 # three more calls have to be three more frames, which no number written here decides
+# the frame rule and the scan reach the caller by nothing in common, so agreeing is a real check
+printf "stack %-18s" "agrees with DWARF"
+case "$STACK" in
+	*"which the scan also found"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  the frame rule and the stack scan disagree on the return address"; exit 1 ;;
+esac
+
 printf "stack %-18s" "grows with calls"
-SHALLOW="$(backtrace 3 | tail -1 | cut -d" " -f1)"
-DEEPER="$(echo "$STACK" | tail -1 | cut -d" " -f1)"
+SHALLOW="$(backtrace 3 | grep -oE '^[0-9]+ frames' | cut -d" " -f1)"
+DEEPER="$(echo "$STACK" | grep -oE '^[0-9]+ frames' | cut -d" " -f1)"
 if [ "$((DEEPER - SHALLOW))" -eq 3 ]; then
 	echo "ok"
 else

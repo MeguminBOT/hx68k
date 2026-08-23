@@ -15,11 +15,16 @@ class SourceMap {
 	public final dwarf:Dwarf;
 	public final maps:Map<String, Hxmap> = [];
 
+	public final variables:Null<Variables>;
+	public final callFrames:Null<CallFrame>;
+
 	final owners:Map<String, Hxmap> = [];
 
 	public function new(elf:Elf, directory:String) {
 		this.elf = elf;
 		this.dwarf = new Dwarf(elf);
+		this.variables = elf.section(".debug_info") == null ? null : new Variables(elf);
+		this.callFrames = elf.section(".debug_frame") == null ? null : new CallFrame(elf);
 
 		for (name in sys.FileSystem.readDirectory(directory)) {
 			if (!StringTools.endsWith(name, ".hxmap")) continue;

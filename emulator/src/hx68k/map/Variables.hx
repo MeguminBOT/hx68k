@@ -33,6 +33,8 @@ typedef Variable = {
 	final owner:String;
 	final parameter:Bool;
 	final location:Location;
+	var width:Int;
+	var signed:Bool;
 }
 
 typedef Subprogram = {
@@ -66,6 +68,9 @@ class Variables {
 	static inline final AT_LOW_PC = 0x11;
 	static inline final AT_HIGH_PC = 0x12;
 	static inline final AT_FRAME_BASE = 0x40;
+	static inline final AT_BYTE_SIZE = 0x0B;
+	static inline final AT_ENCODING = 0x3E;
+	static inline final AT_TYPE = 0x49;
 
 	static inline final FORM_ADDR = 0x01;
 
@@ -74,6 +79,10 @@ class Variables {
 	final elf:Elf;
 	final strings:Null<Elf.Section>;
 	final abbreviations:Map<Int, Map<Int, Abbreviation>> = [];
+	final sizes:Map<Int, Int> = [];
+	final encodings:Map<Int, Int> = [];
+	final references:Map<Int, Int> = [];
+	final pending:Array<{variable:Variable, type:Int}> = [];
 
 	public function new(elf:Elf) {
 		this.elf = elf;
@@ -84,7 +93,12 @@ class Variables {
 
 		final reader = new Reader(elf.bytes, info.offset);
 		final end = info.offset + info.size;
-		while (reader.position < end) unit(reader);
+		while (reader.position < end) unit(reader, info.offset);
+
+		for (waiting in pending) {
+			waiting.variable.width = widthOf(waiting.type);
+			waiting.variable.signed = signedOf(waiting.type);
+		}
 
 		var kept = 0;
 		for (subprogram in subprograms) {
@@ -106,7 +120,8 @@ class Variables {
 		return null;
 	}
 
-	function unit(reader:Reader):Void {
+	function unit(reader:Reader, sectionStart:Int):Void {
+		final unitStart = reader.position - sectionStart;
 		final length = reader.u32();
 		final unitEnd = reader.position + length;
 		final version = reader.u16();
@@ -129,13 +144,17 @@ class Variables {
 				continue;
 			}
 
+			final offset = reader.position - sectionStart - 1;
 			final abbreviation = table.get(code);
 			if (abbreviation == null) {
 				reader.position = unitEnd;
 				return;
 			}
 
-			final die = read(reader, abbreviation, addressSize);
+			final die = read(reader, abbreviation, addressSize, unitStart);
+			if (die.byteSize != null) sizes.set(offset, die.byteSize);
+			if (die.encoding != null) encodings.set(offset, die.encoding);
+			if (die.type != null) references.set(offset, die.type);
 			final owner = owners[owners.length - 1];
 			var inherits = owner;
 
@@ -155,12 +174,16 @@ class Variables {
 
 				case TAG_FORMAL_PARAMETER, TAG_VARIABLE:
 					if (owner != null && die.name != null) {
-						owner.variables.push({
+						final variable:Variable = {
 							name: die.name,
 							owner: owner.name,
 							parameter: abbreviation.tag == TAG_FORMAL_PARAMETER,
-							location: die.location == null ? nowhere() : die.location
-						});
+							location: die.location == null ? nowhere() : die.location,
+							width: 4,
+							signed: true
+						};
+						owner.variables.push(variable);
+						if (die.type != null) pending.push({variable: variable, type: die.type});
 					}
 
 				case TAG_LEXICAL_BLOCK:
@@ -173,9 +196,10 @@ class Variables {
 		}
 	}
 
-	function read(reader:Reader, abbreviation:Abbreviation, addressSize:Int):{
+	function read(reader:Reader, abbreviation:Abbreviation, addressSize:Int, unitStart:Int):{
 		name:Null<String>, low:Null<Int>, high:Int, highIsAddress:Bool,
-		location:Null<Location>, frameBase:Null<Location>
+		location:Null<Location>, frameBase:Null<Location>,
+		byteSize:Null<Int>, encoding:Null<Int>, type:Null<Int>
 	} {
 		var name:Null<String> = null;
 		var low:Null<Int> = null;
@@ -183,6 +207,9 @@ class Variables {
 		var highIsAddress = false;
 		var location:Null<Location> = null;
 		var frameBase:Null<Location> = null;
+		var byteSize:Null<Int> = null;
+		var encoding:Null<Int> = null;
+		var type:Null<Int> = null;
 
 		for (attribute in abbreviation.attributes) {
 			if (attribute.form == 0x08) {
@@ -204,6 +231,10 @@ class Variables {
 					location = block >= 0 ? expression(reader, block) : {where: InList, register: -1, value: value};
 				case AT_FRAME_BASE:
 					frameBase = block >= 0 ? expression(reader, block) : nowhere();
+				case AT_BYTE_SIZE if (block < 0): byteSize = value;
+				case AT_ENCODING if (block < 0): encoding = value;
+				case AT_TYPE if (block < 0):
+					type = attribute.form == 0x10 ? value : unitStart + value;
 				case _:
 			}
 
@@ -212,7 +243,8 @@ class Variables {
 
 		return {
 			name: name, low: low, high: high, highIsAddress: highIsAddress,
-			location: location, frameBase: frameBase
+			location: location, frameBase: frameBase,
+			byteSize: byteSize, encoding: encoding, type: type
 		};
 	}
 
@@ -267,6 +299,30 @@ class Variables {
 		if (operation == 0x9C) return {where: TheCallFrameAddress, register: -1, value: 0};
 
 		return nowhere();
+	}
+
+	function widthOf(type:Int):Int {
+		var at = type;
+		for (_ in 0...16) {
+			final size = sizes.get(at);
+			if (size != null) return size;
+			final next = references.get(at);
+			if (next == null) return 4;
+			at = next;
+		}
+		return 4;
+	}
+
+	function signedOf(type:Int):Bool {
+		var at = type;
+		for (_ in 0...16) {
+			final encoding = encodings.get(at);
+			if (encoding != null) return encoding == 0x05 || encoding == 0x06;
+			final next = references.get(at);
+			if (next == null) return true;
+			at = next;
+		}
+		return true;
 	}
 
 	static inline function nowhere():Location {

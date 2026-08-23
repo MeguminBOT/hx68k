@@ -1,6 +1,7 @@
 package hx68k.debug;
 
 import hx68k.map.SourceMap;
+import hx68k.map.Variables;
 import hx68k.md.Machine;
 
 class Debugger {
@@ -64,20 +65,77 @@ class Debugger {
 		final address = map.addressOf(entry.symbol);
 		if (address == null) return null;
 
+		return read(address & 0xFFFFFF, widthOf(entry.ctype), StringTools.startsWith(stem(entry.ctype), "s"));
+	}
+
+	public function localOf(name:String):Null<Int> {
+		final variables = map.variables;
+		if (variables == null) return null;
+
+		final here = at();
+		final subprogram = variables.at(here);
+		if (subprogram == null) return null;
+
+		for (variable in subprogram.variables) {
+			if (variable.name != name) continue;
+
+			return switch (variable.location.where) {
+				case InRegister: narrow(register(variable.location.register), variable.width, variable.signed);
+				case AtRegisterOffset:
+					read(register(variable.location.register) + variable.location.value, variable.width,
+						variable.signed);
+				case AtAddress: read(variable.location.value, variable.width, variable.signed);
+				case AtFrameOffset:
+					final base = frameBase(subprogram, here);
+					base == null ? null : read(base + variable.location.value, variable.width, variable.signed);
+				case _: null;
+			}
+		}
+
+		return null;
+	}
+
+	public function frameBase(subprogram:Subprogram, address:Int):Null<Int> {
+		switch (subprogram.frameBase.where) {
+			case TheCallFrameAddress:
+				final frames = map.callFrames;
+				if (frames == null) return null;
+				final cfa = frames.at(address);
+				return cfa == null ? null : (register(cfa.register) + cfa.offset) & 0xFFFFFF;
+			case AtRegisterOffset:
+				return (register(subprogram.frameBase.register) + subprogram.frameBase.value) & 0xFFFFFF;
+			case InRegister:
+				return register(subprogram.frameBase.register) & 0xFFFFFF;
+			case _:
+				return null;
+		}
+	}
+
+	public inline function register(number:Int):Int {
+		return number < 8 ? machine.cpu.d[number] : machine.cpu.a[number - 8];
+	}
+
+	function read(address:Int, width:Int, signed:Bool):Int {
 		final at = address & 0xFFFFFF;
-		final width = widthOf(entry.ctype);
-		final signed = StringTools.startsWith(stem(entry.ctype), "s");
 
 		return switch (width) {
 			case 1:
 				final word = machine.readWord(at);
-				final value = (at & 1) == 0 ? (word >> 8) & 0xFF : word & 0xFF;
-				signed && value >= 0x80 ? value - 0x100 : value;
+				narrow((at & 1) == 0 ? (word >> 8) & 0xFF : word & 0xFF, 1, signed);
+			case 2: narrow(machine.readWord(at), 2, signed);
+			case _: (machine.readWord(at) << 16) | machine.readWord(at + 2);
+		}
+	}
+
+	static function narrow(value:Int, width:Int, signed:Bool):Int {
+		return switch (width) {
+			case 1:
+				final byte = value & 0xFF;
+				signed && byte >= 0x80 ? byte - 0x100 : byte;
 			case 2:
-				final value = machine.readWord(at);
-				signed && value >= 0x8000 ? value - 0x10000 : value;
-			case _:
-				(machine.readWord(at) << 16) | machine.readWord(at + 2);
+				final word = value & 0xFFFF;
+				signed && word >= 0x8000 ? word - 0x10000 : word;
+			case _: value;
 		}
 	}
 

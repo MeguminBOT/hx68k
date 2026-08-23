@@ -62,11 +62,16 @@ class DebugTool {
 		final debugger = new Debugger(machine, map);
 
 		if (walking) Sys.exit(stack(debugger, stop, settle, hits));
-		if (read != "") Sys.exit(readStatic(debugger, stop, read, settle, hits));
+		if (read != "") Sys.exit(readName(debugger, stop, read, settle, hits));
 		if (viewing) Sys.exit(view(debugger, stop, settle, hits));
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, hits));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, hits));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
+	}
+
+	static function show(value:Int, width:Int, signed:Bool):String {
+		if (signed || width < 4) return Std.string(value);
+		return "$" + StringTools.hex(value, 8);
 	}
 
 	static function stack(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
@@ -78,23 +83,62 @@ class DebugTool {
 		Sys.println("");
 		Sys.println(frames.length + " frames, the innermost first");
 
+		final agreement = viaFrameRule(debugger);
+		if (agreement != null && frames.length > 1) {
+			final same = agreement == frames[1].address;
+			Sys.println("the call frame rule puts the return address at $" + StringTools.hex(agreement, 6)
+				+ ", which the scan " + (same ? "also found" : "did not find"));
+			if (!same) return 1;
+		}
+
 		return frames.length > 1 ? 0 : 1;
 	}
 
-	static function readStatic(debugger:Debugger, stop:String, name:String, settle:Int, hits:Int):Int {
+	static function viaFrameRule(debugger:Debugger):Null<Int> {
+		final variables = debugger.map.variables;
+		if (variables == null) return null;
+
+		final here = debugger.at();
+		final subprogram = variables.at(here);
+		if (subprogram == null) return null;
+
+		final base = debugger.frameBase(subprogram, here);
+		if (base == null) return null;
+
+		final at = (base - 4) & 0xFFFFFF;
+		return ((debugger.machine.readWord(at) << 16) | debugger.machine.readWord(at + 2)) & 0xFFFFFF;
+	}
+
+	static function readName(debugger:Debugger, stop:String, name:String, settle:Int, hits:Int):Int {
 		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final entry = debugger.map.staticNamed(name);
-		if (entry == null) {
-			Sys.println("no such static: " + name);
+		if (entry != null) {
+			final value = debugger.valueOf(name);
+			Sys.println(name + "  static  " + entry.ctype + " = " + value);
+			return value == null ? 1 : 0;
+		}
+
+		final variables = debugger.map.variables;
+		final subprogram = variables == null ? null : variables.at(debugger.at());
+		if (subprogram == null) {
+			Sys.println("no static named " + name + ", and nothing is known about where the program is");
 			return 2;
 		}
 
-		final value = debugger.valueOf(name);
-		Sys.println(name + "  " + entry.ctype + "  " + Debugger.widthOf(entry.ctype)
-			+ (Debugger.widthOf(entry.ctype) == 1 ? " byte" : " bytes") + " = " + value);
+		for (variable in subprogram.variables) {
+			if (variable.name != name) continue;
 
-		return value == null ? 1 : 0;
+			final value = debugger.localOf(name);
+			Sys.println(name + "  " + (variable.parameter ? "parameter" : "local") + "  "
+				+ (variable.signed ? "s" : "u") + (variable.width * 8) + "  in " + subprogram.name
+				+ " = " + (value == null ? "not where this can read it yet"
+					: show(value, variable.width, variable.signed)));
+			return value == null ? 1 : 0;
+		}
+
+		Sys.println("no static named " + name + ", and " + subprogram.name + " has no such variable");
+		return 2;
 	}
 
 	static function raster(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int):Int {

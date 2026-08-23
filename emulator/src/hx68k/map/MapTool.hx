@@ -26,6 +26,11 @@ class MapTool {
 			return;
 		}
 
+		if (args[2] == "--frame") {
+			Sys.exit(showFrame(map, args.length > 3 ? args[3] : null));
+			return;
+		}
+
 		var missing = 0;
 		for (i in 2...args.length) {
 			final address = parse(map, args[i]);
@@ -45,6 +50,38 @@ class MapTool {
 		Sys.exit(missing == 0 ? 0 : 1);
 	}
 
+	static function showFrame(map:SourceMap, what:Null<String>):Int {
+		final frames = new CallFrame(map.elf);
+		if (what == null) {
+			Sys.println(frames.frames.length + " frame descriptions");
+			return frames.frames.length == 0 ? 1 : 0;
+		}
+
+		final address = parse(map, what);
+		if (address == null) {
+			Sys.println(what + ": no such symbol");
+			return 2;
+		}
+
+		var overlapping = 0;
+		for (fde in frames.frames) if (address >= fde.low && address < fde.high) overlapping++;
+		final fde = frames.covering(address);
+		if (fde != null) {
+			Sys.println("  covered by 0x" + StringTools.hex(fde.low, 6) + " to 0x"
+				+ StringTools.hex(fde.high, 6) + ", " + overlapping + " descriptions cover it");
+		}
+
+		final cfa = frames.at(address);
+		if (cfa == null) {
+			Sys.println("0x" + StringTools.hex(address, 6) + ": no rule reaches this address");
+			return 1;
+		}
+
+		Sys.println("0x" + StringTools.hex(address, 6) + "  call frame address is "
+			+ registerName(cfa.register) + " " + offset(cfa.offset));
+		return 0;
+	}
+
 	static function listLocals(map:SourceMap, only:Null<String>):Int {
 		final variables = new Variables(map.elf);
 		var shown = 0;
@@ -60,6 +97,7 @@ class MapTool {
 			for (variable in subprogram.variables) {
 				Sys.println("  " + StringTools.rpad(variable.name, " ", 22)
 					+ (variable.parameter ? "parameter  " : "local      ")
+					+ StringTools.rpad((variable.signed ? "s" : "u") + (variable.width * 8), " ", 6)
 					+ describe(variable.location));
 			}
 		}
