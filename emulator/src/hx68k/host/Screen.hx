@@ -59,7 +59,7 @@ class Screen {
 			gl.RGBA, gl.UNSIGNED_BYTE, null);
 	}
 
-	public function draw(renderer:Renderer, width:Int, height:Int):Void {
+	public function draw(renderer:Renderer, atX:Int, atY:Int, width:Int, height:Int):Void {
 		fill(renderer);
 
 		gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -70,9 +70,7 @@ class Screen {
 		final shown = Std.int(scale / 3);
 		final tall = Std.int(scale / 4);
 
-		gl.clearColor(0, 0, 0, 1);
-		gl.clear(gl.COLOR_BUFFER_BIT);
-		gl.viewport(Std.int((width - shown) / 2), Std.int((height - tall) / 2), shown, tall);
+		gl.viewport(atX + Std.int((width - shown) / 2), atY + Std.int((height - tall) / 2), shown, tall);
 
 		gl.useProgram(program);
 		gl.uniform1f(rows, renderer.height / Renderer.MAX_HEIGHT);

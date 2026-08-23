@@ -1,3 +1,13 @@
+# A debugging session with a terminal in front of it, and the build that proves everything behind
+# the seam needs no display library.
+#
+#     haxe debug.hxml
+#
+# Nothing reachable from here imports lime, and there is no display library on this classpath to
+# import. If anything under hx68k.debug, hx68k.md, hx68k.cpu or hx68k.map ever grows a dependency
+# on one, this build stops compiling, which is what makes the separation checkable rather than
+# aspirational. hx68k.host is the only package allowed to know what a window is.
+
 -cp src
 -main hx68k.debug.DebugTool
 -neko bin/debug.n

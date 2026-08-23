@@ -11,7 +11,7 @@ class DebugTool {
 			Sys.println("usage: debug <rom.bin> [<rom.out> <generated-source>]"
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
-				+ " [--stack] [--settle frames] [--hits n]");
+				+ " [--stack] [--views] [--settle frames] [--hits n]");
 			Sys.exit(2);
 		}
 
@@ -27,6 +27,7 @@ class DebugTool {
 
 		final viewing = args.indexOf("--view") >= 0;
 		final walking = args.indexOf("--stack") >= 0;
+		final showing = args.indexOf("--views") >= 0;
 
 		var i = 1;
 		while (i < args.length && args[i].charAt(0) != "-") i++;
@@ -65,6 +66,7 @@ class DebugTool {
 
 		final debugger = new Debugger(machine, map);
 
+		if (showing) Sys.exit(views(debugger, stop, settle, hits));
 		if (walking) Sys.exit(stack(debugger, stop, settle, hits));
 		if (read != "") Sys.exit(readName(debugger, stop, read, settle, hits));
 		if (viewing) Sys.exit(view(debugger, stop, settle, hits));
@@ -76,6 +78,20 @@ class DebugTool {
 	static function show(value:Int, width:Int, signed:Bool):String {
 		if (signed || width < 4) return Std.string(value);
 		return "$" + StringTools.hex(value, 8);
+	}
+
+	static function views(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
+
+		var shown = 0;
+		for (view in Views.of(debugger)) {
+			Sys.println("");
+			Sys.println("--- " + view.title() + " ---");
+			for (line in view.lines(24)) Sys.println("  " + line);
+			shown++;
+		}
+
+		return shown > 0 ? 0 : 1;
 	}
 
 	static function stack(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
