@@ -25,6 +25,8 @@ class Panel {
 
 	public var widest:Float = 0;
 
+	public var wantsApart:Bool = false;
+
 	public function new(id:String, title:String, x:Float, y:Float, width:Float, height:Float) {
 		this.id = id;
 		this.title = title;

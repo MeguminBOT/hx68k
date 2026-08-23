@@ -90,6 +90,7 @@ class Ui {
 
 	public function tool(label:String, on:Bool):Bool {
 		final wide = paint.font.measure(label) + 16;
+		if (toolPen + wide > width - MARGIN) return false;
 		final over = pointerY < reserved && pointerX >= toolPen && pointerX < toolPen + wide;
 
 		if (on) paint.rectangle(toolPen, 4, wide, reserved - 9, ACTIVE, 0.75);
@@ -107,7 +108,9 @@ class Ui {
 	}
 
 	public function note(text:String):Void {
-		paint.text(text, width - paint.font.measure(text) - MARGIN, reserved - 9, DIM);
+		final wide = paint.font.measure(text);
+		if (toolPen + wide > width - MARGIN) return;
+		paint.text(text, width - wide - MARGIN, reserved - 9, DIM);
 	}
 
 	public function offer(id:String, title:String, x:Float, y:Float, wide:Float, tall:Float):Panel {
@@ -151,6 +154,7 @@ class Ui {
 		current = panel;
 		handle(panel);
 		wheel(panel);
+		hold(panel);
 
 		paint.clip(panel.x, panel.y, panel.width, panel.collapsed ? bar : panel.height, tall);
 
@@ -162,9 +166,13 @@ class Ui {
 		paint.text(panel.collapsed ? "+" : "-", panel.x + 8, panel.y + bar - 7, DIM);
 		paint.text(panel.title, panel.x + 24, panel.y + bar - 7, INK);
 		paint.text("x", panel.x + panel.width - 16, panel.y + bar - 7, DIM);
+		paint.text("^", panel.x + panel.width - 34, panel.y + bar - 7, DIM);
+		paint.text("=", panel.x + panel.width - 52, panel.y + bar - 7, DIM);
 
 		if (panel.docked != Loose) paint.text(edgeName(panel.docked), panel.x + panel.width - 60,
 			panel.y + bar - 7, DIM);
+
+		paint.clip(panel.x, panel.y + bar, panel.width, panel.height - bar, tall);
 
 		pen = panel.y + bar + paint.font.height - panel.scroll;
 		panel.widest = 0;
@@ -201,6 +209,10 @@ class Ui {
 			var at = panel.x + MARGIN;
 			for (column in 0...showing) {
 				if (column >= row.parts.length) break;
+
+				final last = column == showing - 1;
+				if (last && row.parts[column].kind == Label && column + 1 < row.parts.length) break;
+
 				write(row.parts[column], at, widths[column]);
 				at += widths[column] + paint.font.advance;
 			}
@@ -330,7 +342,8 @@ class Ui {
 			} else if (panel.onBar(pointerX, pointerY, bar)) {
 				if (pointerX < panel.x + 20) panel.collapsed = !panel.collapsed;
 				else if (pointerX > panel.x + panel.width - 24) panel.open = false;
-				else if (pointerX > panel.x + panel.width - 48) fit(panel);
+				else if (pointerX > panel.x + panel.width - 42) panel.wantsApart = true;
+				else if (pointerX > panel.x + panel.width - 60) fit(panel);
 				else {
 					dragging = panel;
 					grabX = pointerX - panel.x;
@@ -347,8 +360,6 @@ class Ui {
 		}
 
 		if (resizing == panel) resize(panel);
-
-		hold(panel);
 	}
 
 	function resize(panel:Panel):Void {
@@ -379,7 +390,7 @@ class Ui {
 
 	function wheel(panel:Panel):Void {
 		if (turned == 0 || !panel.holds(pointerX, pointerY, bar)) return;
-		panel.scroll -= turned * paint.font.height * 3;
+		panel.scroll -= turned * paint.font.height;
 	}
 
 	function settle(panel:Panel):Void {

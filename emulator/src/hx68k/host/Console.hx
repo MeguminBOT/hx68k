@@ -79,6 +79,21 @@ class Console extends Application {
 			: "source map loaded, so the panels name the Haxe behind an address");
 	}
 
+	function popOut(title:String):Void {
+		final already = apart.get(title);
+		if (already != null) {
+			already.shut();
+			apart.remove(title);
+			return;
+		}
+
+		for (view in views) {
+			if (view.title() != title) continue;
+			apart.set(title, new Detached(this, view, monospace()));
+			return;
+		}
+	}
+
 	function insert(rom:Null<String>):Void {
 		if (rom == null || !sys.FileSystem.exists(rom)) {
 			window.title = "hx68k  no ROM";
@@ -229,21 +244,6 @@ class Console extends Application {
 			if (ui.tool(view.title(), panel.open)) panel.open = !panel.open;
 		}
 
-		ui.gap();
-
-		for (view in views) {
-			final title = view.title();
-			final out = apart.exists(title);
-			if (!ui.tool(title + " apart", out)) continue;
-
-			if (out) {
-				apart.get(title).shut();
-				apart.remove(title);
-			} else {
-				apart.set(title, new Detached(this, view, monospace()));
-			}
-		}
-
 		ui.note(rate + " a second     " + round(emulating) + " ms emulating     "
 			+ round(drawing) + " ms drawing" + (paused ? "     f10 f11 step" : ""));
 	}
@@ -256,6 +256,12 @@ class Console extends Application {
 			}
 
 			if (!ui.panel(panel.id)) continue;
+
+			if (panel.wantsApart) {
+				panel.wantsApart = false;
+				popOut(panel.id);
+			}
+
 			final rows = said.get(panel.id);
 			if (rows != null) ui.table(rows);
 		}
