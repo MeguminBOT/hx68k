@@ -225,6 +225,37 @@ case "$SESSION" in
 esac
 
 echo ""
+echo "--- what DWARF says a function's parameters and locals are ---"
+LOCALS="$(neko "$MAP" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --locals Main_accumulate)"
+echo "$LOCALS" | sed 's/^/  /'
+
+# the names come from the sample, so renaming what it declares moves the expectation with it
+BUG_SAMPLE="$ROOT/samples/bug/hx/Main.hx"
+WANT_PARAMETER="$(sed -n 's/.*function accumulate(\([a-zA-Z_][a-zA-Z0-9_]*\):.*/\1/p' "$BUG_SAMPLE")"
+WANT_LOCAL="$(sed -n 's/.*var \([a-zA-Z_][a-zA-Z0-9_]*\) = 1;.*/\1/p' "$BUG_SAMPLE")"
+
+printf "locals %-17s" "the parameter"
+case "$LOCALS" in
+	*"  $WANT_PARAMETER "*parameter*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no parameter named $WANT_PARAMETER, which is what the sample declares"; exit 1 ;;
+esac
+
+printf "locals %-17s" "the local"
+case "$LOCALS" in
+	*"  $WANT_LOCAL "*local*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no local named $WANT_LOCAL, which is what the sample declares"; exit 1 ;;
+esac
+
+# every frame base gcc writes here is the call frame address, which is what a CFI reader resolves
+printf "locals %-17s" "the frame base"
+case "$LOCALS" in
+	*"frame base the call frame address"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  the frame base was not the call frame address"; exit 1 ;;
+esac
+
+echo ""
 echo "--- who called whom, read off the stack ---"
 
 backtrace() {

@@ -4,7 +4,8 @@ class MapTool {
 	static function main():Void {
 		final args = Sys.args();
 		if (args.length < 2) {
-			Sys.println("usage: map <rom.out> <generated-source-directory> [address|symbol ...]");
+			Sys.println("usage: map <rom.out> <generated-source-directory>"
+				+ " [address|symbol ...] [--statics] [--locals [symbol]]");
 			Sys.exit(2);
 		}
 
@@ -17,6 +18,11 @@ class MapTool {
 
 		if (args[2] == "--statics") {
 			Sys.exit(listStatics(map));
+			return;
+		}
+
+		if (args[2] == "--locals") {
+			Sys.exit(listLocals(map, args.length > 3 ? args[3] : null));
 			return;
 		}
 
@@ -37,6 +43,50 @@ class MapTool {
 			Sys.println(map.toString(place));
 		}
 		Sys.exit(missing == 0 ? 0 : 1);
+	}
+
+	static function listLocals(map:SourceMap, only:Null<String>):Int {
+		final variables = new Variables(map.elf);
+		var shown = 0;
+
+		for (subprogram in variables.subprograms) {
+			if (only != null && subprogram.name != only) continue;
+			shown++;
+
+			Sys.println(StringTools.rpad(subprogram.name, " ", 30)
+				+ "0x" + StringTools.hex(subprogram.low, 6) + " to 0x" + StringTools.hex(subprogram.high, 6)
+				+ "  frame base " + subprogram.frameBase.where.toString());
+
+			for (variable in subprogram.variables) {
+				Sys.println("  " + StringTools.rpad(variable.name, " ", 22)
+					+ (variable.parameter ? "parameter  " : "local      ")
+					+ describe(variable.location));
+			}
+		}
+
+		Sys.println("");
+		Sys.println(shown + (shown == 1 ? " function" : " functions") + " with debugging information");
+		return shown == 0 ? 1 : 0;
+	}
+
+	static function describe(location:Variables.Location):String {
+		return switch (location.where) {
+			case InRegister: "in " + registerName(location.register);
+			case AtFrameOffset: "at the frame base " + offset(location.value);
+			case AtRegisterOffset: "at " + registerName(location.register) + " " + offset(location.value);
+			case AtAddress: "at 0x" + StringTools.hex(location.value, 6);
+			case InList: "in a location list at 0x" + StringTools.hex(location.value, 4);
+			case TheCallFrameAddress: "the call frame address";
+			case Nowhere: "nowhere DWARF names simply";
+		}
+	}
+
+	static inline function registerName(register:Int):String {
+		return register < 8 ? "d" + register : "a" + (register - 8);
+	}
+
+	static inline function offset(value:Int):String {
+		return value < 0 ? "minus " + -value : "plus " + value;
 	}
 
 	static function listStatics(map:SourceMap):Int {
