@@ -20,3 +20,6 @@ tests/.observables.txt
 *.o
 *.bin
 *.out
+
+# the window type check, which writes nothing it keeps
+tests/.hostcheck/

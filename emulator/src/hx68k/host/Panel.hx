@@ -20,6 +20,11 @@ class Panel {
 	public var open:Bool = true;
 	public var order:Int = 0;
 
+	public var scroll:Float = 0;
+	public var content:Float = 0;
+
+	public var widest:Float = 0;
+
 	public function new(id:String, title:String, x:Float, y:Float, width:Float, height:Float) {
 		this.id = id;
 		this.title = title;
@@ -38,9 +43,15 @@ class Panel {
 		return pointerX >= x && pointerX < x + width && pointerY >= y && pointerY < y + bar;
 	}
 
-	public function onGrip(pointerX:Float, pointerY:Float, grip:Float):Bool {
-		if (collapsed || docked != Loose) return false;
-		return pointerX >= x + width - grip && pointerX < x + width
-			&& pointerY >= y + height - grip && pointerY < y + height;
+	public function grip(pointerX:Float, pointerY:Float, reach:Float):{across:Int, down:Int} {
+		if (collapsed || docked != Loose) return {across: 0, down: 0};
+
+		final near = pointerX >= x - reach && pointerX < x + width + reach
+			&& pointerY >= y - reach && pointerY < y + height + reach;
+		if (!near) return {across: 0, down: 0};
+
+		final across = pointerX >= x + width - reach ? 1 : (pointerX < x + reach ? -1 : 0);
+		final down = pointerY >= y + height - reach ? 1 : 0;
+		return {across: across, down: down};
 	}
 }

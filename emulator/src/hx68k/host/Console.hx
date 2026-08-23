@@ -2,6 +2,8 @@ package hx68k.host;
 
 import hx68k.host.Panel.Dock;
 import hx68k.debug.Debugger;
+import hx68k.map.Elf;
+import hx68k.map.SourceMap;
 import hx68k.debug.View;
 import hx68k.debug.Views;
 import hx68k.md.Machine;
@@ -10,6 +12,8 @@ import lime.app.Application;
 import lime.graphics.RenderContext;
 import lime.ui.KeyCode;
 import lime.ui.KeyModifier;
+import lime.ui.FileDialog;
+import lime.ui.FileDialogType;
 import lime.ui.MouseButton;
 
 class Console extends Application {
@@ -26,10 +30,16 @@ class Console extends Application {
 
 	static inline final REBUILD = 0.05;
 
+	static inline final NOW = 0.0;
+
+	static inline final SCREEN = "screen";
+
 	final machine:Machine = new Machine();
 
 	var views:Array<View> = [];
-	var said:Map<String, Array<String>> = [];
+	var debugger:Null<Debugger> = null;
+	var apart:Map<String, Detached> = [];
+	var said:Map<String, Array<hx68k.debug.Row>> = [];
 
 	var screen:Null<Screen> = null;
 	var paint:Null<Paint> = null;
@@ -54,19 +64,55 @@ class Console extends Application {
 
 	override function onWindowCreate():Void {
 		final rom = romPath();
-		if (rom == null) {
-			Sys.println("usage: the window takes a ROM, as `run-window.sh <rom.bin>`");
+
+		since = haxe.Timer.stamp();
+
+		debugger = new Debugger(machine, map());
+		views = Views.of(debugger);
+		insert(rom);
+
+		window.onRender.add(drawMain);
+		window.title = "hx68k  " + haxe.io.Path.withoutDirectory(rom);
+		Sys.println("escape quits, space pauses, tab runs it flat out, f10 and f11 step");
+		Sys.println(debugger.map == null
+			? "no source map given, so the panels name addresses rather than Haxe"
+			: "source map loaded, so the panels name the Haxe behind an address");
+	}
+
+	function insert(rom:Null<String>):Void {
+		if (rom == null || !sys.FileSystem.exists(rom)) {
+			window.title = "hx68k  no ROM";
 			return;
 		}
 
+		machine.reset();
 		machine.load(rom);
-		loaded = true;
-		since = haxe.Timer.stamp();
 
-		views = Views.of(new Debugger(machine, null));
+		loaded = true;
+		owed = 0;
+		frames = 0;
+		rebuilt = 0;
 
 		window.title = "hx68k  " + haxe.io.Path.withoutDirectory(rom);
-		Sys.println("running " + rom + ", escape quits, space pauses, tab runs it flat out");
+		Sys.println("running " + rom);
+	}
+
+	function choose():Void {
+		final dialog = new FileDialog();
+		dialog.onSelect.add(path -> insert(path));
+		dialog.browse(FileDialogType.OPEN, "bin,md,gen,smd", null, "Open a Mega Drive ROM");
+	}
+
+	function map():Null<SourceMap> {
+		final given = positional();
+		if (given.length < 3) return null;
+
+		try {
+			return new SourceMap(new Elf(given[1]), given[2]);
+		} catch (e:String) {
+			Sys.println("no source map for " + given[1] + ": " + e);
+			return null;
+		}
 	}
 
 	override function update(deltaTime:Int):Void {
@@ -106,9 +152,11 @@ class Console extends Application {
 		}
 	}
 
-	override function render(context:RenderContext):Void {
+	override function render(context:RenderContext):Void {}
+
+	function drawMain(context:RenderContext):Void {
 		final gl = context.webgl;
-		if (gl == null || !loaded) return;
+		if (gl == null) return;
 
 		if (screen == null) {
 			screen = new Screen(gl);
@@ -118,20 +166,15 @@ class Console extends Application {
 		}
 
 		final started = haxe.Timer.stamp();
-		rebuild();
+		if (loaded) rebuild();
 
 		gl.clearColor(0.04, 0.05, 0.06, 1);
 		gl.clear(gl.COLOR_BUFFER_BIT);
-
-		final left = Std.int(ui.taken(Left));
-		final right = Std.int(ui.taken(Right));
-		final bottom = Std.int(ui.taken(Bottom));
-		screen.draw(machine.vdp.renderer, left, bottom,
-			window.width - left - right, window.height - bottom);
-
 		gl.viewport(0, 0, window.width, window.height);
+
 		ui.begin(window.width, window.height);
-		panels();
+		toolbar();
+		panels(gl);
 		ui.finish();
 		paint.flush(window.width, window.height);
 
@@ -139,12 +182,19 @@ class Console extends Application {
 	}
 
 	function arrange():Void {
-		var y = 30.0;
+		final top = ui.reserved + 8;
+		final column = Math.max(paint.font.advance * 46, window.width * 0.36);
+		final split = window.width - column - 12;
+
+		ui.offer(SCREEN, "screen", 8, top, split - 8, window.height - top - 8);
+
+		final each = (window.height - top - 8) / views.length;
+		var y = top;
+
 		for (view in views) {
-			ui.offer(view.title(), view.title(), 30, y, paint.font.advance * 62, 230);
-			y += 44;
+			ui.offer(view.title(), view.title(), split + 4, y, column, each - 6);
+			y += each;
 		}
-		ui.offer("options", "options", 30, y, paint.font.advance * 34, 200);
 	}
 
 	function rebuild():Void {
@@ -152,44 +202,83 @@ class Console extends Application {
 		if (now - rebuilt < REBUILD) return;
 		rebuilt = now;
 
-		for (view in views) said.set(view.title(), view.lines(40));
+		for (view in views) said.set(view.title(), view.rows(60));
+
+		for (title in apart.keys()) {
+			final window = apart.get(title);
+			if (window.closed) {
+				apart.remove(title);
+				continue;
+			}
+			window.say(said.get(title));
+		}
 	}
 
-	function panels():Void {
+	function toolbar():Void {
+		ui.toolbar();
+
+		if (ui.tool("open a ROM", false)) choose();
+		ui.gap(8);
+
+		if (ui.tool(paused ? "running" : "paused", paused)) paused = !paused;
+		if (ui.tool("flat out", unlimited)) unlimited = !unlimited;
+		ui.gap();
+
+		for (view in views) {
+			final panel = ui.offer(view.title(), view.title(), 0, 0, 0, 0);
+			if (ui.tool(view.title(), panel.open)) panel.open = !panel.open;
+		}
+
+		ui.gap();
+
+		for (view in views) {
+			final title = view.title();
+			final out = apart.exists(title);
+			if (!ui.tool(title + " apart", out)) continue;
+
+			if (out) {
+				apart.get(title).shut();
+				apart.remove(title);
+			} else {
+				apart.set(title, new Detached(this, view, monospace()));
+			}
+		}
+
+		ui.note(rate + " a second     " + round(emulating) + " ms emulating     "
+			+ round(drawing) + " ms drawing" + (paused ? "     f10 f11 step" : ""));
+	}
+
+	function panels(gl:lime.graphics.WebGLRenderContext):Void {
 		for (panel in ui.order()) {
-			if (panel.id == "options") {
-				options();
+			if (panel.id == SCREEN) {
+				picture(gl, panel);
 				continue;
 			}
 
 			if (!ui.panel(panel.id)) continue;
-			final lines = said.get(panel.id);
-			if (lines == null) continue;
-
-			final room = ui.room();
-			for (i in 0...lines.length) {
-				if (i >= room) break;
-				ui.line(lines[i]);
-			}
+			final rows = said.get(panel.id);
+			if (rows != null) ui.table(rows);
 		}
 	}
 
-	function options():Void {
-		if (!ui.panel("options")) return;
+	function picture(gl:lime.graphics.WebGLRenderContext, panel:Panel):Void {
+		if (!ui.panel(panel.id)) return;
 
-		paused = ui.toggle("paused", paused);
-		unlimited = ui.toggle("run it flat out", unlimited);
-		ui.line("");
-
-		for (view in views) {
-			final panel = ui.offer(view.title(), view.title(), 0, 0, 0, 0);
-			panel.open = ui.toggle(view.title(), panel.open);
+		if (!loaded) {
+			ui.line("no ROM in the machine");
+			ui.line("open one from the toolbar", Ui.DIM);
+			return;
 		}
 
-		ui.line("");
-		ui.line(rate + " frames a second", Ui.DIM);
-		ui.line(round(emulating) + " ms emulating", Ui.DIM);
-		ui.line(round(drawing) + " ms drawing", Ui.DIM);
+		final top = panel.y + ui.bar;
+		final high = panel.height - ui.bar;
+
+		ui.done();
+
+		screen.draw(machine.vdp.renderer, Std.int(panel.x),
+			Std.int(window.height - panel.y - panel.height), Std.int(panel.width), Std.int(high));
+
+		gl.viewport(0, 0, window.width, window.height);
 	}
 
 	static function round(value:Float):String {
@@ -198,6 +287,10 @@ class Console extends Application {
 
 	override function onMouseMove(x:Float, y:Float):Void {
 		if (ui != null) ui.moved(x, y);
+	}
+
+	override function onMouseWheel(deltaX:Float, deltaY:Float, mode:lime.ui.MouseWheelMode):Void {
+		if (ui != null) ui.turn(deltaY);
 	}
 
 	override function onMouseDown(x:Float, y:Float, button:MouseButton):Void {
@@ -217,8 +310,19 @@ class Console extends Application {
 			case ESCAPE: window.close();
 			case SPACE: paused = !paused;
 			case TAB: unlimited = !unlimited;
+			case F10: step(false);
+			case F11: step(true);
 			case _: press(code, true);
 		}
+	}
+
+	function step(wholeLine:Bool):Void {
+		if (!paused || debugger == null) return;
+
+		if (wholeLine && debugger.map != null) debugger.stepLine();
+		else debugger.step();
+
+		rebuilt = NOW;
 	}
 
 	override function onKeyUp(code:KeyCode, modifier:KeyModifier):Void {
@@ -255,10 +359,13 @@ class Console extends Application {
 	}
 
 	function romPath():Null<String> {
-		for (argument in Sys.args()) {
-			if (argument.charAt(0) == "-") continue;
-			if (sys.FileSystem.exists(argument)) return argument;
-		}
-		return null;
+		final given = positional();
+		return given.length == 0 ? null : given[0];
+	}
+
+	static function positional():Array<String> {
+		final out = [];
+		for (argument in Sys.args()) if (argument.charAt(0) != "-") out.push(argument);
+		return out;
 	}
 }

@@ -42,6 +42,8 @@ class Paint {
 	final screen:Int;
 
 	var batch:Array<Float> = [];
+	var clipped:Bool = false;
+	var lastWidth:Int = 0;
 
 	public function new(gl:WebGLRenderContext, font:Font) {
 		this.gl = gl;
@@ -53,6 +55,31 @@ class Paint {
 		shade = gl.getAttribLocation(program, "shade");
 		screen = gl.getUniformLocation(program, "screen");
 		vertices = gl.createBuffer();
+	}
+
+	public function clip(x:Float, y:Float, width:Float, height:Float, windowHeight:Int):Void {
+		flush(lastWidth, windowHeight);
+
+		final left = Std.int(Math.max(0, x));
+		final right = Std.int(Math.min(lastWidth, x + width));
+		final foot = Std.int(Math.max(0, windowHeight - (y + height)));
+		final head = Std.int(Math.min(windowHeight, windowHeight - y));
+
+		gl.enable(gl.SCISSOR_TEST);
+		gl.scissor(left, foot, Std.int(Math.max(0, right - left)), Std.int(Math.max(0, head - foot)));
+		clipped = true;
+	}
+
+	public function release(windowHeight:Int):Void {
+		if (!clipped) return;
+
+		flush(lastWidth, windowHeight);
+		gl.disable(gl.SCISSOR_TEST);
+		clipped = false;
+	}
+
+	public function knows(width:Int):Void {
+		if (width > 0) lastWidth = width;
 	}
 
 	public function rectangle(x:Float, y:Float, width:Float, height:Float, colour:Int,
@@ -94,6 +121,7 @@ class Paint {
 	}
 
 	public function flush(width:Int, height:Int):Void {
+		if (width > 0) lastWidth = width;
 		if (batch.length == 0) return;
 
 		gl.enable(gl.BLEND);

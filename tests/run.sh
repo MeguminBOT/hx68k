@@ -583,6 +583,23 @@ if [ -f "$GAME" ]; then
 fi
 
 echo ""
+echo "--- the window, which the rest of this never compiles ---"
+# the gated builds are neko and reach nothing under hx68k.host, so without this the interface is
+# the one part nothing here would notice breaking. A full lime build takes minutes; type checking
+# it against the target it really runs on takes a couple of seconds and catches the same breakage.
+printf "host %-19s" "type checks"
+if ! haxelib path lime > /dev/null 2>&1; then
+	echo "skipped, lime is not installed"
+elif (cd "$ROOT/emulator" && haxe -cp src -lib lime -cpp "$HERE/.hostcheck" --no-output \
+		hx68k.host.Console hx68k.host.Detached) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+
+echo ""
 echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
 "$ROOT/emulator/run-sst.sh" 2>&1 | tail -12
 

@@ -1,5 +1,8 @@
 package hx68k.debug;
 
+import hx68k.debug.Row.Kind;
+import hx68k.debug.Row.Part;
+
 class Disassembly implements View {
 	final debugger:Debugger;
 	final disassembler:Disassembler;
@@ -15,11 +18,11 @@ class Disassembly implements View {
 		return "disassembly";
 	}
 
-	public function lines(rows:Int):Array<String> {
-		final out = new Array<String>();
+	public function rows(limit:Int):Array<Row> {
+		final out = new Array<Row>();
 		var at = debugger.at();
 
-		for (i in 0...rows) {
+		for (i in 0...limit) {
 			final instruction = disassembler.at(at);
 			final place = debugger.map == null ? null : debugger.map.resolve(at);
 
@@ -27,8 +30,17 @@ class Disassembly implements View {
 				? names.at(at)
 				: haxe.io.Path.withoutDirectory(place.file) + ":" + place.line;
 
-			out.push((i == 0 ? "> " : "  ") + StringTools.hex(at, 6) + "  "
-				+ StringTools.rpad(instruction.text, " ", 28) + site);
+			final space = instruction.text.indexOf(" ");
+			final what = space < 0 ? instruction.text : instruction.text.substr(0, space);
+			final on = space < 0 ? "" : instruction.text.substr(space + 1);
+
+			out.push(new Row([
+				{text: i == 0 ? ">" : "", kind: Here},
+				{text: StringTools.hex(at, 6), kind: Place},
+				{text: what, kind: Value},
+				{text: on, kind: Value},
+				{text: site, kind: Aside}
+			]));
 
 			at = (at + instruction.length) & 0xFFFFFF;
 		}

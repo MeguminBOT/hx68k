@@ -1,5 +1,8 @@
 package hx68k.debug;
 
+import hx68k.debug.Row.Kind;
+import hx68k.debug.Row.Part;
+
 class Registers implements View {
 	final debugger:Debugger;
 
@@ -11,30 +14,42 @@ class Registers implements View {
 		return "registers";
 	}
 
-	public function lines(rows:Int):Array<String> {
+	public function rows(limit:Int):Array<Row> {
 		final cpu = debugger.machine.cpu;
-		final out = new Array<String>();
+		final out = new Array<Row>();
 
 		for (i in 0...4) {
-			out.push(pair("d", i, cpu.d[i]) + "   " + pair("d", i + 4, cpu.d[i + 4])
-				+ "   " + pair("a", i, cpu.a[i]) + "   " + pair("a", i + 4, cpu.a[i + 4]));
+			out.push(new Row([
+				name("d" + i), value(cpu.d[i]),
+				name("d" + (i + 4)), value(cpu.d[i + 4]),
+				name("a" + i), value(cpu.a[i]),
+				name("a" + (i + 4)), value(cpu.a[i + 4])
+			]));
 		}
 
-		out.push("");
-		out.push("pc " + hex(debugger.at(), 6) + "   sr " + hex(cpu.getSr(), 4)
-			+ "   " + flags(cpu) + "   mask " + cpu.imask + (cpu.s ? "   supervisor" : "   user"));
+		out.push(Row.blank());
+		out.push(new Row([
+			name("pc"), {text: StringTools.hex(debugger.at(), 6), kind: Place},
+			name("sr"), value(cpu.getSr(), 4),
+			name("flags"), {text: flags(cpu), kind: Value},
+			name("mask"), {text: Std.string(cpu.imask), kind: Value}
+		]));
+
+		out.push(new Row([
+			name("mode"), {text: cpu.s ? "supervisor" : "user", kind: Value},
+			name("cycles"), {text: Std.string(debugger.machine.cycles), kind: Value},
+			name("frame"), {text: Std.string(debugger.machine.vdp.frame), kind: Value},
+			name("line"), {text: Std.string(debugger.machine.vdp.line), kind: Value}
+		]));
 
 		final place = debugger.site();
-		out.push("");
-		out.push(place == null
+		out.push(Row.blank());
+		out.push(Row.said(place == null
 			? "no Haxe behind this address"
-			: haxe.io.Path.withoutDirectory(place.file) + ":" + place.line + "  " + place.name);
+			: haxe.io.Path.withoutDirectory(place.file) + ":" + place.line + "  " + place.name,
+			place == null ? Aside : Here));
 
-		out.push("");
-		out.push("cycles " + debugger.machine.cycles + "   frame " + debugger.machine.vdp.frame
-			+ "   line " + debugger.machine.vdp.line);
-
-		return out.slice(0, rows);
+		return out.slice(0, limit);
 	}
 
 	static function flags(cpu:hx68k.cpu.m68k.M68000):String {
@@ -42,11 +57,11 @@ class Registers implements View {
 			+ (cpu.vf ? "V" : "v") + (cpu.cf ? "C" : "c");
 	}
 
-	static inline function pair(kind:String, index:Int, value:Int):String {
-		return kind + index + " " + hex(value, 8);
+	static inline function name(text:String):Part {
+		return {text: text, kind: Label};
 	}
 
-	static inline function hex(value:Int, digits:Int):String {
-		return StringTools.hex(value, digits);
+	static inline function value(number:Int, digits:Int = 8):Part {
+		return {text: StringTools.hex(number, digits), kind: Value};
 	}
 }

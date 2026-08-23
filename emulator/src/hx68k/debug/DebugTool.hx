@@ -87,7 +87,7 @@ class DebugTool {
 		for (view in Views.of(debugger)) {
 			Sys.println("");
 			Sys.println("--- " + view.title() + " ---");
-			for (line in view.lines(24)) Sys.println("  " + line);
+			for (line in Views.lines(view, 24)) Sys.println("  " + line);
 			shown++;
 		}
 
