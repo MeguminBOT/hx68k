@@ -20,6 +20,7 @@ class Machine implements Bus implements Memory {
 	public final z80Ram:Bytes = Bytes.alloc(Z80_RAM_SIZE);
 
 	public var cycles(default, null):Int = 0;
+	public var interrupts(default, null):Int = 0;
 	public var rom(default, null):Bytes = Bytes.alloc(0);
 
 	public final buttons:Vector<Int> = new Vector<Int>(3);
@@ -87,6 +88,7 @@ class Machine implements Bus implements Memory {
 		if (level > cpu.imask) {
 			vdp.acknowledge(level);
 			cpu.interrupt(level);
+			interrupts++;
 		}
 	}
 

@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.test.DisassemblyCheck
+-neko bin/disassembly.n

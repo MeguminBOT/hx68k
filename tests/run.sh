@@ -224,6 +224,35 @@ case "$SESSION" in
 	*) echo "FAILED"; echo "  expected the bug on Main.hx:$WANT"; exit 1 ;;
 esac
 
+echo ""
+echo "--- a trace in Haxe, checked against the core that ran it ---"
+TRACE="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" \
+	--break Main.accumulate --trace 20000)"
+
+echo "$TRACE" | head -4 | sed 's/^/  /'
+echo "  ..."
+echo "$TRACE" | tail -1 | sed 's/^/  /'
+
+# every instruction either falls through by its own length or says it moves the pc, which holds
+# the disassembler to the core that just ran the same bytes
+printf "trace %-18s" "accounted for"
+case "$(echo "$TRACE" | tail -1)" in
+	"trace: 20000 instructions, 20000 accounted for, 0 not disassembled") echo "ok" ;;
+	*) echo "FAILED"; echo "$TRACE" | tail -8; exit 1 ;;
+esac
+
+printf "trace %-18s" "named the Haxe"
+if [ "$(echo "$TRACE" | grep -c "Main.hx:.*Main.accumulate")" -gt 0 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  no line of the trace named Main.accumulate in Main.hx"
+	exit 1
+fi
+
 # a commercial ROM is the widest test there is, and the one thing here that cannot be committed
 GAME="$ROOT/_realRomTest/sth2.md"
 if [ -f "$GAME" ]; then
@@ -247,3 +276,7 @@ echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
 echo ""
 echo "--- z80 cycle-accuracy conformance (SingleStepTests) ---"
 "$ROOT/emulator/run-z80.sh" 2>&1 | tail -9
+
+echo ""
+echo "--- the disassembler against the same 68000 fixtures ---"
+"$ROOT/emulator/run-disassembly.sh" --ci

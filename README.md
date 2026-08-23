@@ -25,6 +25,26 @@ break at Main.hx:26  Main.accumulate
 found: Main.hx:30 sets Main.total to 2 where 1 was expected
 ```
 
+The same chain reads the other way, as a trace: every instruction the 68000 ran, disassembled,
+beside the Haxe line behind it. It says not just which line went wrong but why, since the sample
+means to add `i` once and the trace adds it twice.
+
+```
+000476  MOVE.l ($FF0046).l,D0       Main.hx:30  Main.accumulate
+00047C  ADD.l D1,D0                 Main.hx:30  Main.accumulate
+00047E  ADD.l D1,D0                 Main.hx:30  Main.accumulate
+000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
+```
+
+The disassembler is held to the fixtures the core is held to, on three axes across all 127 opcode
+groups and 317,500 cases: the instruction each group names, every register the suite's own test
+names mention, and the length of the instruction, which the fixture's final pc measures for the
+215,777 cases that neither branch nor fault. **All three at 100%.** The only encodings it refuses to
+name are the 5,000 line-A and line-F cases, which are not instructions. On real compiled code it is
+checked the other way round, against the core that just ran the same bytes: 200,000 instructions of
+each debug sample, every one disassembled, every one either falling through by its own length or
+saying where it moved the pc.
+
 The generated code is held to the C written beside it, measured in 68000 cycles on the emulated
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
 and identical on a third.
