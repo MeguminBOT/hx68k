@@ -172,7 +172,10 @@ class Machine implements Bus implements Memory {
 			final z = at & 0x1FFE;
 			return (z80Ram.get(z) << 8) | z80Ram.get(z | 1);
 		}
-		if (at >= 0xA04000 && at < 0xA06000) return 0x0000;
+		if (at >= 0xA04000 && at < 0xA06000) {
+			final answer = sound.ym.read();
+			return (answer << 8) | answer;
+		}
 		if (at >= 0xA10000 && at < 0xA10020) {
 			final value = io(at);
 			return (value << 8) | value;
@@ -199,6 +202,11 @@ class Machine implements Bus implements Memory {
 			final z = at & 0x1FFE;
 			if (uds) z80Ram.set(z, (value >> 8) & 0xFF);
 			if (lds) z80Ram.set(z | 1, value & 0xFF);
+			return;
+		}
+
+		if (at >= 0xA04000 && at < 0xA06000) {
+			sound.ym.write(at & 3, both(value, uds, lds));
 			return;
 		}
 

@@ -58,7 +58,7 @@ class Z80Bus implements Bus {
 		final at = address & 0xFFFF;
 
 		if (at < 0x4000) return ram.get(at & 0x1FFF);
-		if (at < 0x6000) return 0x00;
+		if (at < 0x6000) return machine.sound.ym.read();
 		if (at >= 0x8000) return machine.readWord(window(at)) >> ((at & 1) == 0 ? 8 : 0) & 0xFF;
 
 		return 0xFF;
@@ -79,6 +79,7 @@ class Z80Bus implements Bus {
 
 		if (at >= 0x4000 && at < 0x6000) {
 			soundWrites++;
+			machine.sound.ym.write(at & 3, value);
 			return;
 		}
 

@@ -8,6 +8,7 @@ class Sound {
 	static inline final ROOM = 2205;
 
 	public final psg:Psg = new Psg();
+	public final ym:Ym2612 = new Ym2612();
 
 	public var lost(default, null):Int = 0;
 
@@ -18,12 +19,19 @@ class Sound {
 	var held:Int = 0;
 
 	var psgClocks:Float = 0;
+	var ymClocks:Float = 0;
+	var ymSpare:Int = 0;
+	var fm:Int = 0;
 	var samples:Float = 0;
 
 	public function new() {}
 
 	public function reset():Void {
 		psg.reset();
+		ym.reset();
+		ymClocks = 0;
+		ymSpare = 0;
+		fm = 0;
 		head = 0;
 		tail = 0;
 		held = 0;
@@ -40,10 +48,23 @@ class Sound {
 			psgClocks -= whole;
 		}
 
+		ymClocks += master / 7.0;
+		final ymWhole = Std.int(ymClocks);
+		if (ymWhole > 0) {
+			ymClocks -= ymWhole;
+			ym.run(ymWhole);
+
+			ymSpare += ymWhole;
+			while (ymSpare >= Ym2612.PER_SAMPLE) {
+				ymSpare -= Ym2612.PER_SAMPLE;
+				fm = ym.sample();
+			}
+		}
+
 		samples += master * RATE / Vdp.MASTER_HZ;
 		while (samples >= 1) {
 			samples -= 1;
-			put(psg.sample());
+			put(fm + psg.sample() * 2);
 		}
 	}
 
