@@ -8,6 +8,7 @@ enum abstract Where(Int) from Int to Int {
 	var AtAddress = 4;
 	var InList = 5;
 	var TheCallFrameAddress = 6;
+	var Constant = 7;
 
 	public function toString():String {
 		return switch (cast this : Where) {
@@ -18,6 +19,7 @@ enum abstract Where(Int) from Int to Int {
 			case AtAddress: "at an address";
 			case InList: "in a location list";
 			case TheCallFrameAddress: "the call frame address";
+			case Constant: "a constant";
 		}
 	}
 }
@@ -41,6 +43,7 @@ typedef Subprogram = {
 	final name:String;
 	final low:Int;
 	final high:Int;
+	final base:Int;
 	final frameBase:Location;
 	final variables:Array<Variable>;
 }
@@ -62,6 +65,7 @@ class Variables {
 	static inline final TAG_LEXICAL_BLOCK = 0x0B;
 	static inline final TAG_SUBPROGRAM = 0x2E;
 	static inline final TAG_VARIABLE = 0x34;
+	static inline final TAG_COMPILE_UNIT = 0x11;
 
 	static inline final AT_LOCATION = 0x02;
 	static inline final AT_NAME = 0x03;
@@ -113,6 +117,35 @@ class Variables {
 		return null;
 	}
 
+	public function placeOf(subprogram:Subprogram, variable:Variable, address:Int):Location {
+		if (variable.location.where != InList) return variable.location;
+
+		final section = elf.section(".debug_loc");
+		if (section == null) return nowhere();
+
+		final reader = new Reader(elf.bytes, section.offset + variable.location.value);
+		final end = section.offset + section.size;
+		var base = subprogram.base;
+
+		while (reader.position + 8 <= end) {
+			final from = reader.u32();
+			final to = reader.u32();
+
+			if (from == 0 && to == 0) return nowhere();
+
+			if (from == 0xFFFFFFFF) {
+				base = to;
+				continue;
+			}
+
+			final length = reader.u16();
+			if (address >= base + from && address < base + to) return expression(reader, length);
+			reader.position += length;
+		}
+
+		return nowhere();
+	}
+
 	public function at(address:Int):Null<Subprogram> {
 		for (subprogram in subprograms) {
 			if (address >= subprogram.low && address < subprogram.high) return subprogram;
@@ -136,6 +169,7 @@ class Variables {
 		final table = abbreviationsAt(abbreviationOffset);
 
 		final owners:Array<Null<Subprogram>> = [null];
+		var unitBase = 0;
 
 		while (reader.position < unitEnd) {
 			final code = reader.uleb();
@@ -159,6 +193,10 @@ class Variables {
 			var inherits = owner;
 
 			switch (abbreviation.tag) {
+				case TAG_COMPILE_UNIT:
+					if (die.low != null) unitBase = die.low;
+					inherits = null;
+
 				case TAG_SUBPROGRAM:
 					inherits = null;
 					if (die.low != null && die.name != null) {
@@ -166,6 +204,7 @@ class Variables {
 							name: die.name,
 							low: die.low,
 							high: die.highIsAddress ? die.high : die.low + die.high,
+							base: unitBase,
 							frameBase: die.frameBase == null ? nowhere() : die.frameBase,
 							variables: []
 						};
@@ -289,6 +328,14 @@ class Variables {
 		final start = reader.position;
 		final operation = elf.bytes.get(start);
 		final operand = new Reader(elf.bytes, start + 1);
+
+		if (operation >= 0x30 && operation <= 0x4F && length == 2 && elf.bytes.get(start + 1) == 0x9F)
+			return {where: Constant, register: -1, value: operation - 0x30};
+		if (operation == 0x10 || operation == 0x11) {
+			final value = operation == 0x10 ? operand.uleb() : operand.sleb();
+			if (operand.position - start == length - 1 && elf.bytes.get(operand.position) == 0x9F)
+				return {where: Constant, register: -1, value: value};
+		}
 
 		if (operation == 0x03 && length == 5) return {where: AtAddress, register: -1, value: operand.u32()};
 		if (operation == 0x91) return {where: AtFrameOffset, register: -1, value: operand.sleb()};

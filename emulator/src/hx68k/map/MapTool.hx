@@ -115,6 +115,7 @@ class MapTool {
 			case AtAddress: "at 0x" + StringTools.hex(location.value, 6);
 			case InList: "in a location list at 0x" + StringTools.hex(location.value, 4);
 			case TheCallFrameAddress: "the call frame address";
+			case Constant: "the constant " + location.value;
 			case Nowhere: "nowhere DWARF names simply";
 		}
 	}

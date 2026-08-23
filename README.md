@@ -36,6 +36,21 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+It watches a local, not just a static. DWARF puts the loop variable of the planted bug in a
+register for the stretch of the loop and nowhere at all before it, so reading it means resolving a
+location list at the address the program has reached, through a frame base that is the call frame
+address and nothing simpler. Breaking on the Haxe line and running it again for each pass:
+
+```
+pass 1: i  local  s32  in Main_accumulate = 1
+pass 2: i  local  s32  in Main_accumulate = 2
+pass 3: i  local  s32  in Main_accumulate = 3
+pass 4: i  local  s32  in Main_accumulate = 4
+```
+
+The sample says how many passes there are, so the test moves with it. A parameter reads the same
+way: `n` is 4, which is what the sample passes.
+
 It says who called whom, in Haxe names. gcc keeps no frame pointer at `-O1`, so the stack is
 scanned rather than walked, and a candidate counts as a return address only where a JSR or BSR of
 exactly the right length ends on it, which is a test the disassembler makes and the fixtures back.

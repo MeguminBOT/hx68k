@@ -9,7 +9,7 @@ class DebugTool {
 		final args = Sys.args();
 		if (args.length < 3) {
 			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
-				+ " --break <Class.function> [--watch <Class.static> [--expect n,n,n]]"
+				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
 				+ " [--stack] [--settle frames] [--hits n]");
 			Sys.exit(2);

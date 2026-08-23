@@ -273,6 +273,38 @@ else
 	exit 1
 fi
 
+# i lives in a location list, in a register for the stretch of the loop and nowhere before it, so
+# reading it needs the list resolved at the address the program has actually reached
+read_local() {
+	neko "$ROOT/emulator/bin/debug.n" \
+		"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+		"$ROOT/samples/bug/rom/out/debug/rom.out" \
+		"$ROOT/samples/bug/rom/src" \
+		--break "Main.hx:$WANT" --read "$WANT_LOCAL" --hits "$1" | tail -1
+}
+
+PASS=1
+while [ "$PASS" -le "$WANT_ARGUMENT" ]; do
+	LINE="$(read_local "$PASS")"
+	echo "  pass $PASS: $LINE"
+	printf "locals %-17s" "the loop, pass $PASS"
+	if [ "${LINE##*= }" = "$PASS" ]; then
+		echo "ok"
+	else
+		echo "FAILED"
+		echo "  the loop variable should be $PASS on its pass $PASS"
+		exit 1
+	fi
+	PASS=$((PASS + 1))
+done
+
+# the loop runs as many times as the argument says and no more
+printf "locals %-17s" "and stops there"
+case "$(read_local "$PASS")" in
+	*"not $PASS"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  the line was reached a $PASS th time"; exit 1 ;;
+esac
+
 echo ""
 echo "--- who called whom, read off the stack ---"
 

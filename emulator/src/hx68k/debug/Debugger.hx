@@ -54,6 +54,12 @@ class Debugger {
 	}
 
 	public function breakpoint(name:String):Null<Int> {
+		final colon = name.lastIndexOf(":");
+		if (colon > 0) {
+			final line = Std.parseInt(name.substr(colon + 1));
+			if (line != null) return map.addressOfLine(name.substr(0, colon), line);
+		}
+
 		final entry = map.functionNamed(name);
 		return entry == null ? null : map.addressOf(entry.symbol);
 	}
@@ -79,15 +85,16 @@ class Debugger {
 		for (variable in subprogram.variables) {
 			if (variable.name != name) continue;
 
-			return switch (variable.location.where) {
-				case InRegister: narrow(register(variable.location.register), variable.width, variable.signed);
+			final place = variables.placeOf(subprogram, variable, here);
+			return switch (place.where) {
+				case Constant: narrow(place.value, variable.width, variable.signed);
+				case InRegister: narrow(register(place.register), variable.width, variable.signed);
 				case AtRegisterOffset:
-					read(register(variable.location.register) + variable.location.value, variable.width,
-						variable.signed);
-				case AtAddress: read(variable.location.value, variable.width, variable.signed);
+					read(register(place.register) + place.value, variable.width, variable.signed);
+				case AtAddress: read(place.value, variable.width, variable.signed);
 				case AtFrameOffset:
 					final base = frameBase(subprogram, here);
-					base == null ? null : read(base + variable.location.value, variable.width, variable.signed);
+					base == null ? null : read(base + place.value, variable.width, variable.signed);
 				case _: null;
 			}
 		}
