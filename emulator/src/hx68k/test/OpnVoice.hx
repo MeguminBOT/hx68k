@@ -16,6 +16,11 @@ class OpnVoice {
 
 	public final ssg:Array<Int> = [0, 0, 0, 0];
 
+	public final tremolo:Array<Bool> = [false, false, false, false];
+
+	public var ams:Int = 0;
+	public var pms:Int = 0;
+
 	public var block:Int = 3;
 	public var frequency:Int = 0x180;
 	public var panning:Int = 0xC0;

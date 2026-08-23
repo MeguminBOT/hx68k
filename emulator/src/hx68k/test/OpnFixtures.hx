@@ -21,6 +21,7 @@ class OpnFixtures {
 		made += ssg(into);
 		made += channels(into);
 		made += features(into);
+		made += oscillator(into);
 		made += broad(into);
 
 		Sys.println(made + " fixtures in " + into);
@@ -251,6 +252,61 @@ class OpnFixtures {
 		return made;
 	}
 
+	static function oscillator(into:String):Int {
+		var made = 0;
+
+		for (rate in 0...8) {
+			final voice = new OpnVoice().alone(0, 16).note(4, 0x169);
+			voice.ams = 3;
+			voice.tremolo[0] = true;
+			made += write(into, "lfo-tremolo-rate-" + rate, [voice], [0], rate);
+		}
+
+		for (depth in 0...4) {
+			final voice = new OpnVoice().alone(0, 24).envelope(24, 12, 6, 4, 9).note(4, 0x169);
+			voice.ams = depth;
+			voice.tremolo[0] = true;
+			made += write(into, "lfo-tremolo-depth-" + depth, [voice], [0], 5);
+		}
+
+		final held = new OpnVoice().alone(0, 24).note(4, 0x169);
+		held.ams = 3;
+		held.tremolo[0] = true;
+		made += write(into, "lfo-tremolo-stopped", [held], [0]);
+
+		for (depth in 0...8) {
+			for (note in [0x040, 0x0F5, 0x169, 0x2A0, 0x3F8, 0x5A5, 0x7F0]) {
+				final voice = new OpnVoice().alone(0, 8).note(4, note);
+				voice.pms = depth;
+				made += write(into, "lfo-vibrato-" + depth + "-" + hex(note), [voice], [0], 6);
+			}
+		}
+
+		for (block in 0...8) {
+			final voice = new OpnVoice().alone(0, 8).note(block, 0x4B7);
+			voice.pms = 7;
+			made += write(into, "lfo-vibrato-block-" + block, [voice], [0], 7);
+		}
+
+		final over = new OpnVoice().alone(0, 8).note(5, 0x7FE);
+		over.pms = 7;
+		made += write(into, "lfo-vibrato-over", [over], [0], 7);
+
+		for (rate in [0, 3, 7]) {
+			final voice = new OpnVoice().wiring(2, 4).envelope(26, 10, 5, 3, 8).note(4, 0x2C0);
+			for (at in 0...4) {
+				voice.totalLevel[at] = at == 3 ? 4 : 22;
+				voice.detune[at] = at;
+				voice.tremolo[at] = at != 1;
+			}
+			voice.ams = 2;
+			voice.pms = 5;
+			made += write(into, "lfo-together-" + rate, [voice], [0], rate);
+		}
+
+		return made;
+	}
+
 	static function broad(into:String):Int {
 		final chance = new Chance(0xB40AD);
 		final levels = [0, 0, 4, 8, 16, 24, 32, 48, 64, 96, 127];
@@ -296,9 +352,11 @@ class OpnFixtures {
 		return made;
 	}
 
-	static function write(into:String, name:String, voices:Array<OpnVoice>, where:Array<Int>):Int {
+	static function write(into:String, name:String, voices:Array<OpnVoice>, where:Array<Int>,
+			lfo:Int = -1):Int {
 		final lines:Array<String> = [];
 
+		if (lfo >= 0) byte(lines, 0, 0x22, 0x08 | (lfo & 7));
 		for (i in 0...voices.length) registers(lines, voices[i], where[i]);
 		for (i in 0...voices.length) key(lines, voices[i], where[i], voices[i].keys, 2);
 
@@ -321,14 +379,15 @@ class OpnFixtures {
 			byte(lines, port, 0x30 + slot, ((voice.detune[at] & 7) << 4) | (voice.multiple[at] & 0x0F));
 			byte(lines, port, 0x40 + slot, voice.totalLevel[at] & 0x7F);
 			byte(lines, port, 0x50 + slot, ((voice.keyScale[at] & 3) << 6) | (voice.attack[at] & 0x1F));
-			byte(lines, port, 0x60 + slot, voice.decay[at] & 0x1F);
+			byte(lines, port, 0x60 + slot, (voice.tremolo[at] ? 0x80 : 0) | (voice.decay[at] & 0x1F));
 			byte(lines, port, 0x70 + slot, voice.sustain[at] & 0x1F);
 			byte(lines, port, 0x80 + slot, ((voice.level[at] & 0x0F) << 4) | (voice.release[at] & 0x0F));
 			byte(lines, port, 0x90 + slot, voice.ssg[at] & 0x0F);
 		}
 
 		byte(lines, port, 0xB0 + channel, ((voice.feedback & 7) << 3) | (voice.algorithm & 7));
-		byte(lines, port, 0xB4 + channel, voice.panning);
+		byte(lines, port, 0xB4 + channel,
+			voice.panning | ((voice.ams & 3) << 4) | (voice.pms & 7));
 		byte(lines, port, 0xA4 + channel, ((voice.block & 7) << 3) | ((voice.frequency >> 8) & 7));
 		byte(lines, port, 0xA0 + channel, voice.frequency & 0xFF);
 	}

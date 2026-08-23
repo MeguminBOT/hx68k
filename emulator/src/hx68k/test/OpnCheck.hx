@@ -17,6 +17,8 @@ class OpnCheck {
 			Sys.println("usage: opn <scripts> <references>        every fixture, counted by group");
 			Sys.println("       opn <script.txt> <reference.pcm>  one fixture, printing where it parts");
 			Sys.println("       opn <script.txt> <reference.pcm> --envelope   ... and what channel one held");
+			Sys.println("       opn <script.txt> <reference.pcm> --inside     ... and what a sample was made of");
+			Sys.println("       opn <script.txt> <reference.pcm> --oscillator ... and where the oscillator was");
 			Sys.exit(2);
 		}
 
@@ -80,7 +82,7 @@ class OpnCheck {
 		final parts = script.split("/");
 		var name = parts[parts.length - 1];
 		if (StringTools.endsWith(name, ".txt")) name = name.substr(0, name.length - 4);
-		inside = watching == "--inside";
+		watched = watching == null ? "" : watching;
 		final held:Null<Array<Array<Int>>> = watching == null ? null : [];
 		final outcome = measure(name, script, reference, held);
 		Sys.println(outcome.line);
@@ -89,7 +91,7 @@ class OpnCheck {
 		final theirs = outcome.reference;
 
 		if (held != null && from >= 0) {
-			Sys.println("  sample      mine     reference" + (inside ? "     phase   out   pub  left" : "     S1   S3   S2   S4"));
+			Sys.println("  sample      mine     reference" + columns());
 			for (i in from...from + 20) {
 				if (i >= mine.length || i >= theirs.length) break;
 				Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
@@ -107,10 +109,7 @@ class OpnCheck {
 		for (i in SETTLE...until) {
 			if (mine[i] == theirs[i + outcome.lag]) continue;
 			if (first < 0) first = i;
-			if (shown == 0) {
-				Sys.println("  sample      mine     reference"
-					+ (held == null ? "" : "     S1   S3   S2   S4"));
-			}
+			if (shown == 0) Sys.println("  sample      mine     reference" + (held == null ? "" : columns()));
 			Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
 				+ StringTools.lpad(Std.string(mine[i]), " ", 10)
 				+ StringTools.lpad(Std.string(theirs[i + outcome.lag]), " ", 14)
@@ -132,8 +131,9 @@ class OpnCheck {
 	static function row(held:Array<Array<Int>>, at:Int):String {
 		if (at >= held.length) return "";
 
+		final width = watched == "--inside" || watched == "--oscillator" ? 7 : 5;
 		var out = "  ";
-		for (value in held[at]) out += StringTools.lpad(Std.string(value), " ", inside ? 8 : 5);
+		for (value in held[at]) out += StringTools.lpad(Std.string(value), " ", width);
 		return out;
 	}
 
@@ -216,25 +216,42 @@ class OpnCheck {
 		return out;
 	}
 
-	static var inside:Bool = false;
+	static var watched:String = "";
+
+	static function columns():String {
+		return switch (watched) {
+			case "--inside": "     phase   out   pub  left";
+			case "--oscillator": "     step  swell    inc  level";
+			case _: "     S1   S3   S2   S4";
+		}
+	}
 
 	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>):Array<Int> {
 		final chip = new Ym2612();
 		final out = [];
 
 		inline function one():Void {
+			final channel = chip.channels[0];
+			final waiting = watched != "--oscillator" ? null : [
+				chip.lfoPhase, chip.swell, channel.operators[0].increment,
+				channel.operators[0].level(chip.swell)
+			];
+
 			chip.sample();
 			out.push(chip.left);
 
 			if (held != null) {
-				final channel = chip.channels[0];
 				final operators = channel.operators;
-				held.push(inside
-					? [operators[0].phase, channel.outputs[0], channel.published, chip.left]
-					: [
-						operators[0].envelope, operators[2].envelope,
-						operators[1].envelope, operators[3].envelope
-					]);
+				held.push(switch (watched) {
+					case "--inside":
+						[operators[0].phase, channel.outputs[0], channel.published, chip.left];
+					case "--oscillator": waiting;
+					case _:
+						[
+							operators[0].envelope, operators[2].envelope,
+							operators[1].envelope, operators[3].envelope
+						];
+				});
 			}
 		}
 

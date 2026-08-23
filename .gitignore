@@ -2,6 +2,7 @@ vendor/
 
 # a commercial ROM to test against, which is not ours to carry
 _realRomTest/
+_romFromHaxe/
 
 # generated ROM sources and build output, all reproducible from build.sh
 samples/*/rom/out/

@@ -27,6 +27,10 @@ class Ym2612 {
 		1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3
 	];
 
+	static final SWEEP = [108, 77, 71, 67, 62, 44, 8, 5];
+
+	static final TREMOLO = [7, 3, 1, 0];
+
 	static final TAKEN = [
 		1, -1, -1, -1, 5, -1, -1, -1, 3, -1, -1, -1,
 		0, -1, -1, -1, 4, -1, -1, -1, 2, -1, -1, -1
@@ -66,8 +70,13 @@ class Ym2612 {
 	var pendingValue:Int = 0;
 	var pendingIn:Int = 0;
 	var waiting:Bool = false;
-	var lfoClock:Int = 0;
-	var lfoPhase:Int = 0;
+	public var lfoPhase(default, null):Int = 0;
+	public var swell(default, null):Int = 126;
+
+	var lfoOn:Bool = false;
+	var lfoRate:Int = 0;
+	var lfoHeld:Int = 0;
+	var vibrato:Int = 0;
 
 	public function new() {
 		for (i in 0...256) {
@@ -110,8 +119,12 @@ class Ym2612 {
 		pendingValue = 0;
 		pendingIn = 0;
 		waiting = false;
-		lfoClock = 0;
+		lfoOn = false;
+		lfoRate = 0;
 		lfoPhase = 0;
+		lfoHeld = 0;
+		vibrato = 0;
+		swell = 126;
 	}
 
 	public function write(port:Int, value:Int):Void {
@@ -159,6 +172,9 @@ class Ym2612 {
 	function apply(half:Int, at:Int, value:Int):Void {
 		if (half == 0) {
 			switch (at) {
+				case 0x22:
+					lfoOn = (value & 0x08) != 0;
+					lfoRate = value & 7;
 				case 0x24: timerA = (timerA & 0x03) | (value << 2);
 				case 0x25: timerA = (timerA & 0x3FC) | (value & 0x03);
 				case 0x26: timerB = value;
@@ -191,6 +207,9 @@ class Ym2612 {
 			case 0xB4:
 				channel.left = (value & 0x80) != 0;
 				channel.right = (value & 0x40) != 0;
+				channel.tremoloDepth = TREMOLO[(value >> 4) & 3];
+				channel.vibratoDepth = value & 7;
+				channel.tune(vibrato);
 			case _:
 		}
 	}
@@ -251,7 +270,8 @@ class Ym2612 {
 		if (waiting && lands(position)) commit();
 
 		final which = SPEAKS[position];
-		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking);
+		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking,
+			swell);
 
 		final taken = TAKEN[position];
 		if (taken >= 0) channels[taken].capture();
@@ -271,7 +291,28 @@ class Ym2612 {
 		}
 	}
 
+	function oscillate():Void {
+		final ramp = (lfoPhase << 1) & 0x7E;
+		swell = (lfoPhase & 0x40) != 0 ? ramp : ramp ^ 0x7E;
+
+		final step = lfoPhase >> 2;
+		if (step != vibrato) {
+			vibrato = step;
+			for (channel in channels) channel.tune(step);
+		}
+
+		final mask = SWEEP[lfoRate];
+		if ((lfoHeld & mask) == mask) {
+			lfoHeld = 0;
+			if (lfoOn) lfoPhase = (lfoPhase + 1) & 0x7F;
+		}
+
+		lfoHeld++;
+		if (!lfoOn) lfoPhase = 0;
+	}
+
 	public function sample():Int {
+		oscillate();
 		for (_ in 0...PER_FRAME) cycle();
 
 		left = 0;

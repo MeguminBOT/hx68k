@@ -212,12 +212,18 @@ class Operator {
 		return rate > 63 ? 63 : rate;
 	}
 
-	public function output(sine:Vector<Int>, exponential:Vector<Int>, modulation:Int):Int {
+	public inline function level(swell:Int):Int {
+		final total = shown() + (totalLevel << 3) + (tremolo ? swell : 0);
+		return total > 1023 ? 1023 : total;
+	}
+
+	public function output(sine:Vector<Int>, exponential:Vector<Int>, modulation:Int,
+			swell:Int):Int {
 		final at = ((phase >> 10) + modulation) & 0x3FF;
 		final quarter = at & 0xFF;
 		final mirrored = (at & 0x100) != 0 ? 255 - quarter : quarter;
 
-		var level = shown() + (totalLevel << 3);
+		var level = shown() + (totalLevel << 3) + swell;
 		if (level > 1023) level = 1023;
 
 		var attenuation = sine[mirrored] + (level << 2);
