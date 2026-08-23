@@ -5,6 +5,8 @@ import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
 class Vdp {
+	public static inline final MASTER_HZ = 53693175;
+
 	public static inline final MASTER_PER_LINE = 3420;
 	public static inline final LINES_NTSC = 262;
 	public static inline final ACTIVE_LINES = 224;

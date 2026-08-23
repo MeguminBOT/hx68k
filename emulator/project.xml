@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project>
+	<meta title="hx68k" package="dev.hx68k.window" version="0.1.0" company="hx68k" />
+	<app main="hx68k.host.Console" file="hx68k" path="bin/window" />
+
+	<source path="src" />
+	<haxelib name="lime" />
+
+	<window width="960" height="672" fps="60" background="#000000" resizable="true"
+		hardware="true" vsync="true" allow-high-dpi="false" />
+
+	<!-- openfl and everything above it are deliberately absent: this needs a window and a texture -->
+	<haxeflag name="-dce" value="full" />
+</project>

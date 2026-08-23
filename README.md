@@ -135,6 +135,12 @@ only here: the one that waits for the sound driver to answer. The per-pixel rend
 window and sprites with their priority order, checked by seventeen scenarios written from the
 hardware documentation.
 
+It runs in a window. `./emulator/run-window.sh <rom.bin>` builds an hxcpp host on lime, with nothing
+above lime used, and puts the framebuffer on the screen through one texture and one quad. The
+machine is paced off its own clock at the 59.92 frames a second the VDP's constants give, not off
+whatever the monitor happens to do. Compiled, the cores run about 400 frames a second where 60 is
+wanted, so the picture is not what costs.
+
 A commercial ROM runs on it: Sonic the Hedgehog 2 boots, uploads its sound driver to the Z80,
 plays it, and draws its title screen. Nothing about the game was written for this emulator and
 nothing in the emulator was written for the game.
