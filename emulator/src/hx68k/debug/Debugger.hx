@@ -65,6 +65,34 @@ class Debugger {
 		if (address == null) return null;
 
 		final at = address & 0xFFFFFF;
-		return (machine.readWord(at) << 16) | machine.readWord(at + 2);
+		final width = widthOf(entry.ctype);
+		final signed = StringTools.startsWith(stem(entry.ctype), "s");
+
+		return switch (width) {
+			case 1:
+				final word = machine.readWord(at);
+				final value = (at & 1) == 0 ? (word >> 8) & 0xFF : word & 0xFF;
+				signed && value >= 0x80 ? value - 0x100 : value;
+			case 2:
+				final value = machine.readWord(at);
+				signed && value >= 0x8000 ? value - 0x10000 : value;
+			case _:
+				(machine.readWord(at) << 16) | machine.readWord(at + 2);
+		}
+	}
+
+	public static function widthOf(ctype:String):Int {
+		return switch (stem(ctype)) {
+			case "s8", "u8", "bool": 1;
+			case "s16", "u16": 2;
+			case _: 4;
+		}
+	}
+
+	static function stem(ctype:String):String {
+		var text = StringTools.replace(ctype, "const ", "");
+		final bracket = text.indexOf("[");
+		if (bracket >= 0) text = text.substr(0, bracket);
+		return StringTools.trim(text);
 	}
 }

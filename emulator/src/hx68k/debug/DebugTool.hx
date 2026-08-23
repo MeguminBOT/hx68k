@@ -10,7 +10,8 @@ class DebugTool {
 		if (args.length < 3) {
 			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
 				+ " --break <Class.function> [--watch <Class.static> [--expect n,n,n]]"
-				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--settle frames]");
+				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
+				+ " [--settle frames]");
 			Sys.exit(2);
 		}
 
@@ -19,6 +20,7 @@ class DebugTool {
 		var traced = 0;
 		var profiled = 0;
 		var rastered = 0;
+		var read = "";
 		var settle = 10;
 		var expected:Array<Int> = [];
 
@@ -33,6 +35,7 @@ class DebugTool {
 				case "--trace": traced = count(args, i);
 				case "--profile": profiled = count(args, i);
 				case "--raster": rastered = count(args, i);
+				case "--read": read = value(args, i);
 				case "--settle": settle = count(args, i);
 				case _: i--;
 			}
@@ -45,10 +48,27 @@ class DebugTool {
 
 		final debugger = new Debugger(machine, new SourceMap(new Elf(args[1]), args[2]));
 
+		if (read != "") Sys.exit(readStatic(debugger, stop, read, settle));
 		if (viewing) Sys.exit(view(debugger, stop, settle));
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
+	}
+
+	static function readStatic(debugger:Debugger, stop:String, name:String, settle:Int):Int {
+		if (!reach(debugger, stop, settle)) return 1;
+
+		final entry = debugger.map.staticNamed(name);
+		if (entry == null) {
+			Sys.println("no such static: " + name);
+			return 2;
+		}
+
+		final value = debugger.valueOf(name);
+		Sys.println(name + "  " + entry.ctype + "  " + Debugger.widthOf(entry.ctype)
+			+ (Debugger.widthOf(entry.ctype) == 1 ? " byte" : " bytes") + " = " + value);
+
+		return value == null ? 1 : 0;
 	}
 
 	static function raster(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {

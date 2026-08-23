@@ -225,6 +225,52 @@ case "$SESSION" in
 esac
 
 echo ""
+echo "--- Haxe statics read at the width they were declared with ---"
+
+read_static() {
+	neko "$ROOT/emulator/bin/debug.n" \
+		"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
+		"$ROOT/samples/conformance/rom/out/debug/rom.out" \
+		"$ROOT/samples/conformance/rom/src" \
+		--break Main.interfaceCall --read "$1" | tail -1
+}
+
+SAMPLE="$ROOT/samples/conformance/hx/Main.hx"
+
+# the values come from the sample, so changing what it declares moves the expectation with it
+WANT_PI="$(sed -n 's/.*@:romData(\[\([0-9]*\),.*/\1/p' "$SAMPLE")"
+WANT_PLACED="$(sed -n 's/.*static var placed:Int = \([0-9]*\);.*/\1/p' "$SAMPLE")"
+
+for WATCH in Main.digitsOfPi:"$WANT_PI" Main.placed:"$WANT_PLACED"; do
+	NAME="${WATCH%%:*}"
+	WANT="${WATCH##*:}"
+	LINE="$(read_static "$NAME")"
+	echo "  $LINE"
+	printf "watch %-18s" "${NAME#Main.}"
+	if [ "${LINE##*= }" = "$WANT" ]; then
+		echo "ok"
+	else
+		echo "FAILED"
+		echo "  wanted $WANT, which is what the sample declares"
+		exit 1
+	fi
+done
+
+# a byte-wide static read as a long smears the bytes after it into the answer, so the test that
+# matters is that it fits in a byte at all; it holds the minus sign formatting wrote into it
+BUFFER="$(read_static Main.buffer)"
+echo "  $BUFFER"
+printf "watch %-18s" "buffer, one byte"
+BYTE="${BUFFER##*= }"
+if [ "$BYTE" -ge 0 ] && [ "$BYTE" -le 255 ] && [ "$BYTE" -eq 45 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  wanted 45, the minus sign, in a single byte"
+	exit 1
+fi
+
+echo ""
 echo "--- a trace in Haxe, checked against the core that ran it ---"
 # the tool exits nonzero when the trace does not account for itself, and set -e would take
 # the script out before the check below could say why
