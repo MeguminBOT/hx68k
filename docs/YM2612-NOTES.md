@@ -94,8 +94,22 @@ write happened: it holds for every channel and every write time.
 
 **Register writes are applied lazily**, when the rotation reaches the slot or channel the address
 names, so the delay depends on which channel and which operator is being written and can be anything
-up to a full rotation. This is **not yet implemented**: `Ym2612.WRITE_LATENCY` holds a write for a
-fixed 26 cycles instead. It is the largest known remaining difference.
+up to a full rotation. A slot register lands where `cycle % 12` is `(group low bit) * 6 + channel`,
+and a channel register where `cycle % 6` is the channel; everything shared by the whole chip is taken
+as soon as it is seen. `Ym2612.lands` is that rule, and `WRITE_LATENCY` is only how long the write
+takes to become something the part will act on at all.
+
+Implementing it changed no fixture on its own, since every fixture here writes its registers long
+before it presses a key. What it did change is that the tolerance on `WRITE_LATENCY` collapsed: with
+a flat delay any value from 26 to 30 gave the same samples, and with the rotation deciding, only 26
+does.
+
+**A key going up is seen by every operator at once, and a key going down is not.** The channel takes
+the key register on its own first turn, which is why operator one starts a sample after the other
+three, but the release transition follows the register itself and does not wait for that turn. Taking
+release from the per operator latch instead leaves an operator a whole envelope step behind for the
+rest of the note, which is what the release fixtures and twelve of the thirteen failing envelopes
+were showing.
 
 ## The converter
 
@@ -104,6 +118,23 @@ each for three of them. Three of the six are reached before they have handed any
 sample, so **channels 1, 3 and 5 are heard one sample behind channels 0, 2 and 4**. Without this,
 five of the six channels are individually exact and no two of them are exact together, which is what
 made a six channel patch fail where each of its channels passed alone.
+
+## The one that is understood and not yet fixed
+
+Key on lands one sample later here than it does in the reference. The audio still agrees, because the
+output pipeline here is one sample shorter and the two cancel: on `main-algorithm-6` the reference has
+operators three, two and four key on during sample 117 and operator one during 118, this has them at
+118 and 119, and the samples that come out are bit identical at no offset.
+
+The envelope counter is free running and does not shift with either. So when a key on lands on the
+same sample as an envelope step, this chip spends that step on the key and the reference does not, and
+the operator stays one step behind for the whole note. It shows about one time in three, and only
+where the rate is 48 or more and the envelope therefore moves on every step.
+
+That is what the `voice` and `random` groups are failing on. The fix is to move key on a sample
+earlier and give the output the sample back somewhere that does not disturb the converter's schedule.
+Adding a stage to the channel accumulator does disturb it, and delaying what leaves the chip is not
+the same thing either; both were tried and both made it worse.
 
 ## What is not implemented
 

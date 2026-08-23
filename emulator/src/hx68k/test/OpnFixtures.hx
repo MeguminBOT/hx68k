@@ -17,6 +17,7 @@ class OpnFixtures {
 		made += phase(into);
 		made += envelopes(into);
 		made += modulation(into);
+		made += voices(into);
 		made += channels(into);
 		made += features(into);
 		made += broad(into);
@@ -149,6 +150,32 @@ class OpnFixtures {
 			voice.block = chance.upTo(8);
 			voice.frequency = chance.between(0x40, 0x7FF);
 			made += write(into, "modulation-" + pad(i), [voice], [0]);
+		}
+
+		return made;
+	}
+
+	static function voices(into:String):Int {
+		final chance = new Chance(0x4051CE);
+		final levels = [0, 4, 8, 16, 24, 32, 48, 64, 96];
+		var made = 0;
+
+		for (i in 0...120) {
+			final voice = new OpnVoice().wiring(chance.upTo(8), chance.upTo(8));
+			for (at in 0...4) {
+				voice.detune[at] = chance.upTo(8);
+				voice.multiple[at] = chance.upTo(16);
+				voice.totalLevel[at] = chance.pick(levels);
+				voice.keyScale[at] = chance.upTo(4);
+				voice.attack[at] = chance.upTo(32);
+				voice.decay[at] = chance.upTo(32);
+				voice.sustain[at] = chance.upTo(32);
+				voice.level[at] = chance.upTo(16);
+				voice.release[at] = chance.upTo(16);
+			}
+			voice.block = chance.upTo(8);
+			voice.frequency = chance.between(0x40, 0x7FF);
+			made += write(into, "voice-" + pad(i), [voice], [0]);
 		}
 
 		return made;

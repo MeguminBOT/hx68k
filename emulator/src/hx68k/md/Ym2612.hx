@@ -65,6 +65,7 @@ class Ym2612 {
 	var pendingAddress:Int = 0;
 	var pendingValue:Int = 0;
 	var pendingIn:Int = 0;
+	var waiting:Bool = false;
 	var lfoClock:Int = 0;
 	var lfoPhase:Int = 0;
 
@@ -108,6 +109,7 @@ class Ym2612 {
 		pendingAddress = 0;
 		pendingValue = 0;
 		pendingIn = 0;
+		waiting = false;
 		lfoClock = 0;
 		lfoPhase = 0;
 	}
@@ -122,18 +124,32 @@ class Ym2612 {
 			return;
 		}
 
-		if (pendingIn > 0) commit();
+		if (pendingIn > 0 || waiting) commit();
 
 		pendingHalf = part;
 		pendingAddress = address;
 		pendingValue = byte;
 		pendingIn = WRITE_LATENCY;
+		waiting = false;
 	}
 
 	function commit():Void {
 		pendingIn = 0;
+		waiting = false;
 		registers[(pendingHalf << 8) | pendingAddress] = pendingValue;
 		apply(pendingHalf, pendingAddress, pendingValue);
+	}
+
+	inline function lands(at:Int):Bool {
+		final address = pendingAddress;
+		if (address < 0x30) return true;
+
+		final channel = pendingHalf * 3 + (address & 3);
+		if ((address & 3) == 3) return true;
+
+		return address < 0xA0
+			? at % 12 == ((address >> 2) & 1) * 6 + channel
+			: at % 6 == channel;
 	}
 
 	public function read():Int {
@@ -231,7 +247,8 @@ class Ym2612 {
 	}
 
 	function cycle():Void {
-		if (pendingIn > 0 && --pendingIn == 0) commit();
+		if (pendingIn > 0 && --pendingIn == 0) waiting = true;
+		if (waiting && lands(position)) commit();
 
 		final which = SPEAKS[position];
 		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking);

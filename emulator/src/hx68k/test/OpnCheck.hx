@@ -16,11 +16,13 @@ class OpnCheck {
 		if (args.length < 2) {
 			Sys.println("usage: opn <scripts> <references>        every fixture, counted by group");
 			Sys.println("       opn <script.txt> <reference.pcm>  one fixture, printing where it parts");
+			Sys.println("       opn <script.txt> <reference.pcm> --envelope   ... and what channel one held");
 			Sys.exit(2);
 		}
 
 		if (FileSystem.isDirectory(args[0])) whole(args[0], args[1]);
-		else single(args[0], args[1]);
+		else single(args[0], args[1], args.length > 2 ? args[2] : null,
+			args.length > 3 ? Std.parseInt(args[3]) : -1);
 	}
 
 	static function whole(scripts:String, references:String):Void {
@@ -74,34 +76,71 @@ class OpnCheck {
 			+ round(total == 0 ? 0 : 100.0 * exact / total) + "%)");
 	}
 
-	static function single(script:String, reference:String):Void {
+	static function single(script:String, reference:String, watching:Null<String>, from:Int):Void {
 		final parts = script.split("/");
 		var name = parts[parts.length - 1];
 		if (StringTools.endsWith(name, ".txt")) name = name.substr(0, name.length - 4);
-		final outcome = measure(name, script, reference);
+		final held:Null<Array<Array<Int>>> = watching == null ? null : [];
+		final outcome = measure(name, script, reference, held);
 		Sys.println(outcome.line);
-
-		if (outcome.exact) return;
 
 		final mine = outcome.mine;
 		final theirs = outcome.reference;
+
+		if (held != null && from >= 0) {
+			Sys.println("  sample      mine     reference     S1   S3   S2   S4");
+			for (i in from...from + 20) {
+				if (i >= mine.length || i >= theirs.length) break;
+				Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
+					+ StringTools.lpad(Std.string(mine[i]), " ", 10)
+					+ StringTools.lpad(Std.string(theirs[i]), " ", 14) + row(held, i));
+			}
+			return;
+		}
+
+		if (outcome.exact) return;
 		final until = (mine.length < theirs.length ? mine.length : theirs.length) - outcome.lag;
 		var shown = 0;
 
+		var first = -1;
 		for (i in SETTLE...until) {
 			if (mine[i] == theirs[i + outcome.lag]) continue;
-			if (shown == 0) Sys.println("  sample      mine     reference");
+			if (first < 0) first = i;
+			if (shown == 0) {
+				Sys.println("  sample      mine     reference"
+					+ (held == null ? "" : "     S1   S3   S2   S4"));
+			}
 			Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
 				+ StringTools.lpad(Std.string(mine[i]), " ", 10)
-				+ StringTools.lpad(Std.string(theirs[i + outcome.lag]), " ", 14));
+				+ StringTools.lpad(Std.string(theirs[i + outcome.lag]), " ", 14)
+				+ (held == null ? "" : row(held, i)));
 			if (++shown >= 16) break;
+		}
+
+		if (held != null && first > SETTLE) {
+			Sys.println("");
+			Sys.println("  before it parted");
+			for (i in (first - 6)...first) {
+				Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
+					+ StringTools.lpad(Std.string(mine[i]), " ", 10)
+					+ StringTools.lpad(Std.string(theirs[i + outcome.lag]), " ", 14) + row(held, i));
+			}
 		}
 	}
 
-	static function measure(name:String, script:String, reference:String):Outcome {
+	static function row(held:Array<Array<Int>>, at:Int):String {
+		if (at >= held.length) return "";
+
+		var out = "  ";
+		for (value in held[at]) out += StringTools.lpad(Std.string(value), " ", 5);
+		return out;
+	}
+
+	static function measure(name:String, script:String, reference:String,
+			held:Null<Array<Array<Int>>> = null):Outcome {
 		final steps = parse(File.getContent(script));
 		final theirs = samplesOf(File.getBytes(reference));
-		final mine = run(steps, theirs.length);
+		final mine = run(steps, theirs.length, held);
 
 		final count = mine.length < theirs.length ? mine.length : theirs.length;
 		if (count <= SETTLE) {
@@ -176,24 +215,32 @@ class OpnCheck {
 		return out;
 	}
 
-	static function run(steps:Array<Step>, count:Int):Array<Int> {
+	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>):Array<Int> {
 		final chip = new Ym2612();
 		final out = [];
+
+		inline function one():Void {
+			chip.sample();
+			out.push(chip.left);
+
+			if (held != null) {
+				final operators = chip.channels[0].operators;
+				held.push([
+					operators[0].envelope, operators[2].envelope,
+					operators[1].envelope, operators[3].envelope
+				]);
+			}
+		}
 
 		for (step in steps) {
 			for (_ in 0...step.wait) {
 				if (out.length >= count) break;
-				chip.sample();
-				out.push(chip.left);
+				one();
 			}
 			chip.write(step.port, step.value);
 		}
 
-		while (out.length < count) {
-			chip.sample();
-			out.push(chip.left);
-		}
-
+		while (out.length < count) one();
 		return out;
 	}
 
