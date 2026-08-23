@@ -1,5 +1,6 @@
 package hx68k.test;
 
+import hx68k.cpu.m68k.M68000;
 import hx68k.debug.Code;
 import hx68k.debug.Disassembler;
 import hx68k.test.SstFormat;
@@ -96,7 +97,63 @@ class DisassemblyCheck {
 			&& total.sized == total.measurable;
 		Sys.println("GROUPS WRONG   : " + wrongGroups + " / " + files.length);
 
-		if (args.indexOf("--ci") >= 0 && !perfect) Sys.exit(1);
+		final decodersAgree = filter == null ? opcodeSpace(showFail) : true;
+
+		if (args.indexOf("--ci") >= 0 && !(perfect && decodersAgree)) Sys.exit(1);
+	}
+
+	static function opcodeSpace(showFail:Int):Bool {
+		final cpu = new M68000(new SstBus());
+		final code = new WordCode();
+		final disassembler = new Disassembler(code);
+
+		var agree = 0;
+		var namedOnly = 0;
+		var dispatchedOnly = 0;
+		final onlyNamed = new Array<String>();
+		final onlyDispatched = new Array<String>();
+
+		var trapped = 0;
+
+		for (op in 0...0x10000) {
+			code.opcode = op;
+			final named = !StringTools.startsWith(disassembler.at(0).text, "dc.w");
+			final dispatched = cpu.isImplemented(op);
+
+			final line = op >> 12;
+			if (line == 0xA || line == 0xF) {
+				if (!named && dispatched) trapped++;
+				continue;
+			}
+
+			if (named == dispatched) {
+				agree++;
+				continue;
+			}
+
+			if (named) {
+				namedOnly++;
+				if (onlyNamed.length < showFail)
+					onlyNamed.push("  $" + StringTools.hex(op, 4) + "  " + disassembler.at(0).text);
+			} else {
+				dispatchedOnly++;
+				if (onlyDispatched.length < showFail) onlyDispatched.push("  $" + StringTools.hex(op, 4));
+			}
+		}
+
+		final compared = 0x10000 - 0x2000;
+
+		Sys.println("");
+		Sys.println("opcode words   : 65536, of which 8192 are the line A and line F traps");
+		Sys.println("decoders agree : " + pct(agree, compared) + " over the other " + compared);
+		Sys.println("  named, not dispatched : " + namedOnly);
+		for (line in onlyNamed) Sys.println(line);
+		Sys.println("  dispatched, not named : " + dispatchedOnly);
+		for (line in onlyDispatched) Sys.println(line);
+		Sys.println("line A and line F : " + trapped
+			+ " of 8192 trapped by the core and named by neither");
+
+		return agree == compared && trapped == 0x2000;
 	}
 
 	static function runGroup(group:String, tests:Array<SstTest>, showFail:Int):Tally {
@@ -265,6 +322,16 @@ class DisassemblyCheck {
 		if (total == 0) return "   n/a";
 		final v = 100.0 * n / total;
 		return StringTools.lpad(Std.string(Math.round(v * 10) / 10), " ", 5) + "%";
+	}
+}
+
+class WordCode implements Code {
+	public var opcode:Int = 0;
+
+	public function new() {}
+
+	public function word(address:Int):Int {
+		return address == 0 ? opcode : 0;
 	}
 }
 

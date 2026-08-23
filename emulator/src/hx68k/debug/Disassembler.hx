@@ -86,7 +86,7 @@ class Disassembler {
 		final mode = (op >> 3) & 7;
 		final target = effectiveAddress(op & 7, mode, size);
 		if (target == null) return unknown(op);
-		if (name == "CMPI" ? !isData(mode) : !isDataAlterable(mode, op & 7)) return unknown(op);
+		if (!isDataAlterable(mode, op & 7)) return unknown(op);
 		return name + SIZES[size] + " " + value + "," + target;
 	}
 
@@ -102,7 +102,10 @@ class Disassembler {
 		final register = op & 7;
 		final size = mode == 0 ? 2 : 0;
 
-		final allowed = name == "BTST" ? isData(mode) : isDataAlterable(mode, register);
+		final inRegister = (op & 0x0100) != 0;
+		final immediate = mode == 7 && register == 4;
+		final allowed = name == "BTST" ? isData(mode) && (inRegister || !immediate)
+			: isDataAlterable(mode, register);
 		if (!allowed) return unknown(op);
 
 		final target = effectiveAddress(register, mode, size);
@@ -204,6 +207,7 @@ class Disassembler {
 		}
 
 		if (size == 3) return statusMove(op);
+		if ((op & 0x0100) != 0) return unknown(op);
 
 		final name = switch ((op >> 9) & 7) {
 			case 0: "NEGX";
@@ -214,7 +218,7 @@ class Disassembler {
 			case _: null;
 		}
 		if (name == null) return unknown(op);
-		if (name == "TST" ? !isData(mode) : !isDataAlterable(mode, register)) return unknown(op);
+		if (!isDataAlterable(mode, register)) return unknown(op);
 
 		final target = effectiveAddress(register, mode, size);
 		return target == null ? unknown(op) : name + SIZES[size] + " " + target;

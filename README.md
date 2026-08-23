@@ -40,10 +40,15 @@ The disassembler is held to the fixtures the core is held to, on three axes acro
 groups and 317,500 cases: the instruction each group names, every register the suite's own test
 names mention, and the length of the instruction, which the fixture's final pc measures for the
 215,777 cases that neither branch nor fault. **All three at 100%.** The only encodings it refuses to
-name are the 5,000 line-A and line-F cases, which are not instructions. On real compiled code it is
-checked the other way round, against the core that just ran the same bytes: 200,000 instructions of
-each debug sample, every one disassembled, every one either falling through by its own length or
-saying where it moved the pc.
+name are the 5,000 line-A and line-F cases, which are not instructions.
+
+It is also compared against the core's own dispatch table over every one of the 65,536 opcode words,
+which reaches encodings no fixture carries: the two agree on all 57,344 that are not line-A or
+line-F traps. Four real disagreements came out of that comparison and are written up in
+[docs/68000-NOTES.md](docs/68000-NOTES.md). On real compiled code the trace checks itself the other
+way round, against the core that just ran the same bytes: 200,000 instructions of each debug sample,
+every one disassembled, every one either falling through by its own length or saying where it moved
+the pc.
 
 The generated code is held to the C written beside it, measured in 68000 cycles on the emulated
 machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass over linked objects,
