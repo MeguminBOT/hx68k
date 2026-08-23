@@ -12,7 +12,8 @@ class Views {
 			new Registers(debugger),
 			new Disassembly(debugger),
 			new Stack(debugger),
-			new Video(debugger)
+			new Video(debugger),
+			new Usage(debugger)
 		];
 	}
 }
