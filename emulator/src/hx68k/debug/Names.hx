@@ -5,14 +5,16 @@ import hx68k.map.SourceMap;
 class Names {
 	public static inline final OUTSIDE = "outside any symbol";
 
-	final map:SourceMap;
+	final map:Null<SourceMap>;
 	final known:Map<Int, String> = [];
 
-	public function new(map:SourceMap) {
+	public function new(map:Null<SourceMap>) {
 		this.map = map;
 	}
 
 	public function at(address:Int):String {
+		if (map == null) return OUTSIDE;
+
 		final cached = known.get(address);
 		if (cached != null) return cached;
 

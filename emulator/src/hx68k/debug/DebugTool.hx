@@ -7,8 +7,8 @@ import hx68k.md.Machine;
 class DebugTool {
 	static function main():Void {
 		final args = Sys.args();
-		if (args.length < 3) {
-			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
+		if (args.length < 1) {
+			Sys.println("usage: debug <rom.bin> [<rom.out> <generated-source>]"
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
 				+ " [--stack] [--settle frames] [--hits n]");
@@ -28,7 +28,9 @@ class DebugTool {
 		final viewing = args.indexOf("--view") >= 0;
 		final walking = args.indexOf("--stack") >= 0;
 
-		var i = 3;
+		var i = 1;
+		while (i < args.length && args[i].charAt(0) != "-") i++;
+
 		while (i < args.length) {
 			switch (args[i]) {
 				case "--break": stop = value(args, i);
@@ -49,14 +51,16 @@ class DebugTool {
 		machine.vdp.rendering = false;
 		machine.load(args[0]);
 
-		var map:SourceMap;
-		try {
-			map = new SourceMap(new Elf(args[1]), args[2]);
-		} catch (e:Dynamic) {
-			Sys.println("no source map for " + args[1] + ": " + e);
-			Sys.println("build the sample with its debug profile, which keeps the line table");
-			Sys.exit(2);
-			return;
+		var map:Null<SourceMap> = null;
+		if (args.length >= 3 && args[1].charAt(0) != "-") {
+			try {
+				map = new SourceMap(new Elf(args[1]), args[2]);
+			} catch (e:String) {
+				Sys.println("no source map for " + args[1] + ": " + e);
+				Sys.println("build the sample with its debug profile, which keeps the line table");
+				Sys.exit(2);
+				return;
+			}
 		}
 
 		final debugger = new Debugger(machine, map);
@@ -66,7 +70,7 @@ class DebugTool {
 		if (viewing) Sys.exit(view(debugger, stop, settle, hits));
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, hits));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, hits));
-		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
+		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, hits) : hunt(debugger, stop, watch, expected));
 	}
 
 	static function show(value:Int, width:Int, signed:Bool):String {
@@ -95,7 +99,7 @@ class DebugTool {
 	}
 
 	static function viaFrameRule(debugger:Debugger):Null<Int> {
-		final variables = debugger.map.variables;
+		final variables = debugger.map == null ? null : debugger.map.variables;
 		if (variables == null) return null;
 
 		final here = debugger.at();
@@ -112,14 +116,14 @@ class DebugTool {
 	static function readName(debugger:Debugger, stop:String, name:String, settle:Int, hits:Int):Int {
 		if (!reach(debugger, stop, settle, hits)) return 1;
 
-		final entry = debugger.map.staticNamed(name);
+		final entry = debugger.map == null ? null : debugger.map.staticNamed(name);
 		if (entry != null) {
 			final value = debugger.valueOf(name);
 			Sys.println(name + "  static  " + entry.ctype + " = " + value);
 			return value == null ? 1 : 0;
 		}
 
-		final variables = debugger.map.variables;
+		final variables = debugger.map == null ? null : debugger.map.variables;
 		final subprogram = variables == null ? null : variables.at(debugger.at());
 		if (subprogram == null) {
 			Sys.println("no static named " + name + ", and nothing is known about where the program is");
@@ -350,17 +354,8 @@ class DebugTool {
 		return Std.string(Math.round(1000.0 * part / whole) / 10) + "%";
 	}
 
-	static function traceFrom(debugger:Debugger, stop:String, instructions:Int):Int {
-		final address = debugger.breakpoint(stop);
-		if (address == null) {
-			Sys.println("no such function: " + stop);
-			return 2;
-		}
-
-		if (!debugger.runTo(address)) {
-			Sys.println("never reached " + stop);
-			return 1;
-		}
+	static function traceFrom(debugger:Debugger, stop:String, instructions:Int, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final steps = new Trace(debugger).record(instructions);
 		var holes = 0;

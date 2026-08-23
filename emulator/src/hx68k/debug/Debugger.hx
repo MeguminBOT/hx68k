@@ -6,9 +6,9 @@ import hx68k.md.Machine;
 
 class Debugger {
 	public final machine:Machine;
-	public final map:SourceMap;
+	public final map:Null<SourceMap>;
 
-	public function new(machine:Machine, map:SourceMap) {
+	public function new(machine:Machine, map:Null<SourceMap>) {
 		this.machine = machine;
 		this.map = map;
 	}
@@ -18,7 +18,7 @@ class Debugger {
 	}
 
 	public function site():Null<Place> {
-		return map.resolve(at());
+		return map == null ? null : map.resolve(at());
 	}
 
 	public function step():Void {
@@ -54,6 +54,10 @@ class Debugger {
 	}
 
 	public function breakpoint(name:String):Null<Int> {
+		if (StringTools.startsWith(name, "0x") || StringTools.startsWith(name, "0X"))
+			return Std.parseInt(name);
+		if (map == null) return null;
+
 		final colon = name.lastIndexOf(":");
 		if (colon > 0) {
 			final line = Std.parseInt(name.substr(colon + 1));
@@ -65,6 +69,8 @@ class Debugger {
 	}
 
 	public function valueOf(name:String):Null<Int> {
+		if (map == null) return null;
+
 		final entry = map.staticNamed(name);
 		if (entry == null) return null;
 
@@ -75,7 +81,7 @@ class Debugger {
 	}
 
 	public function localOf(name:String):Null<Int> {
-		final variables = map.variables;
+		final variables = map == null ? null : map.variables;
 		if (variables == null) return null;
 
 		final here = at();
@@ -105,7 +111,7 @@ class Debugger {
 	public function frameBase(subprogram:Subprogram, address:Int):Null<Int> {
 		switch (subprogram.frameBase.where) {
 			case TheCallFrameAddress:
-				final frames = map.callFrames;
+				final frames = map == null ? null : map.callFrames;
 				if (frames == null) return null;
 				final cfa = frames.at(address);
 				return cfa == null ? null : (register(cfa.register) + cfa.offset) & 0xFFFFFF;

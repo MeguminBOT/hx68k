@@ -72,7 +72,7 @@ class Raster {
 				writes: wrote,
 				reads: read,
 				name: names.at(at),
-				place: debugger.map.resolve(at)
+				place: debugger.map == null ? null : debugger.map.resolve(at)
 			});
 		}
 

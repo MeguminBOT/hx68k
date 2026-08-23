@@ -66,7 +66,7 @@ class Backtrace {
 			calledFrom: calledFrom,
 			stack: stack,
 			name: names.at(address),
-			place: debugger.map.resolve(address)
+			place: debugger.map == null ? null : debugger.map.resolve(address)
 		};
 	}
 
