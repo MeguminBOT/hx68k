@@ -6,23 +6,39 @@ class Ym2612 {
 	public static inline final CLOCK = 7670453;
 	public static inline final PER_SAMPLE = 144;
 
-	static inline final SILENCE = 0x3FF;
+	static inline final PER_FRAME = 24;
 
-	static final MULTIPLE = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+	static inline final WRITE_LATENCY = 26;
 
-	static final DETUNE = [
-		[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-		[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8, 8, 8, 8],
-		[1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8, 8, 9, 10, 11, 12, 13, 14, 16, 16, 16, 16],
-		[2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 5, 5, 6, 6, 7, 8, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 20, 22, 22, 22, 22]
+	static final TURN = [0, 2, 1, 3];
+
+	static final SPEAKS = [
+		0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
+		0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5
 	];
 
-	static final KEY_CODE = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3];
+	static final TURNS = [
+		0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
+		2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3
+	];
+
+	static final PLAYS = [
+		0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2,
+		1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3
+	];
+
+	static final TAKEN = [
+		1, -1, -1, -1, 5, -1, -1, -1, 3, -1, -1, -1,
+		0, -1, -1, -1, 4, -1, -1, -1, 2, -1, -1, -1
+	];
 
 	public final registers:Vector<Int> = new Vector<Int>(512);
 	public final channels:Vector<Channel> = new Vector<Channel>(6);
 
 	public var writes(default, null):Int = 0;
+
+	public var left(default, null):Int = 0;
+	public var right(default, null):Int = 0;
 
 	public var dac(default, null):Int = 0;
 	public var dacOn(default, null):Bool = false;
@@ -40,7 +56,15 @@ class Ym2612 {
 	var timerASubdivide:Int = 0;
 	var status:Int = 0;
 
-	var envelopeClock:Int = 0;
+	var envelopeCounter:Int = 0;
+	var envelopeDivider:Int = 0;
+	var visible:Int = 0;
+	var ticking:Bool = false;
+	var position:Int = 0;
+	var pendingHalf:Int = 0;
+	var pendingAddress:Int = 0;
+	var pendingValue:Int = 0;
+	var pendingIn:Int = 0;
 	var lfoClock:Int = 0;
 	var lfoPhase:Int = 0;
 
@@ -71,9 +95,19 @@ class Ym2612 {
 		timerASubdivide = 0;
 		status = 0;
 		writes = 0;
+		left = 0;
+		right = 0;
 		dac = 0;
 		dacOn = false;
-		envelopeClock = 0;
+		envelopeCounter = 0;
+		envelopeDivider = 0;
+		visible = 0;
+		ticking = false;
+		position = 0;
+		pendingHalf = 0;
+		pendingAddress = 0;
+		pendingValue = 0;
+		pendingIn = 0;
 		lfoClock = 0;
 		lfoPhase = 0;
 	}
@@ -88,8 +122,18 @@ class Ym2612 {
 			return;
 		}
 
-		registers[(part << 8) | address] = byte;
-		apply(part, address, byte);
+		if (pendingIn > 0) commit();
+
+		pendingHalf = part;
+		pendingAddress = address;
+		pendingValue = byte;
+		pendingIn = WRITE_LATENCY;
+	}
+
+	function commit():Void {
+		pendingIn = 0;
+		registers[(pendingHalf << 8) | pendingAddress] = pendingValue;
+		apply(pendingHalf, pendingAddress, pendingValue);
 	}
 
 	public function read():Int {
@@ -154,14 +198,9 @@ class Ym2612 {
 
 	function key(value:Int):Void {
 		final which = value & 0x07;
-		final index = (which & 3) + ((which & 4) != 0 ? 3 : 0);
 		if ((which & 3) == 3) return;
 
-		final channel = channels[index];
-		for (slot in 0...4) {
-			if ((value & (0x10 << slot)) != 0) channel.operators[slot].keyOn();
-			else channel.operators[slot].keyOff();
-		}
+		channels[(which & 3) + ((which & 4) != 0 ? 3 : 0)].armed = (value >> 4) & 0x0F;
 	}
 
 	public function run(clocks:Int):Void {
@@ -191,26 +230,50 @@ class Ym2612 {
 		}
 	}
 
+	function cycle():Void {
+		if (pendingIn > 0 && --pendingIn == 0) commit();
+
+		final which = SPEAKS[position];
+		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking);
+
+		final taken = TAKEN[position];
+		if (taken >= 0) channels[taken].capture();
+
+		if (position < 6) channels[which].keyRequest = channels[which].armed;
+
+		if (++position < PER_FRAME) return;
+
+		position = 0;
+
+		ticking = visible != envelopeCounter;
+		visible = envelopeCounter;
+
+		if (++envelopeDivider >= 3) {
+			envelopeDivider = 0;
+			envelopeCounter = (envelopeCounter + 1) & 0xFFF;
+		}
+	}
+
 	public function sample():Int {
-		envelopeClock++;
-		final envelopeStep = (envelopeClock & 2) == 0;
+		for (_ in 0...PER_FRAME) cycle();
 
-		lfoClock++;
-		if ((registers[0x22] & 0x08) != 0 && (lfoClock & 0x3F) == 0) lfoPhase = (lfoPhase + 1) & 0x7F;
-
-		var total = 0;
+		left = 0;
+		right = 0;
 
 		for (i in 0...6) {
 			final channel = channels[i];
 
 			if (i == 5 && dacOn) {
-				total += (dac - 0x80) << 6;
+				final value = (dac - 0x80) << 1;
+				if (channel.left) left += value;
+				if (channel.right) right += value;
 				continue;
 			}
 
-			total += channel.sample(sine, exponential, envelopeStep);
+			left += channel.onLeft();
+			right += channel.onRight();
 		}
 
-		return total;
+		return left + right;
 	}
 }

@@ -1,11 +1,12 @@
 package hx68k.md;
 
+import haxe.ds.Vector;
+
 enum abstract Phase(Int) from Int to Int {
-	var Off = 0;
-	var Attack = 1;
-	var Decay = 2;
-	var Sustain = 3;
-	var Release = 4;
+	var Attack = 0;
+	var Decay = 1;
+	var Sustain = 2;
+	var Release = 3;
 }
 
 class Operator {
@@ -17,15 +18,17 @@ class Operator {
 	public var decayRate:Int = 0;
 	public var sustainRate:Int = 0;
 	public var releaseRate:Int = 0;
+
 	public var sustainLevel:Int = 0;
+
 	public var tremolo:Bool = false;
 
 	public var phase:Int = 0;
 	public var increment:Int = 0;
 	public var envelope:Int = 1023;
-	public var state:Phase = Off;
+	public var state:Phase = Release;
 
-	var counter:Int = 0;
+	public var keyed:Bool = false;
 
 	public function new() {}
 
@@ -43,8 +46,8 @@ class Operator {
 		phase = 0;
 		increment = 0;
 		envelope = 1023;
-		state = Off;
-		counter = 0;
+		state = Release;
+		keyed = false;
 	}
 
 	public function set(group:Int, value:Int):Void {
@@ -64,67 +67,85 @@ class Operator {
 				sustainRate = value & 0x1F;
 			case 0x80:
 				final level = (value >> 4) & 0x0F;
-				sustainLevel = level == 0x0F ? 1023 : level * 32;
+				sustainLevel = (level == 0x0F ? 31 : level) << 1;
 				releaseRate = (value & 0x0F) * 2 + 1;
 			case _:
 		}
 	}
 
-	public function keyOn():Void {
-		if (state != Off && state != Release) return;
-		state = Attack;
+	public function keyOn(keyCode:Int):Void {
 		phase = 0;
-		counter = 0;
-		if (attackRate >= 31) envelope = 0;
+		state = Attack;
+		if (rateOf(keyCode >> (3 - keyScale), Attack) >= 62) envelope = 0;
 	}
 
-	public function keyOff():Void {
-		if (state != Off) state = Release;
-	}
+	public function advance(keyCode:Int, counter:Int, tick:Bool, held:Bool, started:Bool):Void {
+		if (started) return;
 
-	public function advance(keyCode:Int, step:Bool):Void {
-		if (!step || state == Off) return;
+		final rate = rateOf(keyCode >> (3 - keyScale), state);
+		final fastest = rate >= 62;
 
-		final scaling = keyCode >> (3 - keyScale);
-		final rate = rateOf(scaling);
-		if (rate == 0) return;
+		var size = 0;
+		if (tick && rate != 0) {
+			if (rate < 48) {
+				final shift = 11 - (rate >> 2);
+				if ((counter & ((1 << shift) - 1)) == 0) size = STEP[rate & 3][(counter >> shift) & 7];
+			} else {
+				final grow = FASTER[rate & 3][counter & 3] + (rate >> 2) - 12;
+				size = 1 << (grow > 3 ? 3 : grow);
+			}
+		}
 
-		counter++;
-		final every = 1 << (11 - (rate >> 2));
-		if (every > 1 && (counter % every) != 0) return;
+		final spent = (envelope & 0x3F0) == 0x3F0;
 
-		final size = 1 + (rate & 3);
+		var next = state;
+		var step = 0;
 
 		switch (state) {
 			case Attack:
-				envelope -= ((envelope * size) >> 4) + 1;
-				if (envelope <= 0) {
-					envelope = 0;
-					state = Decay;
-				}
+				if (envelope == 0) next = Decay;
+				else if (size != 0 && !fastest && held) step = ((~envelope) * size) >> 4;
+
 			case Decay:
-				envelope += size;
-				if (envelope >= sustainLevel) {
-					envelope = sustainLevel;
-					state = Sustain;
-				}
+				if ((envelope >> 4) == sustainLevel) next = Sustain;
+				else if (!spent && size != 0) step = size;
+
 			case Sustain, Release:
-				envelope += size;
-				if (envelope >= 1023) {
-					envelope = 1023;
-					if (state == Release) state = Off;
-				}
-			case _:
+				if (!spent && size != 0) step = size;
 		}
+
+		if (!held) next = Release;
+
+		if (state != Attack && spent) {
+			next = Release;
+			envelope = 1023;
+			step = 0;
+		}
+
+		envelope = (envelope + step) & 0x3FF;
+		state = next;
 	}
 
-	function rateOf(scaling:Int):Int {
-		final base = switch (state) {
+	static final STEP = [
+		[0, 1, 0, 1, 0, 1, 0, 1],
+		[0, 1, 0, 1, 1, 1, 0, 1],
+		[0, 1, 1, 1, 0, 1, 1, 1],
+		[0, 1, 1, 1, 1, 1, 1, 1]
+	];
+
+	static final FASTER = [
+		[0, 0, 0, 0],
+		[1, 0, 0, 0],
+		[1, 0, 1, 0],
+		[1, 1, 1, 0]
+	];
+
+	function rateOf(scaling:Int, which:Phase):Int {
+		final base = switch (which) {
 			case Attack: attackRate;
 			case Decay: decayRate;
 			case Sustain: sustainRate;
 			case Release: releaseRate;
-			case _: 0;
 		}
 
 		if (base == 0) return 0;
@@ -132,18 +153,18 @@ class Operator {
 		return rate > 63 ? 63 : rate;
 	}
 
-	public function output(sine:haxe.ds.Vector<Int>, exponential:haxe.ds.Vector<Int>,
-			modulation:Int):Int {
-		if (state == Off) return 0;
-
+	public function output(sine:Vector<Int>, exponential:Vector<Int>, modulation:Int):Int {
 		final at = ((phase >> 10) + modulation) & 0x3FF;
 		final quarter = at & 0xFF;
 		final mirrored = (at & 0x100) != 0 ? 255 - quarter : quarter;
 
-		var attenuation = sine[mirrored] + (envelope << 2) + (totalLevel << 3);
+		var level = envelope + (totalLevel << 3);
+		if (level > 1023) level = 1023;
+
+		var attenuation = sine[mirrored] + (level << 2);
 		if (attenuation > 0x1FFF) attenuation = 0x1FFF;
 
-		final value = (exponential[(~attenuation) & 0xFF] + 1024) >> (attenuation >> 8);
+		final value = ((exponential[(~attenuation) & 0xFF] + 1024) << 2) >> (attenuation >> 8);
 		return (at & 0x200) != 0 ? -value : value;
 	}
 

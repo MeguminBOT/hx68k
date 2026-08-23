@@ -610,3 +610,9 @@ echo "--- z80 cycle-accuracy conformance (SingleStepTests) ---"
 echo ""
 echo "--- the disassembler against the same 68000 fixtures ---"
 "$ROOT/emulator/run-disassembly.sh" --ci
+
+# the FM chip is a tracked progress metric, not yet a gate: the registers it does not implement at
+# all are listed in docs/YM2612-NOTES.md, and until they are there the number cannot reach the top.
+echo ""
+echo "--- the FM chip against Nuked OPN2 ---"
+"$ROOT/emulator/run-opn.sh" 2>&1 | tail -20
