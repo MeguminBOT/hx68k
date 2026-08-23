@@ -3,6 +3,7 @@ package hx68k.md;
 import haxe.io.Bytes;
 import haxe.ds.Vector;
 
+@:allow(hx68k.md.Savestate)
 class Vdp {
 	public static inline final MASTER_PER_LINE = 3420;
 	public static inline final LINES_NTSC = 262;

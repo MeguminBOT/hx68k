@@ -1,0 +1,3 @@
+-cp src
+-main hx68k.test.StateCheck
+-neko bin/state.n

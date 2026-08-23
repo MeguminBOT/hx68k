@@ -6,6 +6,7 @@ import hx68k.cpu.m68k.Bus;
 import hx68k.cpu.m68k.M68000;
 import hx68k.cpu.z80.Z80;
 
+@:allow(hx68k.md.Savestate)
 class Machine implements Bus implements Memory {
 	public static inline final MASTER_PER_68K = 7;
 	public static inline final MASTER_PER_Z80 = 15;

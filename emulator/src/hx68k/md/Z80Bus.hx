@@ -3,6 +3,7 @@ package hx68k.md;
 import haxe.io.Bytes;
 import hx68k.cpu.z80.Bus;
 
+@:allow(hx68k.md.Savestate)
 class Z80Bus implements Bus {
 	public var states(default, null):Int = 0;
 

@@ -36,6 +36,12 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+A machine can be put back where it was. A savestate holds everything it needs to carry on, and a
+ring of them lets a session go back as well as forward. The proof is that the same frames run twice
+from the same state reach the same bytes, draw the same frame, and leave the same memory behind:
+dropping one word of the prefetch queue from the state was confirmed to fail that before the pass
+was believed.
+
 It also says where the beam was when the code touched the VDP, and what was running then. Writes
 are split by what actually matters: with the display off, with it on but the beam blanked, and with
 it on while the beam is drawing. Over 60 frames of the art ROM, every one of its 267 writes is

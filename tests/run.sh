@@ -376,6 +376,18 @@ case "$RASTER" in
 	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;
 esac
 
+echo ""
+echo "--- a state a machine can be put back into ---"
+printf "building %-16s" "savestates"
+if (cd "$ROOT/emulator" && haxe state.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/state.n" "$ROOT"
+
 # a commercial ROM is the widest test there is, and the one thing here that cannot be committed
 GAME="$ROOT/_realRomTest/sth2.md"
 if [ -f "$GAME" ]; then
