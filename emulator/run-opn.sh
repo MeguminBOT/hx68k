@@ -20,7 +20,10 @@ if [ ! -f "$ROOT/vendor/Nuked-OPN2/ym3438.c" ]; then
 fi
 
 "$ROOT/tests/opn2/build.sh" > /dev/null
-(cd "$HERE" && haxe fixtures.hxml && haxe opn.hxml)
+
+# the check is built to C rather than to neko: the same numbers, and fifty times faster, which is
+# what makes a suite of this size something the gate can run
+(cd "$HERE" && haxe fixtures.hxml && haxe opn.hxml) > /dev/null
 
 neko "$HERE/bin/fixtures.n" "$SCRIPTS" > /dev/null
 mkdir -p "$SOUNDS"
@@ -41,7 +44,7 @@ if [ -s "$JOBS" ]; then
 fi
 
 if [ -n "$1" ]; then
-	neko "$HERE/bin/opn.n" "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
+	"$HERE/bin/opn/OpnCheck.exe" "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
 else
-	neko "$HERE/bin/opn.n" "$SCRIPTS" "$SOUNDS"
+	"$HERE/bin/opn/OpnCheck.exe" "$SCRIPTS" "$SOUNDS"
 fi

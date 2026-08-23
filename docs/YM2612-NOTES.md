@@ -104,12 +104,17 @@ before it presses a key. What it did change is that the tolerance on `WRITE_LATE
 a flat delay any value from 26 to 30 gave the same samples, and with the rotation deciding, only 26
 does.
 
-**A key going up is seen by every operator at once, and a key going down is not.** The channel takes
-the key register on its own first turn, which is why operator one starts a sample after the other
-three, but the release transition follows the register itself and does not wait for that turn. Taking
-release from the per operator latch instead leaves an operator a whole envelope step behind for the
-rest of the note, which is what the release fixtures and twelve of the thirteen failing envelopes
-were showing.
+**The phase does not advance on the turn it begins again.** A turn that resets an operator's phase is
+spent on the reset: the part clears the increment first and then adds it, so nothing moves. Resetting
+and then stepping in the same turn looks harmless, and it is, right up until it is used to cancel out
+a key press landing a sample late. Both faults together sounded exactly right on anything without
+feedback and a moving envelope, and were what every remaining group was failing on.
+
+**Beginning the envelope again and beginning the phase again are different questions.** A key press
+asks for both. The SSG shapes ask for one or the other: two of the eight restart the phase, six
+restart the envelope, and only the two that name the reset touch the phase. Restarting the phase
+whenever the envelope restarts leaves the two alternating shapes drifting by a fraction of a cycle,
+which reads as a small amplitude error and is not one.
 
 ## The converter
 
@@ -119,26 +124,38 @@ sample, so **channels 1, 3 and 5 are heard one sample behind channels 0, 2 and 4
 five of the six channels are individually exact and no two of them are exact together, which is what
 made a six channel patch fail where each of its channels passed alone.
 
-## The one that is understood and not yet fixed
+## The SSG envelope
 
-Key on lands one sample later here than it does in the reference. The audio still agrees, because the
-output pipeline here is one sample shorter and the two cancel: on `main-algorithm-6` the reference has
-operators three, two and four key on during sample 117 and operator one during 118, this has them at
-118 and 119, and the samples that come out are bit identical at no offset.
+Four bits per operator, register 0x90, and the top one turns the other three on. They invert what the
+envelope is doing, turn it round each time it reaches the halfway mark, and either stop it there or
+start it again.
 
-The envelope counter is free running and does not shift with either. So when a key on lands on the
-same sample as an envelope step, this chip spends that step on the key and the reference does not, and
-the operator stays one step behind for the whole note. It shows about one time in three, and only
-where the rate is 48 or more and the envelope therefore moves on every step.
+- The envelope is spent at 512 rather than at 1008, and every step outside attack is four times as
+  large.
+- A key going up hands back whatever the shape was showing, as the envelope itself, so an inverted
+  envelope releases from where it looked like it was rather than from where it was.
+- A restart while the envelope is already attacking keeps the attack moving rather than beginning it
+  again from nothing, and is timed by the attack rate whatever the envelope was doing before.
+- Two of the shapes hold at the top instead of starting again, and holding also stops the envelope
+  being called spent.
 
-That is what the `voice` and `random` groups are failing on. The fix is to move key on a sample
-earlier and give the output the sample back somewhere that does not disturb the converter's schedule.
-Adding a stage to the channel accumulator does disturb it, and delaying what leaves the chip is not
-the same thing either; both were tried and both made it worse.
+## Reading a chip that will not say what it is doing
+
+Every one of the last four faults was found the same way and none of them was found by reasoning. The
+reference is a program, so its internals can be printed: the phase, the operator output, the channel
+accumulator and what it handed on, for one slot, every sample. Printing the same four from here and
+lining them up says which of them first disagrees and on which sample, and that names the operation.
+
+Two chips compared only at their outputs cannot tell a late key press from a wrong envelope from a
+wrong phase, because each of them can hide the others. Comparing at the outputs is what a suite is
+for; comparing inside is what fixing one is for.
+
+`OpnCheck` keeps both: `--envelope` prints what the four envelopes of channel one held around the
+sample the two parted, and `--inside` prints the phase, the operator output, the accumulator and what
+left the chip.
 
 ## What is not implemented
 
-- SSG-EG, register 0x90.
 - The LFO, register 0x22, and the depths in 0xB4. `Operator.tremolo` is read and ignored.
 - Channel three's special mode, registers 0xA8 to 0xAC.
 - CSM, and the busy bit of the status register, which `read` always answers as clear.

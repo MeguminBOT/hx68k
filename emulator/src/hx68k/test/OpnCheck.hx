@@ -80,6 +80,7 @@ class OpnCheck {
 		final parts = script.split("/");
 		var name = parts[parts.length - 1];
 		if (StringTools.endsWith(name, ".txt")) name = name.substr(0, name.length - 4);
+		inside = watching == "--inside";
 		final held:Null<Array<Array<Int>>> = watching == null ? null : [];
 		final outcome = measure(name, script, reference, held);
 		Sys.println(outcome.line);
@@ -88,7 +89,7 @@ class OpnCheck {
 		final theirs = outcome.reference;
 
 		if (held != null && from >= 0) {
-			Sys.println("  sample      mine     reference     S1   S3   S2   S4");
+			Sys.println("  sample      mine     reference" + (inside ? "     phase   out   pub  left" : "     S1   S3   S2   S4"));
 			for (i in from...from + 20) {
 				if (i >= mine.length || i >= theirs.length) break;
 				Sys.println("  " + StringTools.lpad(Std.string(i), " ", 6)
@@ -132,7 +133,7 @@ class OpnCheck {
 		if (at >= held.length) return "";
 
 		var out = "  ";
-		for (value in held[at]) out += StringTools.lpad(Std.string(value), " ", 5);
+		for (value in held[at]) out += StringTools.lpad(Std.string(value), " ", inside ? 8 : 5);
 		return out;
 	}
 
@@ -215,6 +216,8 @@ class OpnCheck {
 		return out;
 	}
 
+	static var inside:Bool = false;
+
 	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>):Array<Int> {
 		final chip = new Ym2612();
 		final out = [];
@@ -224,11 +227,14 @@ class OpnCheck {
 			out.push(chip.left);
 
 			if (held != null) {
-				final operators = chip.channels[0].operators;
-				held.push([
-					operators[0].envelope, operators[2].envelope,
-					operators[1].envelope, operators[3].envelope
-				]);
+				final channel = chip.channels[0];
+				final operators = channel.operators;
+				held.push(inside
+					? [operators[0].phase, channel.outputs[0], channel.published, chip.left]
+					: [
+						operators[0].envelope, operators[2].envelope,
+						operators[1].envelope, operators[3].envelope
+					]);
 			}
 		}
 

@@ -30,6 +30,16 @@ class Operator {
 
 	public var keyed:Bool = false;
 
+	public var ssg:Int = 0;
+
+	public var restarts(default, null):Bool = false;
+
+	public var repeats(default, null):Bool = false;
+
+	var rising:Bool = false;
+	var inverted:Bool = false;
+	var holding:Bool = false;
+
 	public function new() {}
 
 	public function reset():Void {
@@ -48,6 +58,12 @@ class Operator {
 		envelope = 1023;
 		state = Release;
 		keyed = false;
+		ssg = 0;
+		restarts = false;
+		repeats = false;
+		rising = false;
+		inverted = false;
+		holding = false;
 	}
 
 	public function set(group:Int, value:Int):Void {
@@ -65,6 +81,8 @@ class Operator {
 				decayRate = value & 0x1F;
 			case 0x70:
 				sustainRate = value & 0x1F;
+			case 0x90:
+				ssg = value & 0x0F;
 			case 0x80:
 				final level = (value >> 4) & 0x0F;
 				sustainLevel = (level == 0x0F ? 31 : level) << 1;
@@ -73,16 +91,44 @@ class Operator {
 		}
 	}
 
-	public function keyOn(keyCode:Int):Void {
-		phase = 0;
-		state = Attack;
-		if (rateOf(keyCode >> (3 - keyScale), Attack) >= 62) envelope = 0;
+	public function shape(wanted:Bool):Void {
+		restarts = false;
+		repeats = false;
+		holding = false;
+
+		var direction = false;
+
+		if ((ssg & 0x08) != 0) {
+			direction = rising;
+
+			if ((envelope & 0x200) != 0) {
+				if ((ssg & 0x03) == 0x00) restarts = true;
+				if ((ssg & 0x01) == 0x00) repeats = true;
+				if ((ssg & 0x03) == 0x02) direction = !direction;
+				if ((ssg & 0x03) == 0x03) direction = true;
+			}
+
+			if (wanted && ((ssg & 0x07) == 0x05 || (ssg & 0x07) == 0x03)) holding = true;
+
+			direction = direction && keyed;
+		}
+
+		rising = direction;
+		inverted = (rising != ((ssg & 0x0C) == 0x0C)) && keyed;
+	}
+
+	public inline function lift():Void {
+		envelope = shown();
+	}
+
+	public inline function shown():Int {
+		return inverted ? (512 - envelope) & 0x3FF : envelope;
 	}
 
 	public function advance(keyCode:Int, counter:Int, tick:Bool, held:Bool, started:Bool):Void {
-		if (started) return;
+		final shaped = (ssg & 0x08) != 0;
 
-		final rate = rateOf(keyCode >> (3 - keyScale), state);
+		final rate = rateOf(keyCode >> (3 - keyScale), started ? Attack : state);
 		final fastest = rate >= 62;
 
 		var size = 0;
@@ -96,7 +142,20 @@ class Operator {
 			}
 		}
 
-		final spent = (envelope & 0x3F0) == 0x3F0;
+		final spent = shaped ? (envelope & 0x200) != 0 : (envelope & 0x3F0) == 0x3F0;
+		if (shaped && state != Attack) size <<= 2;
+
+		if (started) {
+			final again = state == Attack;
+			state = Attack;
+
+			if (fastest) envelope = 0;
+			else if (again && envelope != 0 && size != 0 && held) {
+				envelope = (envelope + (((~envelope) * size) >> 4)) & 0x3FF;
+			}
+
+			return;
+		}
 
 		var next = state;
 		var step = 0;
@@ -116,7 +175,7 @@ class Operator {
 
 		if (!held) next = Release;
 
-		if (state != Attack && spent) {
+		if (state != Attack && spent && !holding) {
 			next = Release;
 			envelope = 1023;
 			step = 0;
@@ -158,7 +217,7 @@ class Operator {
 		final quarter = at & 0xFF;
 		final mirrored = (at & 0x100) != 0 ? 255 - quarter : quarter;
 
-		var level = envelope + (totalLevel << 3);
+		var level = shown() + (totalLevel << 3);
 		if (level > 1023) level = 1023;
 
 		var attenuation = sine[mirrored] + (level << 2);

@@ -18,6 +18,7 @@ class OpnFixtures {
 		made += envelopes(into);
 		made += modulation(into);
 		made += voices(into);
+		made += ssg(into);
 		made += channels(into);
 		made += features(into);
 		made += broad(into);
@@ -181,6 +182,27 @@ class OpnFixtures {
 		return made;
 	}
 
+	static function ssg(into:String):Int {
+		var made = 0;
+
+		for (shape in 0...8) {
+			for (rate in [12, 20, 28]) {
+				final voice = new OpnVoice().alone(0, 8).envelope(28, rate, 4, 6, 9).note(4, 0x169);
+				voice.ssg[0] = 0x08 | shape;
+				made += write(into, "ssg-" + shape + "-rate-" + pad(rate), [voice], [0]);
+			}
+		}
+
+		for (shape in 0...8) {
+			final voice = new OpnVoice().alone(0, 8).envelope(28, 18, 6, 5, 7).note(4, 0x169);
+			voice.ssg[0] = 0x08 | shape;
+			voice.lift = 800;
+			made += write(into, "ssg-" + shape + "-lifted", [voice], [0]);
+		}
+
+		return made;
+	}
+
 	static function channels(into:String):Int {
 		var made = 0;
 
@@ -302,6 +324,7 @@ class OpnFixtures {
 			byte(lines, port, 0x60 + slot, voice.decay[at] & 0x1F);
 			byte(lines, port, 0x70 + slot, voice.sustain[at] & 0x1F);
 			byte(lines, port, 0x80 + slot, ((voice.level[at] & 0x0F) << 4) | (voice.release[at] & 0x0F));
+			byte(lines, port, 0x90 + slot, voice.ssg[at] & 0x0F);
 		}
 
 		byte(lines, port, 0xB0 + channel, ((voice.feedback & 7) << 3) | (voice.algorithm & 7));

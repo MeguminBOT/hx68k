@@ -8,7 +8,7 @@ class Ym2612 {
 
 	static inline final PER_FRAME = 24;
 
-	static inline final WRITE_LATENCY = 26;
+	static inline final WRITE_LATENCY = 2;
 
 	static final TURN = [0, 2, 1, 3];
 

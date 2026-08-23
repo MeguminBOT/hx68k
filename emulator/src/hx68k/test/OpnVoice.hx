@@ -14,6 +14,8 @@ class OpnVoice {
 	public final level:Array<Int> = [0, 0, 0, 0];
 	public final release:Array<Int> = [15, 15, 15, 15];
 
+	public final ssg:Array<Int> = [0, 0, 0, 0];
+
 	public var block:Int = 3;
 	public var frequency:Int = 0x180;
 	public var panning:Int = 0xC0;

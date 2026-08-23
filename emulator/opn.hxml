@@ -1,3 +1,3 @@
 -cp src
 -main hx68k.test.OpnCheck
--neko bin/opn.n
+-cpp bin/opn

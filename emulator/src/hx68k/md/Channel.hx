@@ -104,14 +104,20 @@ class Channel {
 		final each = operators[index];
 
 		final wanted = (keyRequest & (1 << index)) != 0;
-		final lifted = (armed & (1 << index)) == 0;
-		final started = wanted && !each.keyed;
-		if (started) each.keyOn(keyCode());
+
+		each.shape(wanted);
+
+		final pressed = wanted && !each.keyed;
+		final started = pressed || (each.keyed && each.repeats);
+		final restarting = pressed || each.restarts;
+		if (restarting) each.phase = 0;
 
 		final out = each.output(sine, exponential, modulation(index));
-		each.step();
 
-		each.advance(keyCode(), counter, tick, !lifted, started);
+		if (!restarting) each.step();
+
+		if (each.keyed && !wanted) each.lift();
+		each.advance(keyCode(), counter, tick, wanted, started);
 		each.keyed = wanted;
 
 		outputs[index] = out;
