@@ -1,0 +1,124 @@
+package hx68k.debug;
+
+typedef Cost = {
+	final name:String;
+	var cycles:Int;
+	var instructions:Int;
+}
+
+typedef Profile = {
+	final cycles:Int;
+	final instructions:Int;
+	final frames:Int;
+	final costs:Array<Cost>;
+	final scanlines:Array<String>;
+}
+
+class Profiler {
+	public final debugger:Debugger;
+
+	static inline final OUTSIDE = "outside any symbol";
+
+	final names:Map<Int, String> = [];
+
+	public function new(debugger:Debugger) {
+		this.debugger = debugger;
+	}
+
+	public function run(frames:Int):Profile {
+		final machine = debugger.machine;
+		final costs:Map<String, Cost> = [];
+		final order = new Array<String>();
+		final target = machine.vdp.frame + frames;
+
+		var lines = new Map<Int, Map<String, Int>>();
+		var lastFrame = machine.vdp.frame;
+		var instructions = 0;
+		final started = machine.cycles;
+
+		while (machine.vdp.frame != target) {
+			final name = nameAt(debugger.at());
+			final line = machine.vdp.line;
+			final before = machine.cycles;
+
+			if (machine.vdp.frame != lastFrame) {
+				lastFrame = machine.vdp.frame;
+				lines = new Map<Int, Map<String, Int>>();
+			}
+
+			machine.step();
+			instructions++;
+
+			final spent = machine.cycles - before;
+			var cost = costs.get(name);
+			if (cost == null) {
+				cost = {name: name, cycles: 0, instructions: 0};
+				costs.set(name, cost);
+				order.push(name);
+			}
+			cost.cycles += spent;
+			cost.instructions++;
+
+			var row = lines.get(line);
+			if (row == null) {
+				row = new Map<String, Int>();
+				lines.set(line, row);
+			}
+			row.set(name, (row.exists(name) ? row.get(name) : 0) + spent);
+		}
+
+		final ranked = [for (name in order) costs.get(name)];
+		ranked.sort((a, b) -> b.cycles - a.cycles);
+
+		return {
+			cycles: machine.cycles - started,
+			instructions: instructions,
+			frames: frames,
+			costs: ranked,
+			scanlines: dominant(lines)
+		};
+	}
+
+	static function dominant(lines:Map<Int, Map<String, Int>>):Array<String> {
+		var highest = -1;
+		for (line in lines.keys()) if (line > highest) highest = line;
+
+		final out = new Array<String>();
+		for (line in 0...highest + 1) {
+			final row = lines.get(line);
+			if (row == null) {
+				out.push("");
+				continue;
+			}
+
+			var best = "";
+			var most = -1;
+			for (name in row.keys()) {
+				final spent = row.get(name);
+				if (spent > most) {
+					most = spent;
+					best = name;
+				}
+			}
+			out.push(best);
+		}
+
+		return out;
+	}
+
+	function nameAt(address:Int):String {
+		final cached = names.get(address);
+		if (cached != null) return cached;
+
+		final place = debugger.map.resolve(address);
+		var name = place == null ? null : place.name;
+
+		if (name == null) {
+			final symbol = debugger.map.elf.functionAt(address);
+			name = symbol == null ? OUTSIDE : symbol.name;
+		}
+
+		names.set(address, name);
+		return name;
+	}
+}

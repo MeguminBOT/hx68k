@@ -226,11 +226,17 @@ esac
 
 echo ""
 echo "--- a trace in Haxe, checked against the core that ran it ---"
-TRACE="$(neko "$ROOT/emulator/bin/debug.n" \
+# the tool exits nonzero when the trace does not account for itself, and set -e would take
+# the script out before the check below could say why
+if TRACE="$(neko "$ROOT/emulator/bin/debug.n" \
 	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
 	"$ROOT/samples/bug/rom/out/debug/rom.out" \
 	"$ROOT/samples/bug/rom/src" \
-	--break Main.accumulate --trace 20000)"
+	--break Main.accumulate --trace 20000)"; then
+	TRACED=0
+else
+	TRACED=$?
+fi
 
 echo "$TRACE" | head -4 | sed 's/^/  /'
 echo "  ..."
@@ -239,10 +245,13 @@ echo "$TRACE" | tail -1 | sed 's/^/  /'
 # every instruction either falls through by its own length or says it moves the pc, which holds
 # the disassembler to the core that just ran the same bytes
 printf "trace %-18s" "accounted for"
-case "$(echo "$TRACE" | tail -1)" in
-	"trace: 20000 instructions, 20000 accounted for, 0 not disassembled") echo "ok" ;;
-	*) echo "FAILED"; echo "$TRACE" | tail -8; exit 1 ;;
-esac
+if [ "$TRACED" -eq 0 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "$TRACE" | tail -8
+	exit 1
+fi
 
 printf "trace %-18s" "named the Haxe"
 if [ "$(echo "$TRACE" | grep -c "Main.hx:.*Main.accumulate")" -gt 0 ]; then
@@ -252,6 +261,36 @@ else
 	echo "  no line of the trace named Main.accumulate in Main.hx"
 	exit 1
 fi
+
+echo ""
+echo "--- where a frame went, in Haxe function names ---"
+if PROFILE="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
+	"$ROOT/samples/conformance/rom/out/debug/rom.out" \
+	"$ROOT/samples/conformance/rom/src" \
+	--break Main.main --profile 3)"; then
+	PROFILED=0
+else
+	PROFILED=$?
+fi
+
+echo "$PROFILE" | sed 's/^/  /'
+
+# the profile adds up to the frame only if every cycle the machine spent landed against a name
+printf "profile %-16s" "adds up"
+if [ "$PROFILED" -eq 0 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  the attributed cycles did not add up to the frame"
+	exit 1
+fi
+
+printf "profile %-16s" "named the Haxe"
+case "$(echo "$PROFILE" | sed -n '4p')" in
+	*"  Main."*) echo "ok" ;;
+	*) echo "FAILED"; echo "  the heaviest name was not a Haxe function"; exit 1 ;;
+esac
 
 # a commercial ROM is the widest test there is, and the one thing here that cannot be committed
 GAME="$ROOT/_realRomTest/sth2.md"

@@ -36,6 +36,21 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+The same reading gives a profile: where a frame's cycles went, named in Haxe. Over three frames of
+the conformance sample, `Main.fib` takes 92.9% of them, and the scanline map puts every line but one
+against it. The exception is line 224, which is the vertical interrupt, and it is attributed to no
+symbol because it belongs to none.
+
+```
+   239080   92.9%     16982  Main.fib
+     5084      2%       608  Main.breakContinue
+     3664    1.4%       470  Main.nested
+
+    0-223  Main.fib
+      224  outside any symbol
+  225-261  Main.fib
+```
+
 The disassembler is held to the fixtures the core is held to, on three axes across all 127 opcode
 groups and 317,500 cases: the instruction each group names, every register the suite's own test
 names mention, and the length of the instruction, which the fixture's final pc measures for the
