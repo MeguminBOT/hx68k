@@ -42,12 +42,14 @@ class Console extends Application {
 	var said:Map<String, Array<hx68k.debug.Row>> = [];
 
 	var screen:Null<Screen> = null;
+	var speaker:Null<Speaker> = null;
 	var paint:Null<Paint> = null;
 	var ui:Null<Ui> = null;
 
 	var loaded:Bool = false;
 	var paused:Bool = false;
 	var unlimited:Bool = false;
+	var quiet:Bool = false;
 
 	var frames:Int = 0;
 	var rate:Int = 0;
@@ -103,6 +105,7 @@ class Console extends Application {
 		machine.reset();
 		machine.load(rom);
 
+		if (speaker == null) speaker = new Speaker();
 		loaded = true;
 		owed = 0;
 		frames = 0;
@@ -155,6 +158,11 @@ class Console extends Application {
 					frames++;
 				}
 			}
+		}
+
+		if (speaker != null) {
+			if (quiet) speaker.silence();
+			else speaker.feed(machine.sound);
 		}
 
 		emulating = (haxe.Timer.stamp() - started) * 1000;
@@ -237,6 +245,7 @@ class Console extends Application {
 
 		if (ui.tool(paused ? "running" : "paused", paused)) paused = !paused;
 		if (ui.tool("flat out", unlimited)) unlimited = !unlimited;
+		if (ui.tool(quiet ? "silent" : "sound", !quiet)) quiet = !quiet;
 		ui.gap();
 
 		for (view in views) {

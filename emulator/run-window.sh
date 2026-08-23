@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# the ROM is resolved against where this was called from, before moving to where it is built
+ROM=""
+if [ -n "${1:-}" ]; then
+	ROM="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+fi
+
 cd "$HERE"
 
 BUILT="bin/window/windows/bin/hx68k.exe"
@@ -18,9 +25,8 @@ if [ ! -f "$BUILT" ]; then
 	exit 1
 fi
 
-ROM="${1:-}"
 if [ -z "$ROM" ]; then
 	exec "./$BUILT"
 fi
 
-exec "./$BUILT" "$(cd "$(dirname "$ROM")" && pwd)/$(basename "$ROM")"
+exec "./$BUILT" "$ROM"
