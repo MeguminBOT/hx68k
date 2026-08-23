@@ -23,11 +23,13 @@ class Console extends Application {
 	final machine:Machine = new Machine();
 
 	var screen:Null<Screen> = null;
+	var font:Null<Font> = null;
 	var loaded:Bool = false;
 	var paused:Bool = false;
 	var frames:Int = 0;
 	var since:Float = 0;
 	var owed:Float = 0;
+	var rate:Int = 0;
 
 	public function new() {
 		super();
@@ -66,7 +68,7 @@ class Console extends Application {
 
 		final now = haxe.Timer.stamp();
 		if (now - since >= 1) {
-			window.title = "hx68k  " + frames + " frames a second";
+			rate = frames;
 			frames = 0;
 			since = now;
 		}
@@ -76,8 +78,28 @@ class Console extends Application {
 		final gl = context.webgl;
 		if (gl == null) return;
 
-		if (screen == null) screen = new Screen(gl);
+		if (screen == null) {
+			screen = new Screen(gl);
+			font = new Font(gl, monospace(), 15);
+		}
+
 		screen.draw(machine.vdp.renderer, window.width, window.height);
+
+		gl.viewport(0, 0, window.width, window.height);
+		font.write("hx68k  " + rate + " frames a second", 10, 10 + font.height);
+		font.flush(window.width, window.height, 0xE8E8E8);
+	}
+
+	static function monospace():String {
+		final candidates = [
+			"C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/lucon.ttf", "C:/Windows/Fonts/cour.ttf",
+			"/System/Library/Fonts/Menlo.ttc", "/Library/Fonts/Courier New.ttf",
+			"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+			"/usr/share/fonts/TTF/DejaVuSansMono.ttf"
+		];
+
+		for (path in candidates) if (sys.FileSystem.exists(path)) return path;
+		throw "no monospace font found in any of: " + candidates.join(", ");
 	}
 
 	override function onKeyDown(code:KeyCode, modifier:KeyModifier):Void {

@@ -38,7 +38,7 @@ class Screen {
 	public function new(gl:WebGLRenderContext) {
 		this.gl = gl;
 
-		program = build();
+		program = Shader.link(gl, VERTEX, FRAGMENT);
 		corner = gl.getAttribLocation(program, "corner");
 		rows = gl.getUniformLocation(program, "rows");
 
@@ -95,31 +95,5 @@ class Screen {
 			upload[at++] = pixel & 0xFF;
 			upload[at++] = 0xFF;
 		}
-	}
-
-	function build():GLProgram {
-		final vertex = compile(gl.VERTEX_SHADER, VERTEX);
-		final fragment = compile(gl.FRAGMENT_SHADER, FRAGMENT);
-		final linked = gl.createProgram();
-
-		gl.attachShader(linked, vertex);
-		gl.attachShader(linked, fragment);
-		gl.linkProgram(linked);
-
-		if (gl.getProgramParameter(linked, gl.LINK_STATUS) == 0)
-			throw "the framebuffer program did not link: " + gl.getProgramInfoLog(linked);
-
-		return linked;
-	}
-
-	function compile(kind:Int, source:String) {
-		final shader = gl.createShader(kind);
-		gl.shaderSource(shader, source);
-		gl.compileShader(shader);
-
-		if (gl.getShaderParameter(shader, gl.COMPILE_STATUS) == 0)
-			throw "a framebuffer shader did not compile: " + gl.getShaderInfoLog(shader);
-
-		return shader;
 	}
 }
