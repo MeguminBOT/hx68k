@@ -292,6 +292,59 @@ case "$(echo "$PROFILE" | sed -n '4p')" in
 	*) echo "FAILED"; echo "  the heaviest name was not a Haxe function"; exit 1 ;;
 esac
 
+echo ""
+echo "--- the VDP read back in the terms the documentation uses ---"
+printf "building %-16s" "viewers"
+if (cd "$ROOT/emulator" && haxe view.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/view.n"
+
+# the art ROM carries a sprite the sample declares the size of, so the view is checked against
+# the Haxe that asked for it rather than against a number written here
+if VIEW="$(neko "$ROOT/emulator/bin/debug.n" \
+	"$ROOT/samples/art/rom/out/release/rom.bin" \
+	"$ROOT/samples/art/rom/out/release/rom.out" \
+	"$ROOT/samples/art/rom/src" \
+	--view --settle 40)"; then
+	VIEWED=0
+else
+	VIEWED=$?
+fi
+
+echo ""
+echo "$VIEW" | sed 's/^/  /'
+
+printf "view %-21s" "the ROM ran"
+if [ "$VIEWED" -eq 0 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	exit 1
+fi
+
+WANT_SPRITE="$(sed -n 's/.*@:sprite("gfx\/diamond.png", \([0-9]*\), \([0-9]*\)).*/\1x\2/p' \
+	"$ROOT/samples/art/hx/Art.hx")"
+
+printf "view %-21s" "the declared sprite"
+case "$VIEW" in
+	*"$WANT_SPRITE cells"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no sprite of $WANT_SPRITE cells, which is what Art.hx asked for"; exit 1 ;;
+esac
+
+printf "view %-21s" "the image landed"
+if echo "$VIEW" | sed -n '/plane A/,$p' | grep -qE '01[0-9A-F]'; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  plane A holds none of the tiles the image was built into"
+	exit 1
+fi
+
 # a commercial ROM is the widest test there is, and the one thing here that cannot be committed
 GAME="$ROOT/_realRomTest/sth2.md"
 if [ -f "$GAME" ]; then

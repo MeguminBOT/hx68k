@@ -36,6 +36,16 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+The VDP reads back the same way, in the terms the documentation uses rather than as addresses: the
+layout the registers describe, plane cells decoded into tile and palette and priority, the sprite
+list in link order, tiles as their palette indices, and how much of VRAM has been written. Viewing
+the art ROM finds the sprite that sample declared, at the size it declared it.
+
+```
+sprites 1 in the link chain
+    0  at  100,  80  2x2 cells  tile 1020  palette 0  link 0
+```
+
 The same reading gives a profile: where a frame's cycles went, named in Haxe. Over three frames of
 the conformance sample, `Main.fib` takes 92.9% of them, and the scanline map puts every line but one
 against it. The exception is line 224, which is the vertical interrupt, and it is attributed to no

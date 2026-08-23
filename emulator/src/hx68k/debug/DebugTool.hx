@@ -10,7 +10,7 @@ class DebugTool {
 		if (args.length < 3) {
 			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
 				+ " --break <Class.function> [--watch <Class.static> [--expect n,n,n]]"
-				+ " [--trace n] [--profile frames [--settle frames]]");
+				+ " [--trace n] [--profile frames] [--view] [--settle frames]");
 			Sys.exit(2);
 		}
 
@@ -21,16 +21,18 @@ class DebugTool {
 		var settle = 10;
 		var expected:Array<Int> = [];
 
+		final viewing = args.indexOf("--view") >= 0;
+
 		var i = 3;
-		while (i < args.length - 1) {
+		while (i < args.length) {
 			switch (args[i]) {
-				case "--break": stop = args[i + 1];
-				case "--watch": watch = args[i + 1];
-				case "--expect": expected = args[i + 1].split(",").map(text -> Std.parseInt(text));
-				case "--trace": traced = Std.parseInt(args[i + 1]);
-				case "--profile": profiled = Std.parseInt(args[i + 1]);
-				case "--settle": settle = Std.parseInt(args[i + 1]);
-				case _:
+				case "--break": stop = value(args, i);
+				case "--watch": watch = value(args, i);
+				case "--expect": expected = value(args, i).split(",").map(text -> Std.parseInt(text));
+				case "--trace": traced = count(args, i);
+				case "--profile": profiled = count(args, i);
+				case "--settle": settle = count(args, i);
+				case _: i--;
 			}
 			i += 2;
 		}
@@ -41,26 +43,107 @@ class DebugTool {
 
 		final debugger = new Debugger(machine, new SourceMap(new Elf(args[1]), args[2]));
 
+		if (viewing) Sys.exit(view(debugger, stop, settle));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
 	}
 
-	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {
-		if (stop != "") {
-			final address = debugger.breakpoint(stop);
-			if (address == null) {
-				Sys.println("no such function: " + stop);
-				return 2;
-			}
-			if (!debugger.runTo(address)) {
-				Sys.println("never reached " + stop);
-				return 1;
-			}
-			Sys.println("from " + stop + ", frame " + debugger.machine.vdp.frame
-				+ " line " + debugger.machine.vdp.line);
-		} else {
-			for (_ in 0...settle) debugger.machine.runFrame();
+	static function value(args:Array<String>, i:Int):String {
+		return i + 1 < args.length ? args[i + 1] : "";
+	}
+
+	static function count(args:Array<String>, i:Int):Int {
+		final parsed = Std.parseInt(value(args, i));
+		return parsed == null ? 0 : parsed;
+	}
+
+	static function view(debugger:Debugger, stop:String, settle:Int):Int {
+		if (!reach(debugger, stop, settle)) return 1;
+
+		final viewer = new Viewer(debugger.machine.vdp);
+		final shape = viewer.layout();
+
+		Sys.println("display " + (shape.display ? "on" : "off") + "  " + (shape.wide ? "H40" : "H32")
+			+ "  " + (shape.tall ? "V30" : "V28") + (shape.effects ? "  shadow and highlight" : "")
+			+ "  plane " + shape.columns + "x" + shape.rows + " cells  backdrop " + shape.backdrop);
+		Sys.println("bases   plane A $" + StringTools.hex(shape.planeA, 4)
+			+ "  plane B $" + StringTools.hex(shape.planeB, 4)
+			+ "  window $" + StringTools.hex(shape.window, 4)
+			+ "  sprites $" + StringTools.hex(shape.sprites, 4)
+			+ "  hscroll $" + StringTools.hex(shape.horizontalScroll, 4));
+
+		Sys.println("");
+		for (row in 0...4) {
+			final line = new StringBuf();
+			line.add("palette " + row + "  ");
+			for (column in 0...16) line.add(StringTools.hex(debugger.machine.vdp.cram[row * 16 + column], 4) + " ");
+			Sys.println(line.toString());
 		}
+
+		Sys.println("");
+		Sys.println("vram    " + occupancy(viewer));
+
+		Sys.println("");
+		final sprites = viewer.spriteList();
+		Sys.println("sprites " + sprites.length + " in the link chain");
+		var shown = 0;
+		for (sprite in sprites) {
+			if (shown++ >= 8) break;
+			Sys.println("  " + StringTools.lpad(Std.string(sprite.index), " ", 3)
+				+ "  at " + StringTools.lpad(Std.string(sprite.x), " ", 4)
+				+ "," + StringTools.lpad(Std.string(sprite.y), " ", 4)
+				+ "  " + sprite.width + "x" + sprite.height + " cells"
+				+ "  tile " + StringTools.lpad(Std.string(sprite.tile), " ", 4)
+				+ "  palette " + sprite.palette
+				+ (sprite.priority ? "  front" : "")
+				+ (sprite.flipX ? "  flipX" : "") + (sprite.flipY ? "  flipY" : "")
+				+ "  link " + sprite.link);
+		}
+
+		Sys.println("");
+		Sys.println("plane A, first four rows");
+		for (row in 0...4) {
+			final line = new StringBuf();
+			line.add("  ");
+			for (column in 0...16) {
+				final entry = viewer.cell(shape.planeA, column, row);
+				line.add(StringTools.hex(entry.tile, 3) + (entry.priority ? "!" : " "));
+			}
+			Sys.println(line.toString());
+		}
+
+		return 0;
+	}
+
+	static function occupancy(viewer:Viewer):String {
+		final out = new StringBuf();
+		for (used in viewer.vramUse()) out.add(used == 0 ? "." : (used >= 0x800 ? "#" : "-"));
+		return out.toString();
+	}
+
+	static function reach(debugger:Debugger, stop:String, settle:Int):Bool {
+		if (stop == "") {
+			for (_ in 0...settle) debugger.machine.runFrame();
+			return true;
+		}
+
+		final address = debugger.breakpoint(stop);
+		if (address == null) {
+			Sys.println("no such function: " + stop);
+			return false;
+		}
+		if (!debugger.runTo(address)) {
+			Sys.println("never reached " + stop);
+			return false;
+		}
+
+		Sys.println("from " + stop + ", frame " + debugger.machine.vdp.frame
+			+ " line " + debugger.machine.vdp.line);
+		return true;
+	}
+
+	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {
+		if (!reach(debugger, stop, settle)) return 1;
 
 		final report = new Profiler(debugger).run(frames);
 		Sys.println("profiled " + report.frames + " frames: " + report.cycles
