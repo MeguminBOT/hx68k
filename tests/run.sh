@@ -225,6 +225,50 @@ case "$SESSION" in
 esac
 
 echo ""
+echo "--- who called whom, read off the stack ---"
+
+backtrace() {
+	neko "$ROOT/emulator/bin/debug.n" \
+		"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
+		"$ROOT/samples/conformance/rom/out/debug/rom.out" \
+		"$ROOT/samples/conformance/rom/src" \
+		--break Main.fib --stack --hits "$1"
+}
+
+STACK="$(backtrace 6)"
+echo "$STACK" | sed 's/^/  /'
+
+# fib recurses down its first branch before its second, so the sixth call stands six deep, and
+# three frames of SGDK getting there sit under it
+printf "stack %-18s" "one frame a call"
+DEEP="$(echo "$STACK" | grep -cE '^  [0-9A-F]{6}  Main\.fib')"
+if [ "$DEEP" -eq 6 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  six calls deep should show six frames of Main.fib, not $DEEP"
+	exit 1
+fi
+
+printf "stack %-18s" "down to the entry"
+case "$(echo "$STACK" | grep -c "_start_entry")" in
+	1) echo "ok" ;;
+	*) echo "FAILED"; echo "  the walk did not reach SGDK's entry exactly once"; exit 1 ;;
+esac
+
+# three more calls have to be three more frames, which no number written here decides
+printf "stack %-18s" "grows with calls"
+SHALLOW="$(backtrace 3 | tail -1 | cut -d" " -f1)"
+DEEPER="$(echo "$STACK" | tail -1 | cut -d" " -f1)"
+if [ "$((DEEPER - SHALLOW))" -eq 3 ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  three more calls gave $SHALLOW then $DEEPER frames"
+	exit 1
+fi
+
+echo ""
 echo "--- Haxe statics read at the width they were declared with ---"
 
 read_static() {
@@ -365,7 +409,7 @@ fi
 echo ""
 echo "$VIEW" | sed 's/^/  /'
 
-printf "view %-21s" "the ROM ran"
+printf "view %-19s" "the ROM ran"
 if [ "$VIEWED" -eq 0 ]; then
 	echo "ok"
 else
@@ -376,13 +420,13 @@ fi
 WANT_SPRITE="$(sed -n 's/.*@:sprite("gfx\/diamond.png", \([0-9]*\), \([0-9]*\)).*/\1x\2/p' \
 	"$ROOT/samples/art/hx/Art.hx")"
 
-printf "view %-21s" "the declared sprite"
+printf "view %-19s" "declared sprite"
 case "$VIEW" in
 	*"$WANT_SPRITE cells"*) echo "ok" ;;
 	*) echo "FAILED"; echo "  no sprite of $WANT_SPRITE cells, which is what Art.hx asked for"; exit 1 ;;
 esac
 
-printf "view %-21s" "the image landed"
+printf "view %-19s" "image landed"
 if echo "$VIEW" | sed -n '/plane A/,$p' | grep -qE '01[0-9A-F]'; then
 	echo "ok"
 else
@@ -407,7 +451,7 @@ echo "$RASTER" | sed -n '1,2p' | sed 's/^/  /'
 echo "$RASTER" | sed -n '/who touched it/,$p' | sed 's/^/  /'
 
 # every write is placed against the beam, and every one is attributed to a symbol
-printf "raster %-19s" "every write placed"
+printf "raster %-17s" "writes placed"
 if [ "$RASTERED" -eq 0 ]; then
 	echo "ok"
 else
@@ -416,7 +460,7 @@ else
 	exit 1
 fi
 
-printf "raster %-19s" "named the waiter"
+printf "raster %-17s" "named the waiter"
 case "$RASTER" in
 	*VDP_waitVBlank*) echo "ok" ;;
 	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;

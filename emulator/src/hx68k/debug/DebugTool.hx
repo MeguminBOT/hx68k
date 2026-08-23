@@ -11,7 +11,7 @@ class DebugTool {
 			Sys.println("usage: debug <rom.bin> <rom.out> <generated-source>"
 				+ " --break <Class.function> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
-				+ " [--settle frames]");
+				+ " [--stack] [--settle frames] [--hits n]");
 			Sys.exit(2);
 		}
 
@@ -22,9 +22,11 @@ class DebugTool {
 		var rastered = 0;
 		var read = "";
 		var settle = 10;
+		var hits = 1;
 		var expected:Array<Int> = [];
 
 		final viewing = args.indexOf("--view") >= 0;
+		final walking = args.indexOf("--stack") >= 0;
 
 		var i = 3;
 		while (i < args.length) {
@@ -36,6 +38,7 @@ class DebugTool {
 				case "--profile": profiled = count(args, i);
 				case "--raster": rastered = count(args, i);
 				case "--read": read = value(args, i);
+				case "--hits": hits = count(args, i);
 				case "--settle": settle = count(args, i);
 				case _: i--;
 			}
@@ -46,17 +49,40 @@ class DebugTool {
 		machine.vdp.rendering = false;
 		machine.load(args[0]);
 
-		final debugger = new Debugger(machine, new SourceMap(new Elf(args[1]), args[2]));
+		var map:SourceMap;
+		try {
+			map = new SourceMap(new Elf(args[1]), args[2]);
+		} catch (e:Dynamic) {
+			Sys.println("no source map for " + args[1] + ": " + e);
+			Sys.println("build the sample with its debug profile, which keeps the line table");
+			Sys.exit(2);
+			return;
+		}
 
-		if (read != "") Sys.exit(readStatic(debugger, stop, read, settle));
-		if (viewing) Sys.exit(view(debugger, stop, settle));
-		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle));
-		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle));
+		final debugger = new Debugger(machine, map);
+
+		if (walking) Sys.exit(stack(debugger, stop, settle, hits));
+		if (read != "") Sys.exit(readStatic(debugger, stop, read, settle, hits));
+		if (viewing) Sys.exit(view(debugger, stop, settle, hits));
+		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, hits));
+		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, hits));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced) : hunt(debugger, stop, watch, expected));
 	}
 
-	static function readStatic(debugger:Debugger, stop:String, name:String, settle:Int):Int {
-		if (!reach(debugger, stop, settle)) return 1;
+	static function stack(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
+
+		final frames = new Backtrace(debugger).walk();
+		for (frame in frames) Sys.println("  " + Backtrace.line(frame));
+
+		Sys.println("");
+		Sys.println(frames.length + " frames, the innermost first");
+
+		return frames.length > 1 ? 0 : 1;
+	}
+
+	static function readStatic(debugger:Debugger, stop:String, name:String, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final entry = debugger.map.staticNamed(name);
 		if (entry == null) {
@@ -71,8 +97,8 @@ class DebugTool {
 		return value == null ? 1 : 0;
 	}
 
-	static function raster(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {
-		if (!reach(debugger, stop, settle)) return 1;
+	static function raster(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final beam = new Raster(debugger).frames(frames);
 		Sys.println("over " + frames + " frames and " + beam.instructions + " instructions the VDP took "
@@ -140,8 +166,8 @@ class DebugTool {
 		return parsed == null ? 0 : parsed;
 	}
 
-	static function view(debugger:Debugger, stop:String, settle:Int):Int {
-		if (!reach(debugger, stop, settle)) return 1;
+	static function view(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final viewer = new Viewer(debugger.machine.vdp);
 		final shape = viewer.layout();
@@ -204,7 +230,7 @@ class DebugTool {
 		return out.toString();
 	}
 
-	static function reach(debugger:Debugger, stop:String, settle:Int):Bool {
+	static function reach(debugger:Debugger, stop:String, settle:Int, hits:Int = 1):Bool {
 		if (stop == "") {
 			for (_ in 0...settle) debugger.machine.runFrame();
 			return true;
@@ -215,18 +241,22 @@ class DebugTool {
 			Sys.println("no such function: " + stop);
 			return false;
 		}
-		if (!debugger.runTo(address)) {
-			Sys.println("never reached " + stop);
-			return false;
+
+		for (hit in 0...hits) {
+			if (hit > 0) debugger.step();
+			if (!debugger.runTo(address)) {
+				Sys.println("reached " + stop + " " + hit + " times, not " + hits);
+				return false;
+			}
 		}
 
-		Sys.println("from " + stop + ", frame " + debugger.machine.vdp.frame
-			+ " line " + debugger.machine.vdp.line);
+		Sys.println("at " + stop + (hits > 1 ? ", call " + hits : "") + ", frame "
+			+ debugger.machine.vdp.frame + " line " + debugger.machine.vdp.line);
 		return true;
 	}
 
-	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int):Int {
-		if (!reach(debugger, stop, settle)) return 1;
+	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final report = new Profiler(debugger).run(frames);
 		Sys.println("profiled " + report.frames + " frames: " + report.cycles

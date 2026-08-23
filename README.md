@@ -36,6 +36,20 @@ means to add `i` once and the trace adds it twice.
 000480  MOVE.l D0,($FF0046).l       Main.hx:30  Main.accumulate
 ```
 
+It says who called whom, in Haxe names. gcc keeps no frame pointer at `-O1`, so the stack is
+scanned rather than walked, and a candidate counts as a return address only where a JSR or BSR of
+exactly the right length ends on it, which is a test the disassembler makes and the fixtures back.
+Six calls into the recursive `fib` in the conformance sample:
+
+```
+0007B8  Main.fib                Main.hx:177
+0007D0  Main.fib                Main.hx:179       called from $0007CE, on the stack at $FFFD4C
+0007D0  Main.fib                Main.hx:179       called from $0007CE, on the stack at $FFFD60
+...
+000FB2  Main.main               Main.hx:54        called from $000FAC, on the stack at $FFFD9C
+002E34  _start_entry            -                 called from $002E2E, on the stack at $FFFDE4
+```
+
 A machine can be put back where it was. A savestate holds everything it needs to carry on, and a
 ring of them lets a session go back as well as forward. The proof is that the same frames run twice
 from the same state reach the same bytes, draw the same frame, and leave the same memory behind:
