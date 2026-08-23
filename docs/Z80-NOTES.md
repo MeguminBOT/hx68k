@@ -69,3 +69,22 @@ same register by then.
 - **In the double prefix the displacement and the opcode are ordinary reads, not fetches**, so R
   counts twice across `DD CB d op` rather than four times. The result of the operation is written
   back to the register the low three bits name as well as to memory, unless those bits are 6.
+
+## The maskable interrupt, which the fixtures never reach
+
+The suite covers no interrupt, so this is written from the part's documentation and marked here as
+inferred rather than measured.
+
+- **Mode 1 is what this machine uses.** The bus carries no vector the Z80 reads, so the processor
+  restarts at `0x0038`. It costs thirteen states where a refused interrupt costs seven.
+- **An interrupt is refused while the latch EI leaves behind is still set**, so one cannot land
+  between an `EI` and the instruction after it. That is what lets a driver enable interrupts and
+  return without being re-entered on the spot.
+- **HALT ends only where the interrupt is accepted.** A halted processor with `IFF1` clear stays
+  halted. The program counter is already past the `HALT` when it is taken, so the address pushed is
+  the instruction after it.
+- **R counts on** for the interrupt acknowledge, as it does for any opcode fetch.
+
+On the Mega Drive the Z80 takes this once a frame, as the beam leaves the display. A sound driver
+written around it does all its work there: without it, such a driver initialises and then waits
+forever, which looks exactly like a machine with no sound rather than like a fault.

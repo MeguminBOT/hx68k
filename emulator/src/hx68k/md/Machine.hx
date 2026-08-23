@@ -17,6 +17,7 @@ class Machine implements Bus implements Memory {
 	public final z80:Z80;
 	public final z80Bus:Z80Bus;
 	public final vdp:Vdp;
+	public final sound:Sound = new Sound();
 	public final ram:Bytes = Bytes.alloc(RAM_SIZE);
 	public final z80Ram:Bytes = Bytes.alloc(Z80_RAM_SIZE);
 
@@ -33,6 +34,8 @@ class Machine implements Bus implements Memory {
 	var z80BusRequest:Bool = false;
 	var z80Running:Bool = false;
 	var z80Master:Int = 0;
+	var z80Pending:Bool = false;
+	var lastLine:Int = 0;
 
 	public function new() {
 		vdp = new Vdp(this);
@@ -49,6 +52,9 @@ class Machine implements Bus implements Memory {
 	}
 
 	public function reset():Void {
+		sound.reset();
+		z80Pending = false;
+		lastLine = 0;
 		ram.fill(0, ram.length, 0);
 		z80Ram.fill(0, z80Ram.length, 0);
 		for (i in 0...banks.length) banks[i] = i;
@@ -85,6 +91,11 @@ class Machine implements Bus implements Memory {
 	public function step():Void {
 		cpu.step();
 
+		if (vdp.line != lastLine) {
+			if (vdp.line == Vdp.ACTIVE_LINES) z80Pending = true;
+			lastLine = vdp.line;
+		}
+
 		final level = vdp.irqLevel();
 		if (level > cpu.imask) {
 			vdp.acknowledge(level);
@@ -116,6 +127,7 @@ class Machine implements Bus implements Memory {
 	inline function advance(n:Int):Void {
 		cycles += n;
 		vdp.tick(n * MASTER_PER_68K);
+		sound.tick(n * MASTER_PER_68K);
 		runZ80(n * MASTER_PER_68K);
 	}
 
@@ -128,6 +140,16 @@ class Machine implements Bus implements Memory {
 		}
 
 		while (z80Master >= MASTER_PER_Z80) {
+			if (z80Pending) {
+				z80Pending = false;
+
+				final before = z80Bus.states;
+				if (z80.interrupt()) {
+					z80Master -= (z80Bus.states - before) * MASTER_PER_Z80;
+					continue;
+				}
+			}
+
 			if (z80.halted) {
 				z80Master = 0;
 				return;
@@ -254,6 +276,7 @@ class Machine implements Bus implements Memory {
 		final port = at & 0x1F;
 		if (port < 0x04) vdp.writeData(value);
 		else if (port < 0x08) vdp.writeControl(value);
+		else if (port >= 0x10 && port < 0x18) sound.psg.write(value);
 	}
 
 	function io(at:Int):Int {

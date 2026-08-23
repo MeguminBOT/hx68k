@@ -68,6 +68,24 @@ class Z80 {
 		handler(this);
 	}
 
+	public function interrupt():Bool {
+		if (!iff1 || ei) return false;
+
+		halted = false;
+
+		iff1 = false;
+		iff2 = false;
+		r = (r & 0x80) | ((r + 1) & 0x7F);
+
+		idle(7);
+		push(pc);
+
+		pc = im == 2 ? read((i << 8) | 0xFF) | (read(((i << 8) | 0xFF) + 1) << 8) : 0x0038;
+		idle(6);
+
+		return true;
+	}
+
 	public function isImplemented(opcode:Int):Bool {
 		if (table == null) table = Decoder.build();
 		return table[opcode & 0xFF] != null;
