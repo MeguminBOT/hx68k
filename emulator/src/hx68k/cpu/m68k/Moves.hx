@@ -23,10 +23,12 @@ class Moves {
 	}
 
 	public static function move(t:Vector<M68000->Void>):Void {
-		final sizes = [0x1000 => 1, 0x3000 => 2, 0x2000 => 4];
+		final bases = [0x1000, 0x3000, 0x2000];
+		final sizes = [1, 2, 4];
 
-		for (base in sizes.keys()) {
-			final size = sizes.get(base);
+		for (i in 0...bases.length) {
+			final base = bases[i];
+			final size = sizes[i];
 
 			for (dm in 0...8) for (dr in 0...8) for (sm in 0...8) for (sr in 0...8) {
 				if (dm == 7 && dr > 1) continue;

@@ -142,10 +142,12 @@ class Exceptions {
 	}
 
 	public static function statusImmediate(t:Vector<M68000->Void>):Void {
-		final ops = [0x0000 => Arithmetic.OP_OR, 0x0200 => Arithmetic.OP_AND, 0x0A00 => Arithmetic.OP_EOR];
+		final bases = [0x0000, 0x0200, 0x0A00];
+		final kinds = [Arithmetic.OP_OR, Arithmetic.OP_AND, Arithmetic.OP_EOR];
 
-		for (base in ops.keys()) {
-			final kind = ops.get(base);
+		for (i in 0...bases.length) {
+			final base = bases[i];
+			final kind = kinds[i];
 
 			t[base | 0x3C] = function(c:M68000) {
 				final imm = c.fetchExt() & 0xFF;
