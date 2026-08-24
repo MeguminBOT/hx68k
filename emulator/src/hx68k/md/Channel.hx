@@ -27,6 +27,13 @@ class Channel {
 	public var left:Bool = true;
 	public var right:Bool = true;
 
+	public var separate:Bool = false;
+
+	public final notes:Vector<Int> = new Vector<Int>(3);
+	public final blocks:Vector<Int> = new Vector<Int>(3);
+
+	public var levelled:Bool = true;
+
 	public var tremoloDepth:Int = 7;
 
 	public var vibratoDepth:Int = 0;
@@ -52,6 +59,8 @@ class Channel {
 	public function new() {
 		for (i in 0...4) operators[i] = new Operator();
 		for (i in 0...4) outputs[i] = 0;
+		for (i in 0...3) notes[i] = 0;
+		for (i in 0...3) blocks[i] = 0;
 	}
 
 	public function reset():Void {
@@ -63,6 +72,10 @@ class Channel {
 		block = 0;
 		left = true;
 		right = true;
+		separate = false;
+		levelled = true;
+		for (i in 0...3) notes[i] = 0;
+		for (i in 0...3) blocks[i] = 0;
 		tremoloDepth = 7;
 		vibratoDepth = 0;
 		swept = 0;
@@ -84,25 +97,39 @@ class Channel {
 		retune();
 	}
 
+	public function setSeparate(index:Int, block:Int, frequency:Int):Void {
+		blocks[index] = block & 7;
+		notes[index] = frequency & 0x7FF;
+		retune();
+	}
+
 	public function tune(step:Int):Void {
 		swept = step;
 		retune();
 	}
 
-	public inline function keyCode():Int {
-		return (block << 2) | KEY_CODE[(frequency >> 7) & 0x0F];
+	public inline function noteOf(index:Int):Int {
+		return separate && index != 3 ? notes[index] : frequency;
+	}
+
+	public inline function blockOf(index:Int):Int {
+		return separate && index != 3 ? blocks[index] : block;
+	}
+
+	public inline function keyCode(index:Int):Int {
+		return (blockOf(index) << 2) | KEY_CODE[(noteOf(index) >> 7) & 0x0F];
 	}
 
 	function retune():Void {
-		final code = keyCode();
-
-		final tuned = ((frequency << 1) + vibratoOf()) & 0xFFF;
-
 		for (i in 0...4) {
 			final each = operators[i];
+			final note = noteOf(i);
+			final at = blockOf(i);
 
-			var step = (tuned << block) >> 2;
-			final amount = detuneOf(each.detune & 3, code);
+			final tuned = ((note << 1) + vibratoOf(note)) & 0xFFF;
+
+			var step = (tuned << at) >> 2;
+			final amount = detuneOf(each.detune & 3, keyCode(i));
 			step += (each.detune & 4) != 0 ? -amount : amount;
 			step &= 0x1FFFF;
 
@@ -110,12 +137,12 @@ class Channel {
 		}
 	}
 
-	inline function vibratoOf():Int {
+	inline function vibratoOf(note:Int):Int {
 		if (vibratoDepth == 0) return 0;
 
 		final at = (swept & 8) != 0 ? 7 - (swept & 7) : swept & 7;
 		final shifts = VIBRATO[vibratoDepth][at];
-		final high = frequency >> 4;
+		final high = note >> 4;
 		final size = ((high >> (shifts & 0x0F)) + (high >> ((shifts >> 4) & 0x0F))) >> (shifts >> 8);
 
 		return (swept & 16) != 0 ? -size : size;
@@ -130,7 +157,7 @@ class Channel {
 	}
 
 	public function slot(turn:Int, index:Int, sine:Vector<Int>, exponential:Vector<Int>,
-			counter:Int, tick:Bool, swell:Int):Void {
+			counter:Int, tick:Bool, swell:Int, pulsed:Bool):Void {
 		if (turn == 1) {
 			published = accumulated;
 			accumulated = 0;
@@ -140,22 +167,24 @@ class Channel {
 
 		final each = operators[index];
 
-		final wanted = (keyRequest & (1 << index)) != 0;
+		final wanted = pulsed || (keyRequest & (1 << index)) != 0;
 
 		each.shape(wanted);
 
 		final pressed = wanted && !each.keyed;
 		final started = pressed || (each.keyed && each.repeats);
 		final restarting = pressed || each.restarts;
+
+		final attenuation = (levelled ? each.totalLevel << 3 : 0)
+			+ (each.tremolo ? swell >> tremoloDepth : 0);
+
+		final out = each.output(sine, exponential, modulation(index), attenuation);
+
 		if (restarting) each.phase = 0;
-
-		final out = each.output(sine, exponential, modulation(index),
-			each.tremolo ? swell >> tremoloDepth : 0);
-
-		if (!restarting) each.step();
+		else each.step();
 
 		if (each.keyed && !wanted) each.lift();
-		each.advance(keyCode(), counter, tick, wanted, started);
+		each.advance(keyCode(index), counter, tick, wanted, started, pulsed);
 		each.keyed = wanted;
 
 		outputs[index] = out;

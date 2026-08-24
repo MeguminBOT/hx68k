@@ -19,8 +19,11 @@ class OpnCheck {
 			Sys.println("       opn <script.txt> <reference.pcm> --envelope   ... and what channel one held");
 			Sys.println("       opn <script.txt> <reference.pcm> --inside     ... and what a sample was made of");
 			Sys.println("       opn <script.txt> <reference.pcm> --oscillator ... and where the oscillator was");
+			Sys.println("       ... <trace> <from sample> <channel>   any of the three, on any channel");
 			Sys.exit(2);
 		}
+
+		if (args.length > 4) traced = Std.parseInt(args[4]);
 
 		if (FileSystem.isDirectory(args[0])) whole(args[0], args[1]);
 		else single(args[0], args[1], args.length > 2 ? args[2] : null,
@@ -218,6 +221,8 @@ class OpnCheck {
 
 	static var watched:String = "";
 
+	static var traced:Int = 0;
+
 	static function columns():String {
 		return switch (watched) {
 			case "--inside": "     phase   out   pub  left";
@@ -231,10 +236,10 @@ class OpnCheck {
 		final out = [];
 
 		inline function one():Void {
-			final channel = chip.channels[0];
+			final channel = chip.channels[traced];
 			final waiting = watched != "--oscillator" ? null : [
 				chip.lfoPhase, chip.swell, channel.operators[0].increment,
-				channel.operators[0].level(chip.swell)
+				channel.operators[0].level(channel.operators[0].totalLevel << 3)
 			];
 
 			chip.sample();

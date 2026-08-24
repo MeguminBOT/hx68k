@@ -21,6 +21,9 @@ class OpnVoice {
 	public var ams:Int = 0;
 	public var pms:Int = 0;
 
+	public final apart:Array<Int> = [-1, -1, -1];
+	public final apartBlock:Array<Int> = [0, 0, 0];
+
 	public var block:Int = 3;
 	public var frequency:Int = 0x180;
 	public var panning:Int = 0xC0;

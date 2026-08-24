@@ -52,7 +52,6 @@ class Sound {
 		final ymWhole = Std.int(ymClocks);
 		if (ymWhole > 0) {
 			ymClocks -= ymWhole;
-			ym.run(ymWhole);
 
 			ymSpare += ymWhole;
 			while (ymSpare >= Ym2612.PER_SAMPLE) {

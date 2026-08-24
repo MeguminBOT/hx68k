@@ -125,7 +125,8 @@ class Operator {
 		return inverted ? (512 - envelope) & 0x3FF : envelope;
 	}
 
-	public function advance(keyCode:Int, counter:Int, tick:Bool, held:Bool, started:Bool):Void {
+	public function advance(keyCode:Int, counter:Int, tick:Bool, held:Bool, started:Bool,
+			pulsed:Bool):Void {
 		final shaped = (ssg & 0x08) != 0;
 
 		final rate = rateOf(keyCode >> (3 - keyScale), started ? Attack : state);
@@ -149,11 +150,12 @@ class Operator {
 			final again = state == Attack;
 			state = Attack;
 
+			var step = 0;
 			if (fastest) envelope = 0;
-			else if (again && envelope != 0 && size != 0 && held) {
-				envelope = (envelope + (((~envelope) * size) >> 4)) & 0x3FF;
-			}
+			else if (again && envelope != 0 && size != 0 && held) step = ((~envelope) * size) >> 4;
 
+			if (pulsed) envelope |= totalLevel << 3;
+			envelope = (envelope + step) & 0x3FF;
 			return;
 		}
 
@@ -174,6 +176,8 @@ class Operator {
 		}
 
 		if (!held) next = Release;
+
+		if (pulsed) envelope |= totalLevel << 3;
 
 		if (state != Attack && spent && !holding) {
 			next = Release;
@@ -212,21 +216,18 @@ class Operator {
 		return rate > 63 ? 63 : rate;
 	}
 
-	public inline function level(swell:Int):Int {
-		final total = shown() + (totalLevel << 3) + (tremolo ? swell : 0);
+	public inline function level(attenuation:Int):Int {
+		final total = shown() + attenuation;
 		return total > 1023 ? 1023 : total;
 	}
 
 	public function output(sine:Vector<Int>, exponential:Vector<Int>, modulation:Int,
-			swell:Int):Int {
+			added:Int):Int {
 		final at = ((phase >> 10) + modulation) & 0x3FF;
 		final quarter = at & 0xFF;
 		final mirrored = (at & 0x100) != 0 ? 255 - quarter : quarter;
 
-		var level = shown() + (totalLevel << 3) + swell;
-		if (level > 1023) level = 1023;
-
-		var attenuation = sine[mirrored] + (level << 2);
+		var attenuation = sine[mirrored] + (level(added) << 2);
 		if (attenuation > 0x1FFF) attenuation = 0x1FFF;
 
 		final value = ((exponential[(~attenuation) & 0xFF] + 1024) << 2) >> (attenuation >> 8);

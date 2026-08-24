@@ -6,6 +6,8 @@ import sys.io.File;
 class OpnFixtures {
 	static final ORDER = [0, 2, 1, 3];
 
+	static final APART = [[0xA9, 0xAD], [0xAA, 0xAE], [0xA8, 0xAC]];
+
 	static function main():Void {
 		final args = Sys.args();
 		final into = args.length > 0 ? args[0] : "tests/opn2/.build/scripts";
@@ -22,6 +24,7 @@ class OpnFixtures {
 		made += channels(into);
 		made += features(into);
 		made += oscillator(into);
+		made += separate(into);
 		made += broad(into);
 
 		Sys.println(made + " fixtures in " + into);
@@ -307,6 +310,114 @@ class OpnFixtures {
 		return made;
 	}
 
+	static function separate(into:String):Int {
+		var made = 0;
+
+		for (which in 0...3) {
+			final voice = new OpnVoice().wiring(7, 0).loud(16).note(2, 0x100);
+			voice.apart[which] = 0x2A0;
+			voice.apartBlock[which] = 5;
+			made += write(into, "special-one-" + which, [voice], [2], -1, 1);
+		}
+
+		for (mode in 0...4) {
+			final voice = new OpnVoice().wiring(7, 0).loud(16).note(2, 0x100);
+			for (at in 0...3) {
+				voice.apart[at] = 0x120 + at * 0x1C0;
+				voice.apartBlock[at] = 1 + at * 2;
+			}
+			made += write(into, "special-mode-" + mode, [voice], [2], -1, mode);
+		}
+
+		for (detune in 1...4) {
+			final voice = new OpnVoice().wiring(7, 0).loud(16).note(2, 0x100);
+			for (at in 0...4) voice.detune[at] = detune;
+			for (at in 0...3) {
+				voice.apart[at] = 0x040 + at * 0x3B0;
+				voice.apartBlock[at] = at * 3;
+			}
+			made += write(into, "special-detune-" + detune, [voice], [2], -1, 1);
+		}
+
+		for (scaling in 0...4) {
+			final voice = new OpnVoice().wiring(7, 0).loud(8)
+				.envelope(22, 13, 5, 4, 8, scaling).note(1, 0x0C0);
+			for (at in 0...3) {
+				voice.apart[at] = 0x1A0 + at * 0x2E0;
+				voice.apartBlock[at] = 2 + at * 2;
+			}
+			voice.lift = 900;
+			made += write(into, "special-scaling-" + scaling, [voice], [2], -1, 1);
+		}
+
+		for (depth in [3, 5, 7]) {
+			final voice = new OpnVoice().wiring(4, 2).loud(12).note(4, 0x200);
+			voice.pms = depth;
+			for (at in 0...3) {
+				voice.apart[at] = 0x070 + at * 0x390;
+				voice.apartBlock[at] = 1 + at * 3;
+			}
+			made += write(into, "special-vibrato-" + depth, [voice], [2], 6, 1);
+		}
+
+		for (which in [0, 1, 4]) {
+			final voice = new OpnVoice().wiring(7, 0).loud(16).note(2, 0x100);
+			for (at in 0...3) {
+				voice.apart[at] = 0x120 + at * 0x1C0;
+				voice.apartBlock[at] = 1 + at * 2;
+			}
+			made += write(into, "special-elsewhere-" + which, [voice], [which], -1, 1);
+		}
+
+		for (period in [40, 120, 400]) {
+			final voice = new OpnVoice().wiring(7, 0).loud(12)
+				.envelope(26, 14, 0, 3, 11).note(4, 0x169);
+			voice.keys = 0;
+			for (at in 0...3) {
+				voice.apart[at] = 0x100 + at * 0x240;
+				voice.apartBlock[at] = 2 + at * 2;
+			}
+			made += write(into, "special-csm-" + pad(period), [voice], [2], -1, 2, period);
+		}
+
+		final both = new OpnVoice().wiring(4, 3).loud(10).envelope(22, 12, 4, 4, 9).note(4, 0x169);
+		made += write(into, "special-csm-keyed", [both], [2], -1, 2, 200);
+
+		final started = new OpnVoice().wiring(7, 0).loud(8).envelope(31, 0, 0, 0, 2).note(4, 0x169);
+		started.keys = 0;
+		made += write(into, "special-csm-started", [started], [2], -1, 2, 900);
+
+		final idle = new OpnVoice().wiring(7, 0).loud(12).envelope(26, 14, 0, 3, 11).note(4, 0x169);
+		idle.keys = 0;
+		made += write(into, "special-csm-off", [idle], [2], -1, 1, 200);
+
+		final chance = new Chance(0xC33);
+		for (i in 0...40) {
+			final voice = new OpnVoice().wiring(chance.upTo(8), chance.upTo(8));
+			for (at in 0...4) {
+				voice.detune[at] = chance.upTo(8);
+				voice.multiple[at] = chance.upTo(16);
+				voice.totalLevel[at] = chance.pick([0, 8, 16, 24, 40, 64]);
+				voice.keyScale[at] = chance.upTo(4);
+				voice.attack[at] = chance.upTo(32);
+				voice.decay[at] = chance.upTo(32);
+				voice.sustain[at] = chance.upTo(32);
+				voice.level[at] = chance.upTo(16);
+				voice.release[at] = chance.upTo(16);
+			}
+			voice.block = chance.upTo(8);
+			voice.frequency = chance.between(0x40, 0x7FF);
+			for (at in 0...3) {
+				voice.apart[at] = chance.between(0x40, 0x7FF);
+				voice.apartBlock[at] = chance.upTo(8);
+			}
+			if (chance.odds(50)) voice.lift = chance.between(200, 1200);
+			made += write(into, "special-" + pad(i), [voice], [2], -1, 1 + chance.upTo(3));
+		}
+
+		return made;
+	}
+
 	static function broad(into:String):Int {
 		final chance = new Chance(0xB40AD);
 		final levels = [0, 0, 4, 8, 16, 24, 32, 48, 64, 96, 127];
@@ -353,10 +464,20 @@ class OpnFixtures {
 	}
 
 	static function write(into:String, name:String, voices:Array<OpnVoice>, where:Array<Int>,
-			lfo:Int = -1):Int {
+			lfo:Int = -1, mode:Int = 0, timer:Int = -1):Int {
 		final lines:Array<String> = [];
 
 		if (lfo >= 0) byte(lines, 0, 0x22, 0x08 | (lfo & 7));
+
+		if (timer >= 0) {
+			final count = 1024 - timer;
+			byte(lines, 0, 0x24, (count >> 2) & 0xFF);
+			byte(lines, 0, 0x25, count & 3);
+		}
+
+		if (mode != 0 || timer >= 0) {
+			byte(lines, 0, 0x27, ((mode & 3) << 6) | (timer >= 0 ? 0x05 : 0));
+		}
 		for (i in 0...voices.length) registers(lines, voices[i], where[i]);
 		for (i in 0...voices.length) key(lines, voices[i], where[i], voices[i].keys, 2);
 
@@ -390,6 +511,13 @@ class OpnFixtures {
 			voice.panning | ((voice.ams & 3) << 4) | (voice.pms & 7));
 		byte(lines, port, 0xA4 + channel, ((voice.block & 7) << 3) | ((voice.frequency >> 8) & 7));
 		byte(lines, port, 0xA0 + channel, voice.frequency & 0xFF);
+
+		for (at in 0...3) {
+			if (voice.apart[at] < 0) continue;
+			byte(lines, 0, APART[at][1],
+				((voice.apartBlock[at] & 7) << 3) | ((voice.apart[at] >> 8) & 7));
+			byte(lines, 0, APART[at][0], voice.apart[at] & 0xFF);
+		}
 	}
 
 	static function key(lines:Array<String>, voice:OpnVoice, where:Int, keys:Int, after:Int):Void {

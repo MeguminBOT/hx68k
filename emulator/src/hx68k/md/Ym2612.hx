@@ -8,9 +8,15 @@ class Ym2612 {
 
 	static inline final PER_FRAME = 24;
 
+	static inline final CSM = 2;
+
+	static inline final BUSY = 32;
+
 	static inline final WRITE_LATENCY = 2;
 
 	static final TURN = [0, 2, 1, 3];
+
+	static final APART = [2, 0, 1];
 
 	static final SPEAKS = [
 		0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
@@ -57,7 +63,6 @@ class Ym2612 {
 	var timerB:Int = 0;
 	var timerACount:Int = 0;
 	var timerBCount:Int = 0;
-	var timerASubdivide:Int = 0;
 	var status:Int = 0;
 
 	var envelopeCounter:Int = 0;
@@ -77,6 +82,9 @@ class Ym2612 {
 	var lfoRate:Int = 0;
 	var lfoHeld:Int = 0;
 	var vibrato:Int = 0;
+	var mode:Int = 0;
+	var csmKeyed:Bool = false;
+	var busyFor:Int = 0;
 
 	public function new() {
 		for (i in 0...256) {
@@ -102,7 +110,6 @@ class Ym2612 {
 		timerB = 0;
 		timerACount = 0;
 		timerBCount = 0;
-		timerASubdivide = 0;
 		status = 0;
 		writes = 0;
 		left = 0;
@@ -124,6 +131,9 @@ class Ym2612 {
 		lfoPhase = 0;
 		lfoHeld = 0;
 		vibrato = 0;
+		mode = 0;
+		csmKeyed = false;
+		busyFor = 0;
 		swell = 126;
 	}
 
@@ -136,6 +146,8 @@ class Ym2612 {
 			address = byte;
 			return;
 		}
+
+		busyFor = BUSY;
 
 		if (pendingIn > 0 || waiting) commit();
 
@@ -166,7 +178,7 @@ class Ym2612 {
 	}
 
 	public function read():Int {
-		return status;
+		return status | (busyFor > 0 ? 0x80 : 0);
 	}
 
 	function apply(half:Int, at:Int, value:Int):Void {
@@ -185,6 +197,14 @@ class Ym2612 {
 				case _:
 			}
 			if (at < 0x30) return;
+		}
+
+		if (half == 0 && at >= 0xA8 && at <= 0xAE && (at & 3) != 3) {
+			final which = APART[at & 3];
+			final third = channels[2];
+			if (at < 0xAC) third.setSeparate(which, third.blocks[which], (third.notes[which] & 0x700) | value);
+			else third.setSeparate(which, (value >> 3) & 7, ((value & 7) << 8) | (third.notes[which] & 0xFF));
+			return;
 		}
 
 		final index = at & 0x03;
@@ -224,6 +244,16 @@ class Ym2612 {
 	}
 
 	function timers(value:Int):Void {
+		mode = (value >> 6) & 3;
+
+		final apart = mode != 0;
+		if (apart != channels[2].separate) {
+			channels[2].separate = apart;
+			channels[2].tune(vibrato);
+		}
+
+		channels[2].levelled = mode != CSM;
+
 		if ((value & 0x10) != 0) status &= ~0x01;
 		if ((value & 0x20) != 0) status &= ~0x02;
 
@@ -238,27 +268,19 @@ class Ym2612 {
 		channels[(which & 3) + ((which & 4) != 0 ? 3 : 0)].armed = (value >> 4) & 0x0F;
 	}
 
-	public function run(clocks:Int):Void {
-		countTimers(clocks);
-	}
-
-	function countTimers(clocks:Int):Void {
-		timerASubdivide += clocks;
-		final steps = Std.int(timerASubdivide / PER_SAMPLE);
-		if (steps == 0) return;
-		timerASubdivide -= steps * PER_SAMPLE;
+	function countTimers():Void {
+		csmKeyed = false;
 
 		if (timerACount > 0) {
-			timerACount -= steps;
-			if (timerACount <= 0) {
+			if (--timerACount <= 0) {
 				if ((registers[0x27] & 0x04) != 0) status |= 0x01;
 				timerACount += 1024 - timerA;
+				csmKeyed = mode == CSM;
 			}
 		}
 
 		if (timerBCount > 0) {
-			timerBCount -= steps;
-			if (timerBCount <= 0) {
+			if (--timerBCount <= 0) {
 				if ((registers[0x27] & 0x08) != 0) status |= 0x02;
 				timerBCount += (256 - timerB) * 16;
 			}
@@ -266,12 +288,13 @@ class Ym2612 {
 	}
 
 	function cycle():Void {
+		if (busyFor > 0) busyFor--;
 		if (pendingIn > 0 && --pendingIn == 0) waiting = true;
 		if (waiting && lands(position)) commit();
 
 		final which = SPEAKS[position];
 		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking,
-			swell);
+			swell, csmKeyed && which == 2);
 
 		final taken = TAKEN[position];
 		if (taken >= 0) channels[taken].capture();
@@ -313,6 +336,7 @@ class Ym2612 {
 
 	public function sample():Int {
 		oscillate();
+		countTimers();
 		for (_ in 0...PER_FRAME) cycle();
 
 		left = 0;
