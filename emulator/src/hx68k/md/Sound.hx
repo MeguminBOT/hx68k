@@ -145,6 +145,10 @@ final class Sound {
 		perMaster = RATE * bend / Vdp.MASTER_HZ;
 	}
 
+	public inline function short():Bool {
+		return (waiting > held ? waiting : held) < WANTED;
+	}
+
 	public function steer(downstream:Int):Void {
 		waiting = downstream + held;
 	}

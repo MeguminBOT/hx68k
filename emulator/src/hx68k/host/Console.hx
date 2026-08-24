@@ -28,7 +28,11 @@ class Console extends Application {
 
 	static inline final CATCH_UP = 4;
 
-	static inline final REBUILD = 0.05;
+	static inline final BACKLOG = 12;
+
+	static inline final LEAD = 2;
+
+	static inline final REBUILD = 0.1;
 
 	static inline final NOW = 0.0;
 
@@ -52,15 +56,26 @@ class Console extends Application {
 	var quiet:Bool = false;
 
 	var frames:Int = 0;
-	var rate:Int = 0;
 	var since:Float = 0;
 	var owed:Float = 0;
 	var last:Float = -1;
 	var madeLast:Int = 0;
 	var perSecond:Int = 0;
 
+	var sixtyEight:Int = 0;
+	var eighty:Int = 0;
+	var taken:Int = 0;
+	var exactly:Float = 0;
+
+	var cyclesLast:Int = 0;
+	var statesLast:Int = 0;
+	var requestedLast:Int = 0;
+
 	var slowest:Float = 0;
 	var worst:Float = 0;
+
+	var gaveUp:Float = 0;
+	var behind:Float = 0;
 	var rebuilt:Float = 0;
 
 	var emulating:Float = 0;
@@ -151,19 +166,28 @@ class Console extends Application {
 
 		if (!paused) {
 			final period = (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC) / Vdp.MASTER_HZ;
-			owed += elapsed > period * CATCH_UP ? period * CATCH_UP : elapsed;
+			owed += elapsed;
+
+			final following = !unlimited && !quiet && speaker != null && speaker.playing;
 
 			var ran = 0;
-			while (ran < CATCH_UP && owed >= period) {
+			while (ran < CATCH_UP) {
+				final owing = owed >= period;
+				final needed = following && owed > -period * LEAD && machine.sound.short();
+				if (!owing && !needed) break;
+
 				machine.runFrame();
 				owed -= period;
 				frames++;
 				ran++;
-
-				if (!quiet && speaker != null) speaker.feed(machine.sound);
 			}
 
-			if (owed >= period * CATCH_UP || owed <= -period * CATCH_UP) owed = 0;
+			if (owed > period * BACKLOG) {
+				gaveUp += owed - period * BACKLOG;
+				owed = period * BACKLOG;
+			}
+
+			if (owed < -period * LEAD) owed = -period * LEAD;
 
 			if (unlimited) {
 				for (_ in 0...8) {
@@ -182,12 +206,25 @@ class Console extends Application {
 
 		final now = haxe.Timer.stamp();
 		if (now - since >= 1) {
-			rate = frames;
 			frames = 0;
 			perSecond = machine.sound.made - madeLast;
 			madeLast = machine.sound.made;
+
+			final over = now - since;
+			exactly = frames / over;
+			sixtyEight = share(machine.cycles - cyclesLast, Vdp.MASTER_HZ / 7, over);
+			eighty = share(machine.z80Bus.states - statesLast, Vdp.MASTER_HZ / 15, over);
+
+			taken = share(machine.requestedFor - requestedLast, Vdp.MASTER_HZ, over);
+
+			cyclesLast = machine.cycles;
+			statesLast = machine.z80Bus.states;
+			requestedLast = machine.requestedFor;
+
 			worst = slowest;
 			slowest = 0;
+			behind = gaveUp * 1000;
+			gaveUp = 0;
 			since = now;
 		}
 	}
@@ -242,7 +279,11 @@ class Console extends Application {
 		if (now - rebuilt < REBUILD) return;
 		rebuilt = now;
 
-		for (view in views) said.set(view.title(), view.rows(60));
+		for (view in views) {
+			final title = view.title();
+			if (!ui.showing(title) && !apart.exists(title)) continue;
+			said.set(title, view.rows(60));
+		}
 
 		for (title in apart.keys()) {
 			final window = apart.get(title);
@@ -270,19 +311,24 @@ class Console extends Application {
 			if (ui.tool(view.title(), panel.open)) panel.open = !panel.open;
 		}
 
-		ui.note(rate + " a second     " + round(emulating) + " ms emulating     "
-			+ round(drawing) + " ms drawing     " + round(worst) + " ms worst     " + sound()
-			+ (paused ? "     f10 f11 step" : ""));
+		ui.note(round(exactly) + " fps   68k " + sixtyEight + "%   z80 " + eighty + "%"
+			+ (taken > 0 ? " + " + taken + "% bus" : "") + "   "
+			+ round(emulating) + " + " + round(drawing) + " ms, worst " + round(worst)
+			+ (behind >= 1 ? ", gave up " + round(behind) : "") + "   "
+			+ sound() + (paused ? "   f10 f11 step" : ""));
+	}
+
+	static function share(did:Int, wanted:Float, over:Float):Int {
+		return over <= 0 ? 0 : Math.round(100 * (did | 0) / (wanted * over));
 	}
 
 	function sound():String {
 		if (speaker == null) return "";
 
-		return perSecond + " of " + hx68k.md.Sound.RATE + " made     "
-			+ speaker.delay() + " + "
-			+ Std.int(1000 * machine.sound.ready() / hx68k.md.Sound.RATE) + " ms of sound"
-			+ (speaker.starved > 0 ? ", " + speaker.starved + " ran dry" : "")
-			+ (machine.sound.lost > 0 ? ", " + machine.sound.lost + " dropped" : "");
+		return "sound " + Math.round(100.0 * perSecond / hx68k.md.Sound.RATE) + "%, "
+			+ (speaker.delay() + Std.int(1000 * machine.sound.ready() / hx68k.md.Sound.RATE))
+			+ " ms" + (speaker.starved > 0 ? ", " + speaker.starved + " dry" : "")
+			+ (machine.sound.lost > 0 ? ", " + machine.sound.lost + " lost" : "");
 	}
 
 	function panels(gl:lime.graphics.WebGLRenderContext):Void {

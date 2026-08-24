@@ -40,6 +40,12 @@ class Speed {
 		Sys.println("");
 		chips();
 		Sys.println("");
+		tempo();
+		Sys.println("");
+		panels(rom);
+		Sys.println("");
+		shares(rom);
+		Sys.println("");
 		Sys.println("  a frame has 16.7 ms in it, and the window draws in about 3 of them");
 	}
 
@@ -62,6 +68,83 @@ class Speed {
 		Sys.println("    the FM chip's 888 samples   " + round(fm) + " ms");
 		Sys.println("    the other chip's 3729 steps " + round(psg) + " ms");
 		Sys.println("    the mixer's 32000 slices    " + round(mixer - fm - psg) + " ms around them");
+	}
+
+	static function panels(rom:String):Void {
+		final machine = new Machine();
+		machine.load(rom);
+		for (_ in 0...240) machine.runFrame();
+
+		final views = hx68k.debug.Views.of(new hx68k.debug.Debugger(machine, null));
+
+		Sys.println("  each of the debugger's panels, once, in milliseconds:");
+
+		for (view in views) {
+			final started = haxe.Timer.stamp();
+			for (_ in 0...1000) view.rows(60);
+			final each = (haxe.Timer.stamp() - started);
+
+			Sys.println("    " + StringTools.rpad(view.title(), " ", 16) + round(each)
+				+ (each > 0.5 ? "   this one is worth looking at" : ""));
+		}
+
+		Sys.println("    twenty of those a second is what an open panel costs a frame");
+	}
+
+	static function shares(rom:String):Void {
+		final machine = new Machine();
+		machine.load(rom);
+		machine.vdp.rendering = false;
+
+		for (_ in 0...240) machine.runFrame();
+
+		final states = machine.z80Bus.states;
+		final stopped = machine.stoppedFor;
+		final requested = machine.requestedFor;
+		final halted = machine.haltedFor;
+		final cycles = machine.cycles;
+
+		final frames = 300;
+		for (_ in 0...frames) machine.runFrame();
+
+		final master = frames * hx68k.md.Vdp.MASTER_PER_LINE * hx68k.md.Vdp.LINES_NTSC;
+		final ran = (machine.z80Bus.states - states) * 15;
+		final held = machine.stoppedFor - stopped;
+		final took = machine.requestedFor - requested;
+		final idle = machine.haltedFor - halted;
+
+		Sys.println("  where the z80's clock went over " + frames + " settled frames:");
+		Sys.println("    ran           " + portion(ran, master));
+		Sys.println("    bus taken     " + portion(took, master));
+		Sys.println("    held in reset " + portion(held, master));
+		Sys.println("    halted        " + portion(idle, master));
+		Sys.println("    unaccounted   " + portion(master - ran - took - held - idle, master));
+		Sys.println("");
+		Sys.println("  and the 68000 ran " + portion((machine.cycles - cycles) * 7, master));
+	}
+
+	static function portion(part:Int, whole:Int):String {
+		return StringTools.lpad(Std.string(Math.round(1000.0 * part / whole) / 10), " ", 6) + "%"
+			+ StringTools.lpad(Std.string(part), " ", 12) + " master clocks";
+	}
+
+	static function tempo():Void {
+		final sound = new hx68k.md.Sound();
+		final slice = 28;
+		final slices = Std.int(hx68k.md.Vdp.MASTER_HZ / slice);
+
+		var made = 0;
+		final taken = new haxe.ds.Vector<Int>(512);
+
+		for (_ in 0...slices) {
+			sound.tick(slice);
+			while (sound.ready() >= 256) made += sound.take(taken, 256);
+		}
+
+		made += sound.ready();
+
+		Sys.println("  one emulated second of clock made " + made + " samples of 44100, with the"
+			+ " rate bent to " + Math.round(sound.bend * 10000) / 10000);
 	}
 
 	static function pass(rom:String, frames:Int, audible:Bool, rendering:Bool):Float {

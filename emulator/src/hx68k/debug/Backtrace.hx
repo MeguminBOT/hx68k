@@ -50,6 +50,10 @@ class Backtrace {
 
 		for (length in CALL_LENGTHS) {
 			final at = (address - length) & 0xFFFFFF;
+
+			final word = debugger.machine.readWord(at);
+			if ((word & 0xFFC0) != 0x4E80 && (word & 0xFF00) != 0x6100) continue;
+
 			final instruction = disassembler.at(at);
 			if (instruction.length != length) continue;
 

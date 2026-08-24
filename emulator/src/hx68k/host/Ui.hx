@@ -108,9 +108,27 @@ class Ui {
 	}
 
 	public function note(text:String):Void {
-		final wide = paint.font.measure(text);
-		if (toolPen + wide > width - MARGIN) return;
-		paint.text(text, width - wide - MARGIN, reserved - 9, DIM);
+		final room = width - MARGIN - toolPen;
+		if (room <= 0) return;
+
+		var said = text;
+		var wide = paint.font.measure(said);
+
+		if (wide > room) {
+			said = said.substr(0, Std.int(said.length * room / wide));
+			wide = paint.font.measure(said);
+			while (said.length > 1 && wide > room) {
+				said = said.substr(0, said.length - 1);
+				wide = paint.font.measure(said);
+			}
+		}
+
+		paint.text(said, width - wide - MARGIN, reserved - 9, DIM);
+	}
+
+	public function showing(id:String):Bool {
+		final panel = panels.get(id);
+		return panel != null && panel.open;
 	}
 
 	public function offer(id:String, title:String, x:Float, y:Float, wide:Float, tall:Float):Panel {
