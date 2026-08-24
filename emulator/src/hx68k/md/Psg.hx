@@ -13,6 +13,8 @@ class Psg {
 	public final tone:Vector<Int> = new Vector<Int>(4);
 	public final attenuation:Vector<Int> = new Vector<Int>(4);
 
+	static inline final LOUDEST = 255;
+
 	final volumes:Vector<Int> = new Vector<Int>(16);
 
 	final counter:Vector<Int> = new Vector<Int>(4);
@@ -24,10 +26,12 @@ class Psg {
 	var noise:Int = 0;
 	var shift:Int = 0x8000;
 	var spare:Float = 0;
+	var total:Int = 0;
+	var counted:Int = 0;
 
 	public function new() {
 		for (i in 0...16) {
-			volumes[i] = i == 15 ? 0 : Std.int(8191 * Math.pow(10, -0.1 * i));
+			volumes[i] = i == 15 ? 0 : Std.int(LOUDEST * Math.pow(10, -0.1 * i));
 		}
 
 		reset();
@@ -45,6 +49,8 @@ class Psg {
 		noise = 0;
 		shift = 0x8000;
 		spare = 0;
+		total = 0;
+		counted = 0;
 		writes = 0;
 	}
 
@@ -91,7 +97,10 @@ class Psg {
 			else output[channel] = 1;
 		}
 
-		if (--counter[3] > 0) return;
+		if (--counter[3] > 0) {
+			gather();
+			return;
+		}
 
 		counter[3] = switch (noise & 0x03) {
 			case 0: 0x10;
@@ -104,12 +113,27 @@ class Psg {
 		final parity = countBits(shift & feedback) & 1;
 		shift = ((shift >> 1) | (parity << 15)) & 0xFFFF;
 		output[3] = shift & 1;
+		gather();
 	}
 
-	public function sample():Int {
-		var total = 0;
-		for (channel in 0...4) if (output[channel] > 0) total += volumes[attenuation[channel]];
-		return total;
+	inline function gather():Void {
+		total += level();
+		counted++;
+	}
+
+	public function taken():Int {
+		if (counted == 0) return level();
+
+		final answer = Std.int(total / counted);
+		total = 0;
+		counted = 0;
+		return answer;
+	}
+
+	public function level():Int {
+		var sum = 0;
+		for (channel in 0...4) if (output[channel] > 0) sum += volumes[attenuation[channel]];
+		return sum;
 	}
 
 	static inline function countBits(value:Int):Int {
