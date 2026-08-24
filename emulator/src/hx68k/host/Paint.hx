@@ -42,6 +42,8 @@ class Paint {
 	final screen:Int;
 
 	var batch:Array<Float> = [];
+
+	var shaped:Float32Array = new Float32Array(4096);
 	var clipped:Bool = false;
 	var lastWidth:Int = 0;
 
@@ -133,7 +135,9 @@ class Paint {
 		gl.bindTexture(gl.TEXTURE_2D, font.texture);
 
 		gl.bindBuffer(gl.ARRAY_BUFFER, vertices);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(batch), gl.DYNAMIC_DRAW);
+		if (shaped.length < batch.length) shaped = new Float32Array(batch.length + (batch.length >> 1));
+		for (i in 0...batch.length) shaped[i] = batch[i];
+		gl.bufferData(gl.ARRAY_BUFFER, shaped, gl.DYNAMIC_DRAW);
 
 		final stride = FLOATS_PER_VERTEX * 4;
 		gl.enableVertexAttribArray(corner);
@@ -149,7 +153,7 @@ class Paint {
 		gl.disableVertexAttribArray(shade);
 		gl.disable(gl.BLEND);
 
-		batch = [];
+		batch.resize(0);
 	}
 
 	function quad(left:Float, top:Float, right:Float, bottom:Float, u0:Float, v0:Float, u1:Float,

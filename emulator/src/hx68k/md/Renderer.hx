@@ -230,23 +230,42 @@ final class Renderer {
 
 	function compose(vdp:Vdp, y:Int):Void {
 		final backdrop = vdp.registers[7] & 0x3F;
-		final effects = (vdp.registers[12] & 0x08) != 0;
 		final row = y * MAX_WIDTH;
+
+		if ((vdp.registers[12] & 0x08) == 0) {
+			for (x in 0...width) {
+				final a = planeA[x];
+				final b = planeB[x];
+				final s = sprites[x];
+
+				var colour = backdrop;
+				if ((b & 0x0F) != 0) colour = b & 0x3F;
+				if ((a & 0x0F) != 0 && ((a & PRIORITY) != 0 || (b & PRIORITY) == 0)) colour = a & 0x3F;
+				if ((s & 0x0F) != 0
+					&& ((s & PRIORITY) != 0 || ((a & PRIORITY) == 0 && (b & PRIORITY) == 0))) {
+					colour = s & 0x3F;
+				}
+
+				pixels[row + x] = palette[colour];
+			}
+
+			return;
+		}
 
 		for (x in 0...width) {
 			final a = planeA[x];
 			final b = planeB[x];
 			var s = sprites[x];
 
-			var shade = effects && (a & PRIORITY) == 0 && (b & PRIORITY) == 0 ? 64 : 0;
+			var shade = (a & PRIORITY) == 0 && (b & PRIORITY) == 0 ? 64 : 0;
 
-			if (effects && (s & 0x3F) == 0x3E) {
+			if ((s & 0x3F) == 0x3E) {
 				shade = 128;
 				s = 0;
-			} else if (effects && (s & 0x3F) == 0x3F) {
+			} else if ((s & 0x3F) == 0x3F) {
 				shade = 64;
 				s = 0;
-			} else if (effects && (s & PRIORITY) != 0 && (s & 0x0F) != 0) {
+			} else if ((s & PRIORITY) != 0 && (s & 0x0F) != 0) {
 				shade = 0;
 			}
 

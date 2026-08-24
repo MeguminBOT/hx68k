@@ -10,7 +10,7 @@ import lime.utils.Int16Array;
 class Speaker {
 	public static inline final CHUNK = 256;
 
-	static inline final BUFFERS = 10;
+	static inline final BUFFERS = 14;
 
 	static inline final GAIN = 21;
 

@@ -3,12 +3,15 @@ package hx68k.md;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
+@:allow(hx68k.md.Machine)
 final class Sound {
 	public static inline final RATE = 44100;
 
 	static inline final ROOM = 4410;
 
-	static inline final WANTED = 1280;
+	static inline final PER_FM = 1008;
+
+	static inline final WANTED = 2048;
 
 	static inline final BEND = 0.02;
 
@@ -33,7 +36,6 @@ final class Sound {
 
 	var psgClocks:Int = 0;
 	var ymClocks:Int = 0;
-	var ymSpare:Int = 0;
 	var samples:Float = 0;
 
 	var perMaster:Float = RATE / Vdp.MASTER_HZ;
@@ -54,7 +56,6 @@ final class Sound {
 		psg.reset();
 		ym.reset();
 		ymClocks = 0;
-		ymSpare = 0;
 		fmLeft = 0;
 		fmRight = 0;
 		olderLeft = 0;
@@ -75,29 +76,28 @@ final class Sound {
 		heldRight = 0;
 	}
 
-	public function tick(master:Int):Void {
+	public inline function tick(master:Int):Void {
 		psgClocks += master;
 
 		ymClocks += master;
-		if (ymClocks >= 7) {
-			final whole = Std.int(ymClocks / 7);
-			ymClocks -= whole * 7;
+		samples += master * perMaster;
 
-			ymSpare += whole;
-			while (ymSpare >= Ym2612.PER_SAMPLE) {
-				ymSpare -= Ym2612.PER_SAMPLE;
-				ym.sample();
-				olderLeft = fmLeft;
-				olderRight = fmRight;
-				fmLeft = ym.left;
-				fmRight = ym.right;
-			}
+		if (ymClocks >= PER_FM || samples >= 1) work();
+	}
+
+	function work():Void {
+		while (ymClocks >= PER_FM) {
+			ymClocks -= PER_FM;
+			ym.sample();
+			olderLeft = fmLeft;
+			olderRight = fmRight;
+			fmLeft = ym.left;
+			fmRight = ym.right;
 		}
 
-		samples += master * perMaster;
 		if (samples < 1) return;
 
-		final at = ymSpare;
+		final at = Std.int(ymClocks / 7);
 		final left = olderLeft + Std.int(((fmLeft - olderLeft) * at) / Ym2612.PER_SAMPLE);
 		final right = olderRight + Std.int(((fmRight - olderRight) * at) / Ym2612.PER_SAMPLE);
 
@@ -138,6 +138,11 @@ final class Sound {
 	public function writePsg(value:Int):Void {
 		catchUp();
 		psg.write(value);
+	}
+
+	public function steerBy(much:Float):Void {
+		bend = much;
+		perMaster = RATE * bend / Vdp.MASTER_HZ;
 	}
 
 	public function steer(downstream:Int):Void {

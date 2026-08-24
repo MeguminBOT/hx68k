@@ -22,6 +22,10 @@ class Usage implements View {
 	var statesPerFrame:Int = 0;
 	var lastStates:Int = 0;
 
+	final counted:Array<Int> = [0, 0, 0, 0, 0];
+
+	var countedAt:Int = -1000;
+
 	public function new(debugger:Debugger) {
 		this.machine = debugger.machine;
 		this.viewer = new Viewer(debugger.machine.vdp);
@@ -38,11 +42,11 @@ class Usage implements View {
 		final out = new Array<Row>();
 
 		out.push(Row.said("memory, counting the bytes that are not zero", Label));
-		out.push(memory("work RAM", used(machine.ram), machine.ram.length));
-		out.push(memory("z80 RAM", used(machine.z80Ram), machine.z80Ram.length));
-		out.push(memory("VRAM", used(vdp.vram), vdp.vram.length));
-		out.push(memory("CRAM", set(vdp.cram) * 2, vdp.cram.length * 2));
-		out.push(memory("VSRAM", set(vdp.vsram) * 2, vdp.vsram.length * 2));
+		out.push(memory("work RAM", counted[0], machine.ram.length));
+		out.push(memory("z80 RAM", counted[1], machine.z80Ram.length));
+		out.push(memory("VRAM", counted[2], vdp.vram.length));
+		out.push(memory("CRAM", counted[3] * 2, vdp.cram.length * 2));
+		out.push(memory("VSRAM", counted[4] * 2, vdp.vsram.length * 2));
 
 		out.push(Row.blank());
 		out.push(new Row([
@@ -89,6 +93,16 @@ class Usage implements View {
 
 	function sample():Void {
 		final vdp = machine.vdp;
+
+		if (vdp.frame - countedAt >= 30) {
+			countedAt = vdp.frame;
+			counted[0] = used(machine.ram);
+			counted[1] = used(machine.z80Ram);
+			counted[2] = used(vdp.vram);
+			counted[3] = set(vdp.cram);
+			counted[4] = set(vdp.vsram);
+		}
+
 		if (vdp.frame == lastFrame) return;
 
 		if (lastFrame >= 0) {

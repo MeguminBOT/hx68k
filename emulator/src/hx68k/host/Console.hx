@@ -58,6 +58,9 @@ class Console extends Application {
 	var last:Float = -1;
 	var madeLast:Int = 0;
 	var perSecond:Int = 0;
+
+	var slowest:Float = 0;
+	var worst:Float = 0;
 	var rebuilt:Float = 0;
 
 	var emulating:Float = 0;
@@ -174,12 +177,17 @@ class Console extends Application {
 
 		emulating = (haxe.Timer.stamp() - started) * 1000;
 
+		final took = (haxe.Timer.stamp() - started) * 1000;
+		if (took > slowest) slowest = took;
+
 		final now = haxe.Timer.stamp();
 		if (now - since >= 1) {
 			rate = frames;
 			frames = 0;
 			perSecond = machine.sound.made - madeLast;
 			madeLast = machine.sound.made;
+			worst = slowest;
+			slowest = 0;
 			since = now;
 		}
 	}
@@ -263,7 +271,7 @@ class Console extends Application {
 		}
 
 		ui.note(rate + " a second     " + round(emulating) + " ms emulating     "
-			+ round(drawing) + " ms drawing     " + sound()
+			+ round(drawing) + " ms drawing     " + round(worst) + " ms worst     " + sound()
 			+ (paused ? "     f10 f11 step" : ""));
 	}
 

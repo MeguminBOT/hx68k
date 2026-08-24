@@ -7,7 +7,7 @@ import haxe.ds.Vector;
 
 class Savestate {
 	static inline final MAGIC = 0x48583638;
-	static inline final VERSION = 3;
+	static inline final VERSION = 4;
 
 	public static function of(machine:Machine):Bytes {
 		final out = new BytesOutput();
@@ -178,7 +178,6 @@ class Savestate {
 		out.writeInt32(sound.psgClocks);
 		out.writeInt32(sound.ymClocks);
 		out.writeDouble(sound.samples);
-		out.writeInt32(sound.ymSpare);
 		out.writeInt32(sound.fmLeft);
 		out.writeInt32(sound.fmRight);
 		out.writeInt32(sound.olderLeft);
@@ -187,6 +186,7 @@ class Savestate {
 		out.writeInt32(sound.wentRight);
 		out.writeDouble(sound.heldLeft);
 		out.writeDouble(sound.heldRight);
+		out.writeDouble(sound.bend);
 	}
 
 	static function readSound(input:BytesInput, sound:Sound):Void {
@@ -196,7 +196,6 @@ class Savestate {
 		sound.psgClocks = input.readInt32();
 		sound.ymClocks = input.readInt32();
 		sound.samples = input.readDouble();
-		sound.ymSpare = input.readInt32();
 		sound.fmLeft = input.readInt32();
 		sound.fmRight = input.readInt32();
 		sound.olderLeft = input.readInt32();
@@ -206,10 +205,11 @@ class Savestate {
 		sound.heldLeft = input.readDouble();
 		sound.heldRight = input.readDouble();
 
+		sound.steerBy(input.readDouble());
+
 		sound.head = 0;
 		sound.tail = 0;
 		sound.held = 0;
-		sound.bend = 1;
 	}
 
 	static function writePsg(out:BytesOutput, psg:Psg):Void {
