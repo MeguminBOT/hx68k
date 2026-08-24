@@ -9,6 +9,7 @@ enum abstract Phase(Int) from Int to Int {
 	var Release = 3;
 }
 
+@:allow(hx68k.md.Savestate)
 class Operator {
 	public var detune:Int = 0;
 	public var multiple:Int = 0;

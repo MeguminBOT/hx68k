@@ -81,6 +81,12 @@ class GameCheck {
 			+ " sp=" + hex(machine.cpu.a[7], 6));
 		Sys.println("  z80   pc=" + hex(machine.z80.pc, 4) + " sound writes="
 			+ machine.z80Bus.soundWrites);
+		Sys.println("  share 68000 " + Std.int(machine.cycles / frames) + " cycles a frame of 128005"
+			+ ", z80 " + Std.int(machine.z80Bus.states / frames) + " states a frame of 59672");
+		Sys.println("  z80 lost to: reset " + Std.int(machine.stoppedFor / frames)
+			+ ", bus request " + Std.int(machine.requestedFor / frames)
+			+ ", halt " + Std.int(machine.haltedFor / frames)
+			+ " master clocks a frame of 895040");
 
 		Sys.println("  vdp   line=" + machine.vdp.line + " display="
 			+ ((machine.vdp.registers[1] & 0x40) != 0 ? "on" : "off")

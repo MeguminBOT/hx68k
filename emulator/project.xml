@@ -6,6 +6,12 @@
 	<source path="src" />
 	<haxelib name="lime" />
 
+	<!--
+		Vsync paces the update loop off the monitor rather than off a Windows timer, whose tick is
+		fifteen milliseconds unless something has asked otherwise. That evenness is worth more to the
+		sound than the rate itself is: the machine is paced by its own clock in Console either way,
+		and what a steady update buys is a device buffer half the size.
+	-->
 	<window width="960" height="672" fps="60" background="#000000" resizable="true"
 		hardware="true" vsync="true" allow-high-dpi="false" />
 

@@ -2,14 +2,15 @@ package hx68k.md;
 
 import haxe.ds.Vector;
 
+@:allow(hx68k.md.Savestate)
 class Sound {
 	public static inline final RATE = 44100;
 
-	static inline final ROOM = 11025;
+	static inline final ROOM = 4410;
 
-	static inline final WANTED = 384;
+	static inline final WANTED = 1280;
 
-	static inline final BEND = 0.004;
+	static inline final BEND = 0.02;
 
 	static inline final COUPLING = 0.9975;
 
@@ -18,7 +19,11 @@ class Sound {
 
 	public var lost(default, null):Int = 0;
 
+	public var made(default, null):Int = 0;
+
 	public var bend(default, null):Float = 1;
+
+	var waiting:Int = 0;
 
 	final ring:Vector<Int> = new Vector<Int>(ROOM * 2);
 
@@ -56,9 +61,11 @@ class Sound {
 		tail = 0;
 		held = 0;
 		lost = 0;
+		made = 0;
 		psgClocks = 0;
 		samples = 0;
 		bend = 1;
+		waiting = 0;
 		wentLeft = 0;
 		wentRight = 0;
 		heldLeft = 0;
@@ -89,6 +96,8 @@ class Sound {
 			}
 		}
 
+		aim();
+
 		samples += master * RATE * bend / Vdp.MASTER_HZ;
 		if (samples < 1) return;
 
@@ -101,25 +110,25 @@ class Sound {
 		final mixedLeft = left + other;
 		final mixedRight = right + other;
 
-		heldLeft = (mixedLeft - wentLeft) + COUPLING * heldLeft;
-		heldRight = (mixedRight - wentRight) + COUPLING * heldRight;
-		wentLeft = mixedLeft;
-		wentRight = mixedRight;
-
-		final outLeft = Std.int(heldLeft);
-		final outRight = Std.int(heldRight);
-
 		while (samples >= 1) {
 			samples -= 1;
-			put(outLeft, outRight);
-		}
 
-		aim();
+			heldLeft = (mixedLeft - wentLeft) + COUPLING * heldLeft;
+			heldRight = (mixedRight - wentRight) + COUPLING * heldRight;
+			wentLeft = mixedLeft;
+			wentRight = mixedRight;
+
+			put(Std.int(heldLeft), Std.int(heldRight));
+		}
 	}
 
 	inline function aim():Void {
-		final off = (WANTED - held) / (ROOM * 0.5);
+		final off = (WANTED - (waiting > held ? waiting : held)) * BEND / WANTED;
 		bend = 1 + (off > BEND ? BEND : (off < -BEND ? -BEND : off));
+	}
+
+	public function steer(downstream:Int):Void {
+		waiting = downstream + held;
 	}
 
 	public function ready():Int {
@@ -146,6 +155,7 @@ class Sound {
 			lost++;
 		}
 
+		made++;
 		ring[head * 2] = left;
 		ring[head * 2 + 1] = right;
 		head = (head + 1) % ROOM;

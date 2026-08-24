@@ -2,6 +2,7 @@ package hx68k.md;
 
 import haxe.ds.Vector;
 
+@:allow(hx68k.md.Savestate)
 class Channel {
 	static final DETUNE = [16, 17, 19, 20, 22, 24, 27, 29];
 

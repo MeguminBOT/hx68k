@@ -124,17 +124,25 @@ class Machine implements Bus implements Memory {
 		return 0xFFFF;
 	}
 
+	public var audible:Bool = true;
+
 	inline function advance(n:Int):Void {
 		cycles += n;
-		vdp.tick(n * MASTER_PER_68K);
-		sound.tick(n * MASTER_PER_68K);
-		runZ80(n * MASTER_PER_68K);
+		final master = n * MASTER_PER_68K;
+		vdp.tick(master);
+		if (audible) sound.tick(master);
+		runZ80(master);
 	}
+
+	public var stoppedFor(default, null):Int = 0;
+	public var requestedFor(default, null):Int = 0;
+	public var haltedFor(default, null):Int = 0;
 
 	function runZ80(master:Int):Void {
 		z80Master += master;
 
 		if (!z80Running || z80BusRequest) {
+			if (z80Running) requestedFor += master; else stoppedFor += master;
 			if (z80Master > MASTER_PER_Z80) z80Master = MASTER_PER_Z80;
 			return;
 		}
@@ -151,6 +159,7 @@ class Machine implements Bus implements Memory {
 			}
 
 			if (z80.halted) {
+				haltedFor += z80Master;
 				z80Master = 0;
 				return;
 			}

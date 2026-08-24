@@ -7,7 +7,7 @@ import haxe.ds.Vector;
 
 class Savestate {
 	static inline final MAGIC = 0x48583638;
-	static inline final VERSION = 1;
+	static inline final VERSION = 2;
 
 	public static function of(machine:Machine):Bytes {
 		final out = new BytesOutput();
@@ -19,6 +19,7 @@ class Savestate {
 		writeCpu(out, machine.cpu);
 		writeZ80(out, machine.z80);
 		writeVdp(out, machine.vdp);
+		writeSound(out, machine.sound);
 		writeMachine(out, machine);
 
 		out.write(machine.ram);
@@ -38,6 +39,7 @@ class Savestate {
 		readCpu(input, machine.cpu);
 		readZ80(input, machine.z80);
 		readVdp(input, machine.vdp);
+		readSound(input, machine.sound);
 		readMachine(input, machine);
 
 		input.readBytes(machine.ram, 0, machine.ram.length);
@@ -167,6 +169,251 @@ class Savestate {
 		vdp.filling = (bits & 2) != 0;
 		vdp.vint = (bits & 4) != 0;
 		vdp.hint = (bits & 8) != 0;
+	}
+
+	static function writeSound(out:BytesOutput, sound:Sound):Void {
+		writePsg(out, sound.psg);
+		writeYm(out, sound.ym);
+
+		out.writeDouble(sound.psgClocks);
+		out.writeDouble(sound.ymClocks);
+		out.writeDouble(sound.samples);
+		out.writeInt32(sound.ymSpare);
+		out.writeInt32(sound.fmLeft);
+		out.writeInt32(sound.fmRight);
+		out.writeInt32(sound.olderLeft);
+		out.writeInt32(sound.olderRight);
+		out.writeInt32(sound.wentLeft);
+		out.writeInt32(sound.wentRight);
+		out.writeDouble(sound.heldLeft);
+		out.writeDouble(sound.heldRight);
+	}
+
+	static function readSound(input:BytesInput, sound:Sound):Void {
+		readPsg(input, sound.psg);
+		readYm(input, sound.ym);
+
+		sound.psgClocks = input.readDouble();
+		sound.ymClocks = input.readDouble();
+		sound.samples = input.readDouble();
+		sound.ymSpare = input.readInt32();
+		sound.fmLeft = input.readInt32();
+		sound.fmRight = input.readInt32();
+		sound.olderLeft = input.readInt32();
+		sound.olderRight = input.readInt32();
+		sound.wentLeft = input.readInt32();
+		sound.wentRight = input.readInt32();
+		sound.heldLeft = input.readDouble();
+		sound.heldRight = input.readDouble();
+
+		sound.head = 0;
+		sound.tail = 0;
+		sound.held = 0;
+		sound.bend = 1;
+	}
+
+	static function writePsg(out:BytesOutput, psg:Psg):Void {
+		writeVector(out, psg.tone);
+		writeVector(out, psg.attenuation);
+		writeVector(out, psg.counter);
+		writeVector(out, psg.output);
+
+		out.writeInt32(psg.latched);
+		out.writeInt32(psg.noise);
+		out.writeInt32(psg.shift);
+		out.writeInt32(psg.total);
+		out.writeInt32(psg.counted);
+		out.writeDouble(psg.spare);
+	}
+
+	static function readPsg(input:BytesInput, psg:Psg):Void {
+		readVector(input, psg.tone);
+		readVector(input, psg.attenuation);
+		readVector(input, psg.counter);
+		readVector(input, psg.output);
+
+		psg.latched = input.readInt32();
+		psg.noise = input.readInt32();
+		psg.shift = input.readInt32();
+		psg.total = input.readInt32();
+		psg.counted = input.readInt32();
+		psg.spare = input.readDouble();
+	}
+
+	static function writeYm(out:BytesOutput, ym:Ym2612):Void {
+		writeVector(out, ym.registers);
+		for (i in 0...6) writeChannel(out, ym.channels[i]);
+
+		out.writeInt32(ym.address);
+		out.writeInt32(ym.part);
+		out.writeInt32(ym.timerA);
+		out.writeInt32(ym.timerB);
+		out.writeInt32(ym.timerACount);
+		out.writeInt32(ym.timerBCount);
+		out.writeInt32(ym.status);
+		out.writeInt32(ym.envelopeCounter);
+		out.writeInt32(ym.envelopeDivider);
+		out.writeInt32(ym.visible);
+		out.writeInt32(ym.position);
+		out.writeInt32(ym.pendingHalf);
+		out.writeInt32(ym.pendingAddress);
+		out.writeInt32(ym.pendingValue);
+		out.writeInt32(ym.pendingIn);
+		out.writeInt32(ym.lfoPhase);
+		out.writeInt32(ym.lfoRate);
+		out.writeInt32(ym.lfoHeld);
+		out.writeInt32(ym.vibrato);
+		out.writeInt32(ym.swell);
+		out.writeInt32(ym.mode);
+		out.writeInt32(ym.busyFor);
+		out.writeInt32(ym.dac);
+
+		out.writeByte((ym.ticking ? 1 : 0) | (ym.waiting ? 2 : 0) | (ym.lfoOn ? 4 : 0)
+			| (ym.csmKeyed ? 8 : 0) | (ym.dacOn ? 16 : 0));
+	}
+
+	static function readYm(input:BytesInput, ym:Ym2612):Void {
+		readVector(input, ym.registers);
+		for (i in 0...6) readChannel(input, ym.channels[i]);
+
+		ym.address = input.readInt32();
+		ym.part = input.readInt32();
+		ym.timerA = input.readInt32();
+		ym.timerB = input.readInt32();
+		ym.timerACount = input.readInt32();
+		ym.timerBCount = input.readInt32();
+		ym.status = input.readInt32();
+		ym.envelopeCounter = input.readInt32();
+		ym.envelopeDivider = input.readInt32();
+		ym.visible = input.readInt32();
+		ym.position = input.readInt32();
+		ym.pendingHalf = input.readInt32();
+		ym.pendingAddress = input.readInt32();
+		ym.pendingValue = input.readInt32();
+		ym.pendingIn = input.readInt32();
+		ym.lfoPhase = input.readInt32();
+		ym.lfoRate = input.readInt32();
+		ym.lfoHeld = input.readInt32();
+		ym.vibrato = input.readInt32();
+		ym.swell = input.readInt32();
+		ym.mode = input.readInt32();
+		ym.busyFor = input.readInt32();
+		ym.dac = input.readInt32();
+
+		final bits = input.readByte();
+		ym.ticking = (bits & 1) != 0;
+		ym.waiting = (bits & 2) != 0;
+		ym.lfoOn = (bits & 4) != 0;
+		ym.csmKeyed = (bits & 8) != 0;
+		ym.dacOn = (bits & 16) != 0;
+	}
+
+	static function writeChannel(out:BytesOutput, channel:Channel):Void {
+		for (i in 0...4) writeOperator(out, channel.operators[i]);
+
+		out.writeInt32(channel.algorithm);
+		out.writeInt32(channel.feedback);
+		out.writeInt32(channel.frequency);
+		out.writeInt32(channel.block);
+		out.writeInt32(channel.tremoloDepth);
+		out.writeInt32(channel.vibratoDepth);
+		out.writeInt32(channel.armed);
+		out.writeInt32(channel.keyRequest);
+		out.writeInt32(channel.published);
+		out.writeInt32(channel.delivered);
+		out.writeInt32(channel.accumulated);
+		out.writeInt32(channel.carried);
+		out.writeInt32(channel.lateTwo);
+		out.writeInt32(channel.earlierTwo);
+		out.writeInt32(channel.previous);
+		out.writeInt32(channel.older);
+		out.writeInt32(channel.swept);
+
+		writeVector(out, channel.outputs);
+		writeVector(out, channel.notes);
+		writeVector(out, channel.blocks);
+
+		out.writeByte((channel.left ? 1 : 0) | (channel.right ? 2 : 0)
+			| (channel.separate ? 4 : 0) | (channel.levelled ? 8 : 0));
+	}
+
+	static function readChannel(input:BytesInput, channel:Channel):Void {
+		for (i in 0...4) readOperator(input, channel.operators[i]);
+
+		channel.algorithm = input.readInt32();
+		channel.feedback = input.readInt32();
+		channel.frequency = input.readInt32();
+		channel.block = input.readInt32();
+		channel.tremoloDepth = input.readInt32();
+		channel.vibratoDepth = input.readInt32();
+		channel.armed = input.readInt32();
+		channel.keyRequest = input.readInt32();
+		channel.published = input.readInt32();
+		channel.delivered = input.readInt32();
+		channel.accumulated = input.readInt32();
+		channel.carried = input.readInt32();
+		channel.lateTwo = input.readInt32();
+		channel.earlierTwo = input.readInt32();
+		channel.previous = input.readInt32();
+		channel.older = input.readInt32();
+		channel.swept = input.readInt32();
+
+		readVector(input, channel.outputs);
+		readVector(input, channel.notes);
+		readVector(input, channel.blocks);
+
+		final bits = input.readByte();
+		channel.left = (bits & 1) != 0;
+		channel.right = (bits & 2) != 0;
+		channel.separate = (bits & 4) != 0;
+		channel.levelled = (bits & 8) != 0;
+	}
+
+	static function writeOperator(out:BytesOutput, each:Operator):Void {
+		out.writeInt32(each.detune);
+		out.writeInt32(each.multiple);
+		out.writeInt32(each.totalLevel);
+		out.writeInt32(each.keyScale);
+		out.writeInt32(each.attackRate);
+		out.writeInt32(each.decayRate);
+		out.writeInt32(each.sustainRate);
+		out.writeInt32(each.releaseRate);
+		out.writeInt32(each.sustainLevel);
+		out.writeInt32(each.phase);
+		out.writeInt32(each.increment);
+		out.writeInt32(each.envelope);
+		out.writeInt32(each.state);
+		out.writeInt32(each.ssg);
+
+		out.writeByte((each.tremolo ? 1 : 0) | (each.keyed ? 2 : 0) | (each.restarts ? 4 : 0)
+			| (each.repeats ? 8 : 0) | (each.rising ? 16 : 0) | (each.inverted ? 32 : 0)
+			| (each.holding ? 64 : 0));
+	}
+
+	static function readOperator(input:BytesInput, each:Operator):Void {
+		each.detune = input.readInt32();
+		each.multiple = input.readInt32();
+		each.totalLevel = input.readInt32();
+		each.keyScale = input.readInt32();
+		each.attackRate = input.readInt32();
+		each.decayRate = input.readInt32();
+		each.sustainRate = input.readInt32();
+		each.releaseRate = input.readInt32();
+		each.sustainLevel = input.readInt32();
+		each.phase = input.readInt32();
+		each.increment = input.readInt32();
+		each.envelope = input.readInt32();
+		each.state = input.readInt32();
+		each.ssg = input.readInt32();
+
+		final bits = input.readByte();
+		each.tremolo = (bits & 1) != 0;
+		each.keyed = (bits & 2) != 0;
+		each.restarts = (bits & 4) != 0;
+		each.repeats = (bits & 8) != 0;
+		each.rising = (bits & 16) != 0;
+		each.inverted = (bits & 32) != 0;
+		each.holding = (bits & 64) != 0;
 	}
 
 	static function writeMachine(out:BytesOutput, machine:Machine):Void {

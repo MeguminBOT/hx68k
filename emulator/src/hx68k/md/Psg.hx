@@ -2,6 +2,7 @@ package hx68k.md;
 
 import haxe.ds.Vector;
 
+@:allow(hx68k.md.Savestate)
 class Psg {
 	public static inline final CLOCK = 3579545;
 

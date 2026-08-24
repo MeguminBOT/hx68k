@@ -55,6 +55,9 @@ class Console extends Application {
 	var rate:Int = 0;
 	var since:Float = 0;
 	var owed:Float = 0;
+	var last:Float = -1;
+	var madeLast:Int = 0;
+	var perSecond:Int = 0;
 	var rebuilt:Float = 0;
 
 	var emulating:Float = 0;
@@ -138,19 +141,26 @@ class Console extends Application {
 
 		final started = haxe.Timer.stamp();
 
+		final elapsed = last < 0 ? 0.0 : started - last;
+		last = started;
+
+		if (quiet && speaker != null && speaker.playing) speaker.silence();
+
 		if (!paused) {
 			final period = (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC) / Vdp.MASTER_HZ;
-			owed += deltaTime / 1000.0;
+			owed += elapsed > period * CATCH_UP ? period * CATCH_UP : elapsed;
 
 			var ran = 0;
-			while (owed >= period && ran < CATCH_UP) {
+			while (ran < CATCH_UP && owed >= period) {
 				machine.runFrame();
 				owed -= period;
 				frames++;
 				ran++;
+
+				if (!quiet && speaker != null) speaker.feed(machine.sound);
 			}
 
-			if (owed >= period * CATCH_UP) owed = 0;
+			if (owed >= period * CATCH_UP || owed <= -period * CATCH_UP) owed = 0;
 
 			if (unlimited) {
 				for (_ in 0...8) {
@@ -160,10 +170,7 @@ class Console extends Application {
 			}
 		}
 
-		if (speaker != null) {
-			if (quiet) speaker.silence();
-			else speaker.feed(machine.sound);
-		}
+		if (speaker != null && !quiet) speaker.feed(machine.sound);
 
 		emulating = (haxe.Timer.stamp() - started) * 1000;
 
@@ -171,6 +178,8 @@ class Console extends Application {
 		if (now - since >= 1) {
 			rate = frames;
 			frames = 0;
+			perSecond = machine.sound.made - madeLast;
+			madeLast = machine.sound.made;
 			since = now;
 		}
 	}
@@ -254,7 +263,18 @@ class Console extends Application {
 		}
 
 		ui.note(rate + " a second     " + round(emulating) + " ms emulating     "
-			+ round(drawing) + " ms drawing" + (paused ? "     f10 f11 step" : ""));
+			+ round(drawing) + " ms drawing     " + sound()
+			+ (paused ? "     f10 f11 step" : ""));
+	}
+
+	function sound():String {
+		if (speaker == null) return "";
+
+		return perSecond + " of " + hx68k.md.Sound.RATE + " made     "
+			+ speaker.delay() + " + "
+			+ Std.int(1000 * machine.sound.ready() / hx68k.md.Sound.RATE) + " ms of sound"
+			+ (speaker.starved > 0 ? ", " + speaker.starved + " ran dry" : "")
+			+ (machine.sound.lost > 0 ? ", " + machine.sound.lost + " dropped" : "");
 	}
 
 	function panels(gl:lime.graphics.WebGLRenderContext):Void {

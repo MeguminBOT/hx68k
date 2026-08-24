@@ -8,17 +8,17 @@ import lime.media.openal.ALSource;
 import lime.utils.Int16Array;
 
 class Speaker {
-	static inline final CHUNK = 256;
+	public static inline final CHUNK = 256;
 
-	static inline final BUFFERS = 12;
-
-	static inline final AHEAD = 4;
+	static inline final BUFFERS = 10;
 
 	static inline final GAIN = 21;
 
 	public var playing(default, null):Bool = false;
 
 	public var starved(default, null):Int = 0;
+
+	public var queued(default, null):Int = 0;
 
 	final source:ALSource;
 	final spare:Array<ALBuffer> = [];
@@ -33,9 +33,7 @@ class Speaker {
 	public function feed(sound:Sound):Void {
 		recover();
 
-		var queued:Int = AL.getSourcei(source, AL.BUFFERS_QUEUED);
-
-		while (spare.length > 0 && queued < AHEAD && sound.ready() >= CHUNK) {
+		while (spare.length > 0 && sound.ready() >= CHUNK) {
 			final got = sound.take(taken, CHUNK);
 			if (got < CHUNK) break;
 
@@ -44,16 +42,20 @@ class Speaker {
 			final buffer = spare.pop();
 			AL.bufferData(buffer, AL.FORMAT_STEREO16, shaped, CHUNK * 4, Sound.RATE);
 			AL.sourceQueueBuffer(source, buffer);
-			queued++;
 		}
+
+		queued = AL.getSourcei(source, AL.BUFFERS_QUEUED);
+
+		sound.steer(queued * CHUNK);
+
+		if (queued == 0) return;
 
 		final state:Int = AL.getSourcei(source, AL.SOURCE_STATE);
+		if (state == AL.PLAYING) return;
 
-		if (queued > 0 && state != AL.PLAYING) {
-			if (playing) starved++;
-			AL.sourcePlay(source);
-			playing = true;
-		}
+		if (playing) starved++;
+		AL.sourcePlay(source);
+		playing = true;
 	}
 
 	function recover():Void {
@@ -65,7 +67,12 @@ class Speaker {
 
 	public function silence():Void {
 		AL.sourceStop(source);
+		recover();
 		playing = false;
+	}
+
+	public function delay():Int {
+		return Std.int(1000 * queued * CHUNK / Sound.RATE);
 	}
 
 	static inline function clamp(sample:Int):Int {

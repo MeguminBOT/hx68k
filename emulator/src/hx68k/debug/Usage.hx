@@ -3,6 +3,7 @@ package hx68k.debug;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
 import hx68k.md.Machine;
+import hx68k.md.Vdp;
 
 class Usage implements View {
 	static inline final BAR = 24;
@@ -18,6 +19,8 @@ class Usage implements View {
 	var writesPerFrame:Int = 0;
 	var readsPerFrame:Int = 0;
 	var cyclesPerFrame:Int = 0;
+	var statesPerFrame:Int = 0;
+	var lastStates:Int = 0;
 
 	public function new(debugger:Debugger) {
 		this.machine = debugger.machine;
@@ -70,6 +73,17 @@ class Usage implements View {
 			label("frame"), value(commas(vdp.frame))
 		]));
 
+		out.push(Row.blank());
+		out.push(Row.said("the z80, whose share is what decides how fast a sound driver runs", Label));
+		out.push(new Row([
+			label("states a frame"), value(commas(statesPerFrame)),
+			label("of"), value(commas(Std.int(Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC / 15)))
+		]));
+		out.push(new Row([
+			label("held in reset"), value(commas(machine.stoppedFor)),
+			label("bus taken"), value(commas(machine.requestedFor))
+		]));
+
 		return out.slice(0, limit);
 	}
 
@@ -81,12 +95,14 @@ class Usage implements View {
 			writesPerFrame = vdp.writes - lastWrites;
 			readsPerFrame = vdp.reads - lastReads;
 			cyclesPerFrame = machine.cycles - lastCycles;
+			statesPerFrame = machine.z80Bus.states - lastStates;
 		}
 
 		lastFrame = vdp.frame;
 		lastWrites = vdp.writes;
 		lastReads = vdp.reads;
 		lastCycles = machine.cycles;
+		lastStates = machine.z80Bus.states;
 	}
 
 	static inline function perFrame():Int {

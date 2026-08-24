@@ -2,6 +2,7 @@ package hx68k.md;
 
 import haxe.ds.Vector;
 
+@:allow(hx68k.md.Savestate)
 class Ym2612 {
 	public static inline final CLOCK = 7670453;
 	public static inline final PER_SAMPLE = 144;
@@ -323,7 +324,7 @@ class Ym2612 {
 		final step = lfoPhase >> 2;
 		if (step != vibrato) {
 			vibrato = step;
-			for (channel in channels) channel.tune(step);
+			for (channel in channels) if (channel.vibratoDepth != 0) channel.tune(step);
 		}
 
 		final mask = SWEEP[lfoRate];
