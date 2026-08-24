@@ -2,7 +2,7 @@ package hx68k.md;
 
 import haxe.ds.Vector;
 
-class Renderer {
+final class Renderer {
 	public static inline final MAX_WIDTH = 320;
 	public static inline final MAX_HEIGHT = 240;
 
@@ -15,6 +15,10 @@ class Renderer {
 	public var width(default, null):Int = MAX_WIDTH;
 	public var height(default, null):Int = 224;
 
+	final palette:Vector<Int> = new Vector<Int>(64 * 3);
+
+	var mixed:Int = -1;
+
 	final planeA:Vector<Int> = new Vector<Int>(MAX_WIDTH);
 	final planeB:Vector<Int> = new Vector<Int>(MAX_WIDTH);
 	final sprites:Vector<Int> = new Vector<Int>(MAX_WIDTH);
@@ -24,6 +28,7 @@ class Renderer {
 	}
 
 	public function line(vdp:Vdp, y:Int):Void {
+		if (mixed != vdp.colours) mix(vdp);
 		width = wide(vdp) ? 320 : 256;
 		height = (vdp.registers[1] & 0x08) != 0 ? 240 : 224;
 		if (y >= height) return;
@@ -32,6 +37,17 @@ class Renderer {
 		layer(vdp, y, planeB, false);
 		sprite(vdp, y);
 		compose(vdp, y);
+	}
+
+	function mix(vdp:Vdp):Void {
+		mixed = vdp.colours;
+
+		for (i in 0...64) {
+			final entry = vdp.cram[i];
+			palette[i] = rgb(entry, 0);
+			palette[64 + i] = rgb(entry, SHADOW);
+			palette[128 + i] = rgb(entry, HIGHLIGHT);
+		}
 	}
 
 	static inline function wide(vdp:Vdp):Bool {
@@ -76,47 +92,78 @@ class Renderer {
 	}
 
 	function layer(vdp:Vdp, y:Int, out:Vector<Int>, front:Bool):Void {
+		final broad = wide(vdp);
 		final planeBase = front ? (vdp.registers[2] & 0x38) << 10 : (vdp.registers[4] & 0x07) << 13;
-		final windowBase = (vdp.registers[3] & (wide(vdp) ? 0x3E : 0x3F)) << 10;
-		final windowPitch = wide(vdp) ? 64 : 32;
+		final windowBase = (vdp.registers[3] & (broad ? 0x3E : 0x3F)) << 10;
+		final windowPitch = broad ? 64 : 32;
 
 		final columns = cells(vdp.registers[16]);
 		final rows = cells(vdp.registers[16] >> 4);
+		final columnMask = columns * 8 - 1;
+		final rowMask = rows * 8 - 1;
 		final scroll = horizontal(vdp, y, front);
 
-		for (x in 0...width) {
-			final window = front && inWindow(vdp, x, y);
+		final h = vdp.registers[17];
+		final v = vdp.registers[18];
+		final windowRow = (v & 0x80) != 0 ? (y >> 3) >= (v & 0x1F) : (y >> 3) < (v & 0x1F);
+		final windowFrom = h & 0x1F;
+		final windowRight = (h & 0x80) != 0;
+
+		final perColumn = (vdp.registers[11] & 0x04) != 0;
+		final slot = front ? 0 : 1;
+		final flat = perColumn ? 0 : vdp.vsram[slot] & 0x3FF;
+
+		var x = 0;
+
+		while (x < width) {
+			final window = front && (windowRow
+				|| (windowRight ? (x >> 4) >= windowFrom : (x >> 4) < windowFrom));
+
 			var entry:Int;
-			var fine:Int;
 			var row:Int;
+			var fine:Int;
 
 			if (window) {
 				entry = readVram(vdp, windowBase + ((y >> 3) * windowPitch + (x >> 3)) * 2);
-				fine = x & 7;
 				row = y & 7;
+				fine = x & 7;
 			} else {
-				final px = (x - scroll) & (columns * 8 - 1);
-				final py = (y + vertical(vdp, x, front)) & (rows * 8 - 1);
+				final px = (x - scroll) & columnMask;
+				final at = (x >> 4) * 2 + slot;
+				final shift = perColumn && at < vdp.vsram.length ? vdp.vsram[at] & 0x3FF : flat;
+				final py = (y + shift) & rowMask;
 				entry = readVram(vdp, planeBase + ((py >> 3) * columns + (px >> 3)) * 2);
-				fine = px & 7;
 				row = py & 7;
+				fine = px & 7;
 			}
 
-			out[x] = texel(vdp, entry, fine, row);
+			var run = 8 - fine;
+			final untilColumn = 16 - (x & 15);
+			if (untilColumn < run) run = untilColumn;
+			if (x + run > width) run = width - x;
+
+			span(vdp, out, x, run, entry, row, fine);
+			x += run;
 		}
 	}
 
-	static function texel(vdp:Vdp, entry:Int, fine:Int, row:Int):Int {
-		final tile = entry & 0x07FF;
-		final column = (entry & 0x0800) != 0 ? 7 - fine : fine;
+	static function span(vdp:Vdp, out:Vector<Int>, x:Int, run:Int, entry:Int, row:Int,
+			fine:Int):Void {
 		final scanline = (entry & 0x1000) != 0 ? 7 - row : row;
+		final at = ((entry & 0x07FF) * 32 + scanline * 4) & 0xFFFF;
 
-		final at = (tile * 32 + scanline * 4 + (column >> 1)) & 0xFFFF;
-		final byte = vdp.vram.get(at);
-		final index = (column & 1) == 0 ? (byte >> 4) & 0x0F : byte & 0x0F;
-		if (index == 0) return 0;
+		final vram = vdp.vram;
+		final bits = (vram.get(at) << 24) | (vram.get(at + 1) << 16)
+			| (vram.get(at + 2) << 8) | vram.get(at + 3);
 
-		return (((entry >> 13) & 3) << 4 | index) | ((entry & 0x8000) != 0 ? PRIORITY : 0);
+		final attribute = (((entry >> 13) & 3) << 4) | ((entry & 0x8000) != 0 ? PRIORITY : 0);
+		final flip = (entry & 0x0800) != 0;
+
+		for (i in 0...run) {
+			final column = flip ? 7 - (fine + i) : fine + i;
+			final index = (bits >>> ((7 - column) << 2)) & 0x0F;
+			out[x + i] = index == 0 ? 0 : attribute | index;
+		}
 	}
 
 	function sprite(vdp:Vdp, y:Int):Void {
@@ -191,16 +238,16 @@ class Renderer {
 			final b = planeB[x];
 			var s = sprites[x];
 
-			var mode = effects && (a & PRIORITY) == 0 && (b & PRIORITY) == 0 ? SHADOW : 0;
+			var shade = effects && (a & PRIORITY) == 0 && (b & PRIORITY) == 0 ? 64 : 0;
 
 			if (effects && (s & 0x3F) == 0x3E) {
-				mode = HIGHLIGHT;
+				shade = 128;
 				s = 0;
 			} else if (effects && (s & 0x3F) == 0x3F) {
-				mode = SHADOW;
+				shade = 64;
 				s = 0;
 			} else if (effects && (s & PRIORITY) != 0 && (s & 0x0F) != 0) {
-				mode = 0;
+				shade = 0;
 			}
 
 			var colour = backdrop;
@@ -209,7 +256,7 @@ class Renderer {
 			if ((s & 0x0F) != 0 && ((s & PRIORITY) != 0 || ((a & PRIORITY) == 0 && (b & PRIORITY) == 0)))
 				colour = s & 0x3F;
 
-			pixels[row + x] = rgb(vdp.cram[colour], mode);
+			pixels[row + x] = palette[shade + colour];
 		}
 	}
 

@@ -38,7 +38,30 @@ class Speed {
 		part("the rest", bare, whole);
 
 		Sys.println("");
+		chips();
+		Sys.println("");
 		Sys.println("  a frame has 16.7 ms in it, and the window draws in about 3 of them");
+	}
+
+	static function chips():Void {
+		final sound = new hx68k.md.Sound();
+
+		var started = haxe.Timer.stamp();
+		for (_ in 0...888000) sound.ym.sample();
+		final fm = haxe.Timer.stamp() - started;
+
+		started = haxe.Timer.stamp();
+		for (_ in 0...3729000) sound.psg.run(16);
+		final psg = haxe.Timer.stamp() - started;
+
+		started = haxe.Timer.stamp();
+		for (_ in 0...32000000) sound.tick(28);
+		final mixer = haxe.Timer.stamp() - started;
+
+		Sys.println("  of a frame's sound, in the same milliseconds:");
+		Sys.println("    the FM chip's 888 samples   " + round(fm) + " ms");
+		Sys.println("    the other chip's 3729 steps " + round(psg) + " ms");
+		Sys.println("    the mixer's 32000 slices    " + round(mixer - fm - psg) + " ms around them");
 	}
 
 	static function pass(rom:String, frames:Int, audible:Bool, rendering:Bool):Float {

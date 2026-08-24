@@ -3,7 +3,7 @@ package hx68k.md;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
-class Ym2612 {
+final class Ym2612 {
 	public static inline final CLOCK = 7670453;
 	public static inline final PER_SAMPLE = 144;
 
@@ -17,31 +17,31 @@ class Ym2612 {
 
 	static final TURN = [0, 2, 1, 3];
 
-	static final APART = [2, 0, 1];
+	static final APART:Vector<Int> = Vector.fromArrayCopy([2, 0, 1]);
 
-	static final SPEAKS = [
+	static final SPEAKS:Vector<Int> = Vector.fromArrayCopy([
 		0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5,
 		0, 1, 2, 3, 4, 5, 0, 1, 2, 3, 4, 5
-	];
+	]);
 
-	static final TURNS = [
+	static final TURNS:Vector<Int> = Vector.fromArrayCopy([
 		0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
 		2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3
-	];
+	]);
 
-	static final PLAYS = [
+	static final PLAYS:Vector<Int> = Vector.fromArrayCopy([
 		0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2,
 		1, 1, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3
-	];
+	]);
 
-	static final SWEEP = [108, 77, 71, 67, 62, 44, 8, 5];
+	static final SWEEP:Vector<Int> = Vector.fromArrayCopy([108, 77, 71, 67, 62, 44, 8, 5]);
 
-	static final TREMOLO = [7, 3, 1, 0];
+	static final TREMOLO:Vector<Int> = Vector.fromArrayCopy([7, 3, 1, 0]);
 
-	static final TAKEN = [
+	static final TAKEN:Vector<Int> = Vector.fromArrayCopy([
 		1, -1, -1, -1, 5, -1, -1, -1, 3, -1, -1, -1,
 		0, -1, -1, -1, 4, -1, -1, -1, 2, -1, -1, -1
-	];
+	]);
 
 	public final registers:Vector<Int> = new Vector<Int>(512);
 	public final channels:Vector<Channel> = new Vector<Channel>(6);
@@ -55,9 +55,6 @@ class Ym2612 {
 	public var dacOn(default, null):Bool = false;
 
 	public var discrete:Bool = true;
-
-	final sine:Vector<Int> = new Vector<Int>(256);
-	final exponential:Vector<Int> = new Vector<Int>(256);
 
 	var address:Int = 0;
 	var part:Int = 0;
@@ -90,15 +87,6 @@ class Ym2612 {
 	var busyFor:Int = 0;
 
 	public function new() {
-		for (i in 0...256) {
-			final value = Math.sin((i + 0.5) * Math.PI / 512);
-			sine[i] = Std.int(Math.round(-Math.log(value) / Math.log(2) * 256));
-		}
-
-		for (i in 0...256) {
-			exponential[i] = Std.int(Math.round((Math.pow(2, i / 256.0) - 1) * 1024));
-		}
-
 		for (i in 0...6) channels[i] = new Channel();
 		reset();
 	}
@@ -296,8 +284,8 @@ class Ym2612 {
 		if (waiting && lands(position)) commit();
 
 		final which = SPEAKS[position];
-		channels[which].slot(TURNS[position], PLAYS[position], sine, exponential, visible, ticking,
-			swell, csmKeyed && which == 2);
+		channels[which].slot(TURNS[position], PLAYS[position], visible, ticking, swell,
+			csmKeyed && which == 2);
 
 		final taken = TAKEN[position];
 		if (taken >= 0) channels[taken].capture();

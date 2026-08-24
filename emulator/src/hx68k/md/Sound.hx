@@ -3,7 +3,7 @@ package hx68k.md;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
-class Sound {
+final class Sound {
 	public static inline final RATE = 44100;
 
 	static inline final ROOM = 4410;
@@ -31,10 +31,12 @@ class Sound {
 	var tail:Int = 0;
 	var held:Int = 0;
 
-	var psgClocks:Float = 0;
-	var ymClocks:Float = 0;
+	var psgClocks:Int = 0;
+	var ymClocks:Int = 0;
 	var ymSpare:Int = 0;
 	var samples:Float = 0;
+
+	var perMaster:Float = RATE / Vdp.MASTER_HZ;
 
 	var fmLeft:Int = 0;
 	var fmRight:Int = 0;
@@ -65,6 +67,7 @@ class Sound {
 		psgClocks = 0;
 		samples = 0;
 		bend = 1;
+		perMaster = RATE / Vdp.MASTER_HZ;
 		waiting = 0;
 		wentLeft = 0;
 		wentRight = 0;
@@ -73,19 +76,14 @@ class Sound {
 	}
 
 	public function tick(master:Int):Void {
-		psgClocks += master / 15.0;
-		final whole = Std.int(psgClocks);
-		if (whole > 0) {
-			psg.run(whole);
-			psgClocks -= whole;
-		}
+		psgClocks += master;
 
-		ymClocks += master / 7.0;
-		final ymWhole = Std.int(ymClocks);
-		if (ymWhole > 0) {
-			ymClocks -= ymWhole;
+		ymClocks += master;
+		if (ymClocks >= 7) {
+			final whole = Std.int(ymClocks / 7);
+			ymClocks -= whole * 7;
 
-			ymSpare += ymWhole;
+			ymSpare += whole;
 			while (ymSpare >= Ym2612.PER_SAMPLE) {
 				ymSpare -= Ym2612.PER_SAMPLE;
 				ym.sample();
@@ -96,15 +94,14 @@ class Sound {
 			}
 		}
 
-		aim();
-
-		samples += master * RATE * bend / Vdp.MASTER_HZ;
+		samples += master * perMaster;
 		if (samples < 1) return;
 
 		final at = ymSpare;
 		final left = olderLeft + Std.int(((fmLeft - olderLeft) * at) / Ym2612.PER_SAMPLE);
 		final right = olderRight + Std.int(((fmRight - olderRight) * at) / Ym2612.PER_SAMPLE);
 
+		catchUp();
 		final other = psg.taken();
 
 		final mixedLeft = left + other;
@@ -120,11 +117,27 @@ class Sound {
 
 			put(Std.int(heldLeft), Std.int(heldRight));
 		}
+
+		aim();
 	}
 
 	inline function aim():Void {
 		final off = (WANTED - (waiting > held ? waiting : held)) * BEND / WANTED;
 		bend = 1 + (off > BEND ? BEND : (off < -BEND ? -BEND : off));
+		perMaster = RATE * bend / Vdp.MASTER_HZ;
+	}
+
+	inline function catchUp():Void {
+		if (psgClocks < 15) return;
+
+		final whole = Std.int(psgClocks / 15);
+		psgClocks -= whole * 15;
+		psg.run(whole);
+	}
+
+	public function writePsg(value:Int):Void {
+		catchUp();
+		psg.write(value);
 	}
 
 	public function steer(downstream:Int):Void {

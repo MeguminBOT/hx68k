@@ -152,9 +152,9 @@ class StateCheck {
 		set(0, 0xA0, 0x69);
 		set(0, 0x28, 0xF0);
 
-		machine.sound.psg.write(0x80 | 0x0E);
-		machine.sound.psg.write(0x1B);
-		machine.sound.psg.write(0x90 | 0x04);
+		machine.sound.writePsg(0x80 | 0x0E);
+		machine.sound.writePsg(0x1B);
+		machine.sound.writePsg(0x90 | 0x04);
 	}
 
 	static function heard(machine:Machine):Int {

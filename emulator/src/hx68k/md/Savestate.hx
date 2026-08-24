@@ -7,7 +7,7 @@ import haxe.ds.Vector;
 
 class Savestate {
 	static inline final MAGIC = 0x48583638;
-	static inline final VERSION = 2;
+	static inline final VERSION = 3;
 
 	public static function of(machine:Machine):Bytes {
 		final out = new BytesOutput();
@@ -175,8 +175,8 @@ class Savestate {
 		writePsg(out, sound.psg);
 		writeYm(out, sound.ym);
 
-		out.writeDouble(sound.psgClocks);
-		out.writeDouble(sound.ymClocks);
+		out.writeInt32(sound.psgClocks);
+		out.writeInt32(sound.ymClocks);
 		out.writeDouble(sound.samples);
 		out.writeInt32(sound.ymSpare);
 		out.writeInt32(sound.fmLeft);
@@ -193,8 +193,8 @@ class Savestate {
 		readPsg(input, sound.psg);
 		readYm(input, sound.ym);
 
-		sound.psgClocks = input.readDouble();
-		sound.ymClocks = input.readDouble();
+		sound.psgClocks = input.readInt32();
+		sound.ymClocks = input.readInt32();
 		sound.samples = input.readDouble();
 		sound.ymSpare = input.readInt32();
 		sound.fmLeft = input.readInt32();
@@ -223,7 +223,7 @@ class Savestate {
 		out.writeInt32(psg.shift);
 		out.writeInt32(psg.total);
 		out.writeInt32(psg.counted);
-		out.writeDouble(psg.spare);
+		out.writeInt32(psg.spare);
 	}
 
 	static function readPsg(input:BytesInput, psg:Psg):Void {
@@ -237,7 +237,7 @@ class Savestate {
 		psg.shift = input.readInt32();
 		psg.total = input.readInt32();
 		psg.counted = input.readInt32();
-		psg.spare = input.readDouble();
+		psg.spare = input.readInt32();
 	}
 
 	static function writeYm(out:BytesOutput, ym:Ym2612):Void {

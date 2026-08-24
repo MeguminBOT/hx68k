@@ -4,7 +4,7 @@ import haxe.io.Bytes;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
-class Vdp {
+final class Vdp {
 	public static inline final MASTER_HZ = 53693175;
 
 	public static inline final MASTER_PER_LINE = 3420;
@@ -28,6 +28,8 @@ class Vdp {
 	public var writes(default, null):Int = 0;
 	public var reads(default, null):Int = 0;
 
+	public var colours(default, null):Int = 0;
+
 	final memory:Memory;
 
 	var dot:Int = 0;
@@ -47,6 +49,7 @@ class Vdp {
 	public function reset():Void {
 		for (i in 0...registers.length) registers[i] = 0;
 		for (i in 0...cram.length) cram[i] = 0;
+		colours++;
 		for (i in 0...vsram.length) vsram[i] = 0;
 		vram.fill(0, vram.length, 0);
 
@@ -65,8 +68,12 @@ class Vdp {
 		reads = 0;
 	}
 
-	public function tick(master:Int):Void {
+	public inline function tick(master:Int):Void {
 		dot += master;
+		if (dot >= MASTER_PER_LINE) lines();
+	}
+
+	function lines():Void {
 		while (dot >= MASTER_PER_LINE) {
 			dot -= MASTER_PER_LINE;
 			nextLine();
@@ -192,7 +199,9 @@ class Vdp {
 	function store(value:Int):Void {
 		switch (code & 0x0F) {
 			case 0x01: writeVram(address, value);
-			case 0x03: cram[(address >> 1) & 63] = value & 0x0EEE;
+			case 0x03:
+				cram[(address >> 1) & 63] = value & 0x0EEE;
+				colours++;
 			case 0x05: vsram[(address >> 1) % vsram.length] = value & 0x07FF;
 			case _:
 		}

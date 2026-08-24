@@ -293,7 +293,7 @@ class Machine implements Bus implements Memory {
 		final port = at & 0x1F;
 		if (port < 0x04) vdp.writeData(value);
 		else if (port < 0x08) vdp.writeControl(value);
-		else if (port >= 0x10 && port < 0x18) sound.psg.write(value);
+		else if (port >= 0x10 && port < 0x18) sound.writePsg(value);
 	}
 
 	function io(at:Int):Int {

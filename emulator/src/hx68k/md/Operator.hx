@@ -10,7 +10,26 @@ enum abstract Phase(Int) from Int to Int {
 }
 
 @:allow(hx68k.md.Savestate)
-class Operator {
+final class Operator {
+	static final SINE:Vector<Int> = sine();
+
+	static final EXPONENTIAL:Vector<Int> = exponential();
+
+	static function sine():Vector<Int> {
+		final out = new Vector<Int>(256);
+		for (i in 0...256) {
+			final value = Math.sin((i + 0.5) * Math.PI / 512);
+			out[i] = Std.int(Math.round(-Math.log(value) / Math.log(2) * 256));
+		}
+		return out;
+	}
+
+	static function exponential():Vector<Int> {
+		final out = new Vector<Int>(256);
+		for (i in 0...256) out[i] = Std.int(Math.round((Math.pow(2, i / 256.0) - 1) * 1024));
+		return out;
+	}
+
 	public var detune:Int = 0;
 	public var multiple:Int = 0;
 	public var totalLevel:Int = 0;
@@ -118,6 +137,10 @@ class Operator {
 		inverted = (rising != ((ssg & 0x0C) == 0x0C)) && keyed;
 	}
 
+	public inline function idle(wanted:Bool):Bool {
+		return !wanted && !keyed && ssg == 0 && envelope == 1023 && state == Release;
+	}
+
 	public inline function lift():Void {
 		envelope = shown();
 	}
@@ -137,9 +160,11 @@ class Operator {
 		if (tick && rate != 0) {
 			if (rate < 48) {
 				final shift = 11 - (rate >> 2);
-				if ((counter & ((1 << shift) - 1)) == 0) size = STEP[rate & 3][(counter >> shift) & 7];
+				if ((counter & ((1 << shift) - 1)) == 0) {
+					size = STEP[((rate & 3) << 3) | ((counter >> shift) & 7)];
+				}
 			} else {
-				final grow = FASTER[rate & 3][counter & 3] + (rate >> 2) - 12;
+				final grow = FASTER[((rate & 3) << 2) | (counter & 3)] + (rate >> 2) - 12;
 				size = 1 << (grow > 3 ? 3 : grow);
 			}
 		}
@@ -190,19 +215,19 @@ class Operator {
 		state = next;
 	}
 
-	static final STEP = [
-		[0, 1, 0, 1, 0, 1, 0, 1],
-		[0, 1, 0, 1, 1, 1, 0, 1],
-		[0, 1, 1, 1, 0, 1, 1, 1],
-		[0, 1, 1, 1, 1, 1, 1, 1]
-	];
+	static final STEP:Vector<Int> = Vector.fromArrayCopy([
+		0, 1, 0, 1, 0, 1, 0, 1,
+		0, 1, 0, 1, 1, 1, 0, 1,
+		0, 1, 1, 1, 0, 1, 1, 1,
+		0, 1, 1, 1, 1, 1, 1, 1
+	]);
 
-	static final FASTER = [
-		[0, 0, 0, 0],
-		[1, 0, 0, 0],
-		[1, 0, 1, 0],
-		[1, 1, 1, 0]
-	];
+	static final FASTER:Vector<Int> = Vector.fromArrayCopy([
+		0, 0, 0, 0,
+		1, 0, 0, 0,
+		1, 0, 1, 0,
+		1, 1, 1, 0
+	]);
 
 	function rateOf(scaling:Int, which:Phase):Int {
 		final base = switch (which) {
@@ -222,16 +247,15 @@ class Operator {
 		return total > 1023 ? 1023 : total;
 	}
 
-	public function output(sine:Vector<Int>, exponential:Vector<Int>, modulation:Int,
-			added:Int):Int {
+	public function output(modulation:Int, added:Int):Int {
 		final at = ((phase >> 10) + modulation) & 0x3FF;
 		final quarter = at & 0xFF;
 		final mirrored = (at & 0x100) != 0 ? 255 - quarter : quarter;
 
-		var attenuation = sine[mirrored] + (level(added) << 2);
+		var attenuation = SINE[mirrored] + (level(added) << 2);
 		if (attenuation > 0x1FFF) attenuation = 0x1FFF;
 
-		final value = ((exponential[(~attenuation) & 0xFF] + 1024) << 2) >> (attenuation >> 8);
+		final value = ((EXPONENTIAL[(~attenuation) & 0xFF] + 1024) << 2) >> (attenuation >> 8);
 		return (at & 0x200) != 0 ? -value : value;
 	}
 

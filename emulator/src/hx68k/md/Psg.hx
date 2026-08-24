@@ -3,7 +3,7 @@ package hx68k.md;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
-class Psg {
+final class Psg {
 	public static inline final CLOCK = 3579545;
 
 	static inline final DIVIDER = 16;
@@ -26,7 +26,7 @@ class Psg {
 	var latched:Int = 0;
 	var noise:Int = 0;
 	var shift:Int = 0x8000;
-	var spare:Float = 0;
+	var spare:Int = 0;
 	var total:Int = 0;
 	var counted:Int = 0;
 
@@ -82,14 +82,15 @@ class Psg {
 	}
 
 	public function run(clocks:Int):Void {
-		for (_ in 0...clocks) tick();
+		spare += clocks;
+
+		while (spare >= DIVIDER) {
+			spare -= DIVIDER;
+			step();
+		}
 	}
 
-	function tick():Void {
-		spare += 1;
-		if (spare < DIVIDER) return;
-		spare -= DIVIDER;
-
+	function step():Void {
 		for (channel in 0...3) {
 			if (--counter[channel] > 0) continue;
 

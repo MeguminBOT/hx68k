@@ -3,21 +3,22 @@ package hx68k.md;
 import haxe.ds.Vector;
 
 @:allow(hx68k.md.Savestate)
-class Channel {
-	static final DETUNE = [16, 17, 19, 20, 22, 24, 27, 29];
+final class Channel {
+	static final DETUNE:Vector<Int> = Vector.fromArrayCopy([16, 17, 19, 20, 22, 24, 27, 29]);
 
-	static final KEY_CODE = [0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3];
+	static final KEY_CODE:Vector<Int> =
+		Vector.fromArrayCopy([0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3]);
 
-	static final VIBRATO = [
-		[0x077, 0x077, 0x077, 0x077, 0x077, 0x077, 0x077, 0x077],
-		[0x077, 0x077, 0x077, 0x077, 0x074, 0x074, 0x074, 0x074],
-		[0x077, 0x077, 0x077, 0x074, 0x074, 0x074, 0x073, 0x073],
-		[0x077, 0x077, 0x074, 0x074, 0x073, 0x073, 0x221, 0x221],
-		[0x077, 0x077, 0x074, 0x073, 0x073, 0x073, 0x221, 0x072],
-		[0x077, 0x077, 0x073, 0x221, 0x072, 0x072, 0x220, 0x210],
-		[0x077, 0x077, 0x072, 0x121, 0x071, 0x071, 0x120, 0x110],
-		[0x077, 0x077, 0x071, 0x021, 0x070, 0x070, 0x020, 0x010]
-	];
+	static final VIBRATO:Vector<Int> = Vector.fromArrayCopy([
+		0x077, 0x077, 0x077, 0x077, 0x077, 0x077, 0x077, 0x077,
+		0x077, 0x077, 0x077, 0x077, 0x074, 0x074, 0x074, 0x074,
+		0x077, 0x077, 0x077, 0x074, 0x074, 0x074, 0x073, 0x073,
+		0x077, 0x077, 0x074, 0x074, 0x073, 0x073, 0x221, 0x221,
+		0x077, 0x077, 0x074, 0x073, 0x073, 0x073, 0x221, 0x072,
+		0x077, 0x077, 0x073, 0x221, 0x072, 0x072, 0x220, 0x210,
+		0x077, 0x077, 0x072, 0x121, 0x071, 0x071, 0x120, 0x110,
+		0x077, 0x077, 0x071, 0x021, 0x070, 0x070, 0x020, 0x010
+	]);
 
 	public final operators:Vector<Operator> = new Vector<Operator>(4);
 
@@ -49,6 +50,8 @@ class Channel {
 
 	public final outputs:Vector<Int> = new Vector<Int>(4);
 
+	final codes:Vector<Int> = new Vector<Int>(4);
+
 	var accumulated:Int = 0;
 	var carried:Int = 0;
 	var lateTwo:Int = 0;
@@ -60,6 +63,7 @@ class Channel {
 	public function new() {
 		for (i in 0...4) operators[i] = new Operator();
 		for (i in 0...4) outputs[i] = 0;
+		for (i in 0...4) codes[i] = 0;
 		for (i in 0...3) notes[i] = 0;
 		for (i in 0...3) blocks[i] = 0;
 	}
@@ -90,6 +94,7 @@ class Channel {
 		earlierTwo = 0;
 		previous = 0;
 		older = 0;
+		retune();
 	}
 
 	public function setFrequency(block:Int, frequency:Int):Void {
@@ -118,7 +123,7 @@ class Channel {
 	}
 
 	public inline function keyCode(index:Int):Int {
-		return (blockOf(index) << 2) | KEY_CODE[(noteOf(index) >> 7) & 0x0F];
+		return codes[index];
 	}
 
 	function retune():Void {
@@ -126,11 +131,12 @@ class Channel {
 			final each = operators[i];
 			final note = noteOf(i);
 			final at = blockOf(i);
+			codes[i] = (at << 2) | KEY_CODE[(note >> 7) & 0x0F];
 
 			final tuned = ((note << 1) + vibratoOf(note)) & 0xFFF;
 
 			var step = (tuned << at) >> 2;
-			final amount = detuneOf(each.detune & 3, keyCode(i));
+			final amount = detuneOf(each.detune & 3, codes[i]);
 			step += (each.detune & 4) != 0 ? -amount : amount;
 			step &= 0x1FFFF;
 
@@ -142,7 +148,7 @@ class Channel {
 		if (vibratoDepth == 0) return 0;
 
 		final at = (swept & 8) != 0 ? 7 - (swept & 7) : swept & 7;
-		final shifts = VIBRATO[vibratoDepth][at];
+		final shifts = VIBRATO[(vibratoDepth << 3) | at];
 		final high = note >> 4;
 		final size = ((high >> (shifts & 0x0F)) + (high >> ((shifts >> 4) & 0x0F))) >> (shifts >> 8);
 
@@ -157,8 +163,8 @@ class Channel {
 		return DETUNE[((sum & 1) << 2) | (code & 3)] >> (9 - (sum >> 1));
 	}
 
-	public function slot(turn:Int, index:Int, sine:Vector<Int>, exponential:Vector<Int>,
-			counter:Int, tick:Bool, swell:Int, pulsed:Bool):Void {
+	public function slot(turn:Int, index:Int, counter:Int, tick:Bool, swell:Int,
+			pulsed:Bool):Void {
 		if (turn == 1) {
 			published = accumulated;
 			accumulated = 0;
@@ -170,23 +176,29 @@ class Channel {
 
 		final wanted = pulsed || (keyRequest & (1 << index)) != 0;
 
-		each.shape(wanted);
+		var out = 0;
 
-		final pressed = wanted && !each.keyed;
-		final started = pressed || (each.keyed && each.repeats);
-		final restarting = pressed || each.restarts;
+		if (each.idle(wanted)) {
+			each.step();
+		} else {
+			each.shape(wanted);
 
-		final attenuation = (levelled ? each.totalLevel << 3 : 0)
-			+ (each.tremolo ? swell >> tremoloDepth : 0);
+			final pressed = wanted && !each.keyed;
+			final started = pressed || (each.keyed && each.repeats);
+			final restarting = pressed || each.restarts;
 
-		final out = each.output(sine, exponential, modulation(index), attenuation);
+			final attenuation = (levelled ? each.totalLevel << 3 : 0)
+				+ (each.tremolo ? swell >> tremoloDepth : 0);
 
-		if (restarting) each.phase = 0;
-		else each.step();
+			out = each.output(modulation(index), attenuation);
 
-		if (each.keyed && !wanted) each.lift();
-		each.advance(keyCode(index), counter, tick, wanted, started, pulsed);
-		each.keyed = wanted;
+			if (restarting) each.phase = 0;
+			else each.step();
+
+			if (each.keyed && !wanted) each.lift();
+			each.advance(keyCode(index), counter, tick, wanted, started, pulsed);
+			each.keyed = wanted;
+		}
 
 		outputs[index] = out;
 
