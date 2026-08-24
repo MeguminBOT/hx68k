@@ -141,7 +141,8 @@ class SoundCheck {
 
 		Sys.println("");
 		check(left > 50, "a channel panned hard left is heard on the left, at " + left);
-		check(right < left / 8, "and not on the right, at " + right);
+
+		check(right < left / 8, "and on the right only its converter's step, at " + right);
 	}
 
 	static function busy(machine:Machine):Bool {

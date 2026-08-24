@@ -144,7 +144,8 @@ class OpnCheck {
 			held:Null<Array<Array<Int>>> = null):Outcome {
 		final steps = parse(File.getContent(script));
 		final theirs = samplesOf(File.getBytes(reference));
-		final mine = run(steps, theirs.length, held);
+
+		final mine = run(steps, theirs.length, held, StringTools.startsWith(name, "discrete-"));
 
 		final count = mine.length < theirs.length ? mine.length : theirs.length;
 		if (count <= SETTLE) {
@@ -231,8 +232,10 @@ class OpnCheck {
 		}
 	}
 
-	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>):Array<Int> {
+	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>,
+			discrete:Bool):Array<Int> {
 		final chip = new Ym2612();
+		chip.discrete = discrete;
 		final out = [];
 
 		inline function one():Void {

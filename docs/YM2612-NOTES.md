@@ -9,6 +9,12 @@ program of its own so that its licence never reaches this repository. A claim he
 went from disagreeing to bit identical when the behaviour was implemented, and the fixture is still
 in the suite. Where something is inferred rather than measured it says so.
 
+Two other sources sit in `vendor/`: the Sega Genesis Technical Manual's YM2612 section, which is the
+part's own documentation and is quoted below where it agrees and where it does not, and the
+reference's own source, which is a reverse engineering of the die. Reading the second settled in
+minutes several things that fitting curves to its output did not, and where a rule below says it was
+read rather than measured, that is what it means.
+
 ## The domains
 
 **The envelope counts attenuation, not amplitude.** Total level, the envelope and the sine are all
@@ -101,14 +107,18 @@ takes to become something the part will act on at all.
 
 Implementing it changed no fixture on its own, since every fixture here writes its registers long
 before it presses a key. What it did change is that the tolerance on `WRITE_LATENCY` collapsed: with
-a flat delay any value from 26 to 30 gave the same samples, and with the rotation deciding, only 26
-does.
+a flat delay a range of values gave the same samples, and with the rotation deciding only one does.
 
 **The phase does not advance on the turn it begins again.** A turn that resets an operator's phase is
 spent on the reset: the part clears the increment first and then adds it, so nothing moves. Resetting
 and then stepping in the same turn looks harmless, and it is, right up until it is used to cancel out
 a key press landing a sample late. Both faults together sounded exactly right on anything without
 feedback and a moving envelope, and were what every remaining group was failing on.
+
+**An operator speaks with the phase it had, and only then begins it again.** The turn a phase restarts
+on is the last turn of the old one rather than the first of the new. Zeroing the phase before the
+operator speaks is silent either way on a key press from nothing, since the envelope is shut, and
+audible the moment something already sounding is keyed again. CSM is where that shows.
 
 **Beginning the envelope again and beginning the phase again are different questions.** A key press
 asks for both. The SSG shapes ask for one or the other: two of the eight restart the phase, six
@@ -154,13 +164,133 @@ for; comparing inside is what fixing one is for.
 sample the two parted, and `--inside` prints the phase, the operator output, the accumulator and what
 left the chip.
 
-## What is not implemented
+## The oscillator
 
-- The LFO, register 0x22, and the depths in 0xB4. `Operator.tremolo` is read and ignored.
-- Channel three's special mode, registers 0xA8 to 0xAC.
-- CSM, and the busy bit of the status register, which `read` always answers as clear.
-- The ladder effect of the discrete converter. The reference runs in YM3438 mode, which does not have
-  it, so the comparison would have to gain a second mode before the behaviour could be measured.
+**The divider compares bits, not magnitudes.** The counter deciding when the oscillator's phase moves
+is matched against one of `[108, 77, 71, 67, 62, 44, 8, 5]` by rate, and it steps when every bit of
+that value is set in it. Counted up from nothing that is the same as counting to it, so these read as
+a number of samples; the difference only shows when the rate changes while the divider is already
+part way up, and it is what the part does.
+
+**The divider runs from reset whether or not the oscillator is enabled.** Only the phase counter is
+held. Enabling the oscillator therefore does not start its cycle from the beginning, and where in the
+cycle it starts depends on how long the machine had been running.
+
+**Turning the oscillator off does not turn the tremolo off.** The phase counter is held at zero, and
+zero is the counter's deepest tremolo, so a channel asking for tremolo with the oscillator stopped is
+attenuated by the full depth it asked for and stays there. `lfo-tremolo-stopped` covers it.
+
+**The tremolo and the vibrato reach the operators a sample after the counter moves.** The counter
+steps at the first cycle of a sample and what it is worth arrives at the first cycle of the next.
+
+**The tremolo is a triangle of 126 down to 0 and back**, `126 - 2n` over the counter's first 64 steps
+and `2(n - 64)` over the rest, shifted right by 7, 3, 1 or 0 by the depth in 0xB4 before it joins the
+envelope. Those four shifts are the documented 0, 1.4, 5.9 and 11.8 dB.
+
+**The vibrato is two shifted copies of the note's top seven bits, added and shifted again.** All 64
+combinations of depth and step were read out of the reference across all 128 values of those seven
+bits and fitted; `Channel.VIBRATO` is the result, packed three shifts to an entry. The sum joins the
+note at twice its own width and carries no further than twelve bits, so a high note under the deepest
+vibrato wraps rather than saturating.
+
+**The manual's oscillator frequencies do not match.** It gives 3.98, 5.56, 6.02, 6.37, 6.88, 9.63,
+48.1 and 72.2 Hz, and every one of those is exactly `clock / (144 * 128 * n)` at 8 MHz for `n` one
+larger than the values above. The reference steps on the values above, measured directly. One of the
+two is wrong by a part in a hundred and nothing here can say which, so what is implemented is what
+the reference does and this is written down.
+
+## Channel three
+
+**Each of its four operators can play a note of its own**, through registers 0xA8 to 0xAE, and any of
+the three nonzero settings of 0x27's top two bits turns that on. The manual calls two of those three
+illegal.
+
+**Which register drives which operator was measured, and the manual disagrees.** Writing one at a
+time and hearing which pitch moved gives 0xA9 to the first operator, 0xAA to the second, 0xA8 to the
+third, and the channel's own 0xA0 and 0xA4 to the fourth. The manual assigns 0xA8, 0xA9 and 0xAA to
+operators two, three and four in that order, and the channel's own to operator one. The suite is bit
+identical on the measured assignment across 66 fixtures.
+
+**Each operator's key code follows the note it is playing**, so its rate scaling, its detune and the
+scaling of its vibrato all move with it rather than with the channel's.
+
+**The mode belongs to channel three alone.** The same registers do nothing to any other channel,
+which `special-elsewhere-*` covers.
+
+## CSM
+
+The setting the manual calls illegal, `0b10` in the top bits of 0x27, is CSM.
+
+**Timer A running out presses every key of channel three for one sample.** Starting the timer is
+itself such a press, on the same rising edge that loads it.
+
+**That key reaches all four operators at once**, unlike the key register, which reaches operator one a
+sample after the other three. The CSM key does not pass through the key register at all, which is why
+it does not inherit its timing.
+
+**A CSM key folds each operator's own total level into its envelope**, as a bitwise or, before that
+sample's envelope step is added. A channel already sounding is therefore pushed back towards silence
+every time the timer runs out. This was read in the reference's source after being mistaken for a
+magic constant: on the fixture that found it the total level was 10, and ten shifted left three times
+is 0x50.
+
+**Total level does not reach the output at all in CSM mode.** Channel three plays as though every
+operator were at total level zero. Measured across the whole range, and confirmed in the source.
+
+## The discrete converter
+
+**The discrete part and the YM3438 disagree only here.** The YM3438 drives a channel's value for
+three of the four cycles it holds and rests at zero for the fourth. The discrete part drives it for
+one and rests at a step whose sign is the value's for the other three, and it adds one to any value
+that is not negative. Each channel therefore contributes `value + 1 + 3` where it is positive and
+`value - 3` where it is negative, and a channel panned away from a side still leaves four times its
+step on that side. That is the ladder effect, and it is why a Model 1 crosses zero through a gap.
+
+`Ym2612.discrete` chooses between them and is the discrete part by default, since that is the part
+this machine carries. The reference has both modes and `tests/opn2/opn2.c` takes a `ladder` argument
+for the second, so the `discrete-*` fixtures are rendered on one part and everything else on the
+other. Forcing the ladder on for the whole suite takes it from 1032 of 1032 to 61, which is how it
+was confirmed that the fixtures tell the two apart.
+
+The reference marks its own ladder emulation as not verified against hardware. This one reproduces it
+exactly and inherits that caveat.
+
+## Writes and status
+
+**A data write leaves the part busy for 32 of its internal cycles.** An address write does not.
+Reading any of the four addresses answers the two timer flags and that busy bit, and SGDK spins on it
+before every write it makes.
+
+## Everything after the chips
+
+The chips are held to the reference sample for sample. Nothing about that says how the machine turns
+what they made into something a host can play, and four things there were wrong at once.
+
+**The two chips have to be brought to the same loudness by hand.** The FM chip counts in ninths of a
+bit and reaches 1536 either way on each side; the SN76489's four bits of attenuation are two decibels
+a step and say nothing about how loud nought is. `Psg.LOUDEST` sets one of its channels level with one
+FM channel, which is a choice rather than a measurement, and the whole mix then maps onto a sixteen
+bit sample so the loudest the machine can be is the loudest a host can play.
+
+**The SN76489's output is unipolar.** A channel contributes its amplitude while its output bit is set
+and nothing while it is clear, so the whole mix sits off centre by however many of its channels are
+sounding. The machine couples its output through a capacitor; `Sound.COUPLING` is one pole at about
+twenty hertz and is what puts the mix back on zero.
+
+**Both chips run far above any host rate.** The FM chip makes 53267 samples a second and the PSG's
+squares turn at up to 112 kHz, so reading either at the moment a host sample falls due turns
+everything above half the host rate into a tone that is not there. The FM is interpolated between the
+two samples either side, which costs one of its own sample periods of delay, and the PSG averages
+every one of its own steps between two host samples.
+
+**The machine's clock and the sound device's are not the same clock.** Left alone, one of them is
+always the faster, and that shows up as a click every few seconds at one end or a growing delay at
+the other. How full the ring is bends the sample rate by up to four parts in a thousand, which is
+inaudible and holds it still.
+
+`SoundCheck` measures all of it on the sample ROM's own music: the rate samples come out at, the
+offset, the peak, whether anything was dropped, how deep the ring got, and a channel panned hard left
+being heard only on the left. It found all four faults above.
 
 ## Traps in the measuring, not the part
 

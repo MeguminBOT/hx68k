@@ -31,16 +31,26 @@ mkdir -p "$SOUNDS"
 # only what changed is rendered again, since the reference for a fixture depends on nothing else.
 # the oracle is a Windows binary and cannot read a POSIX path, so the job list carries the other kind
 JOBS="$BUILD/jobs.txt"
+LADDER="$BUILD/jobs-ladder.txt"
 : > "$JOBS"
+: > "$LADDER"
 for script in "$SCRIPTS"/*.txt; do
 	name="$(basename "$script" .txt)"
 	if [ ! -f "$SOUNDS/$name.pcm" ] || [ "$script" -nt "$SOUNDS/$name.pcm" ]; then
-		echo "$(cygpath -m "$script") $(cygpath -m "$SOUNDS/$name.pcm")" >> "$JOBS"
+		case "$name" in
+			discrete-*) into="$LADDER" ;;
+			*) into="$JOBS" ;;
+		esac
+		echo "$(cygpath -m "$script") $(cygpath -m "$SOUNDS/$name.pcm")" >> "$into"
 	fi
 done
 
 if [ -s "$JOBS" ]; then
 	"$BUILD/opn2.exe" "$SAMPLES" "$(cygpath -m "$JOBS")"
+fi
+
+if [ -s "$LADDER" ]; then
+	"$BUILD/opn2.exe" "$SAMPLES" "$(cygpath -m "$LADDER")" ladder
 fi
 
 if [ -n "$1" ]; then

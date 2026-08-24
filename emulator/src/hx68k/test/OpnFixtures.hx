@@ -25,6 +25,7 @@ class OpnFixtures {
 		made += features(into);
 		made += oscillator(into);
 		made += separate(into);
+		made += discrete(into);
 		made += broad(into);
 
 		Sys.println(made + " fixtures in " + into);
@@ -418,6 +419,87 @@ class OpnFixtures {
 		return made;
 	}
 
+	static function discrete(into:String):Int {
+		var made = 0;
+
+		for (level in [0, 24, 48, 72, 96, 110, 120]) {
+			final voice = new OpnVoice().wiring(7, 0).loud(level).note(4, 0x169);
+			made += write(into, "discrete-quiet-" + pad(level), [voice], [0]);
+		}
+
+		for (sides in [0xC0, 0x80, 0x40, 0x00]) {
+			final voice = new OpnVoice().wiring(4, 3).loud(20).note(4, 0x169);
+			voice.panning = sides;
+			made += write(into, "discrete-panning-" + hex(sides), [voice], [0]);
+		}
+
+		for (algorithm in 0...8) {
+			final voice = new OpnVoice().wiring(algorithm, 2).envelope(24, 11, 5, 4, 8).note(4, 0x169);
+			for (at in 0...4) voice.totalLevel[at] = at == 3 ? 16 : 28;
+			voice.lift = 1100;
+			made += write(into, "discrete-algorithm-" + algorithm, [voice], [0]);
+		}
+
+		final fading = new OpnVoice().alone(0, 12).envelope(31, 6, 2, 8, 4).note(3, 0x1C0);
+		fading.lift = 400;
+		made += write(into, "discrete-fading", [fading], [0]);
+
+		final chance = new Chance(0x1ADDE2);
+		for (i in 0...40) {
+			final voices = [];
+			final where = [];
+
+			for (which in 0...6) {
+				if (chance.odds(40)) continue;
+
+				final voice = new OpnVoice().wiring(chance.upTo(8), chance.upTo(8));
+				for (at in 0...4) {
+					voice.detune[at] = chance.upTo(8);
+					voice.multiple[at] = chance.upTo(16);
+					voice.totalLevel[at] = chance.pick([8, 16, 32, 48, 64, 96, 110]);
+					voice.attack[at] = chance.upTo(32);
+					voice.decay[at] = chance.upTo(32);
+					voice.sustain[at] = chance.upTo(32);
+					voice.level[at] = chance.upTo(16);
+					voice.release[at] = chance.upTo(16);
+				}
+				voice.panning = chance.pick([0xC0, 0xC0, 0x80, 0x40, 0x00]);
+				voice.block = chance.upTo(8);
+				voice.frequency = chance.between(0x40, 0x7FF);
+				if (chance.odds(50)) voice.lift = chance.between(200, 1200);
+
+				voices.push(voice);
+				where.push(which);
+			}
+
+			if (voices.length == 0) {
+				voices.push(new OpnVoice().loud(48));
+				where.push(0);
+			}
+
+			made += write(into, "discrete-" + pad(i), voices, where);
+		}
+
+		return made + sampled(into);
+	}
+
+	static function sampled(into:String):Int {
+		final lines:Array<String> = [];
+		final chance = new Chance(0xDAC);
+
+		byte(lines, 0, 0xB4 + 2, 0xC0);
+		byte(lines, 1, 0xB4 + 2, 0xC0);
+		byte(lines, 0, 0x2B, 0x80);
+
+		for (i in 0...600) {
+			final value = i < 300 ? Std.int(0x60 + (i * 64) / 300) : chance.between(0x70, 0x90);
+			lines.push((i == 0 ? 40 : 4) + " 0 " + 0x2A);
+			lines.push("2 1 " + (value & 0xFF));
+		}
+
+		return script(into, "discrete-sampled", lines);
+	}
+
 	static function broad(into:String):Int {
 		final chance = new Chance(0xB40AD);
 		final levels = [0, 0, 4, 8, 16, 24, 32, 48, 64, 96, 127];
@@ -485,6 +567,10 @@ class OpnFixtures {
 			if (voices[i].lift >= 0) key(lines, voices[i], where[i], 0, voices[i].lift);
 		}
 
+		return script(into, name, lines);
+	}
+
+	static function script(into:String, name:String, lines:Array<String>):Int {
 		File.saveContent(into + "/" + name + ".txt", lines.join("\n") + "\n");
 		return 1;
 	}

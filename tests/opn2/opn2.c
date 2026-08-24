@@ -13,9 +13,12 @@
  *
  *     opn2 <samples>                 one script on standard input, samples on standard output
  *     opn2 <samples> <jobs>          many, where each line of <jobs> is "<script> <output>"
+ *     opn2 <samples> <jobs> ladder   the same, as the discrete YM2612 rather than the YM3438
  *
  * The second form exists because the suite is hundreds of fixtures and starting a process for each
- * of them costs far more than rendering them does.
+ * of them costs far more than rendering them does. The third is the same part as Sega's first
+ * machine carried, whose converter is driven for one of a channel's four cycles rather than three
+ * and rests at a step either side of zero for the rest, which is the ladder effect.
  *
  * One sample is twenty four clocks summed and divided by three. The part multiplexes its six
  * channels across those twenty four slots, each channel landing in three of them, so summing is
@@ -131,8 +134,9 @@ static int batch(const char *jobs, long total) {
 
 int main(int argc, char **argv) {
 	long total = argc > 1 ? atol(argv[1]) : 44100;
+	int ladder = argc > 3 && argv[3][0] == 'l';
 
-	OPN2_SetChipType(ym3438_mode_readmode);
+	OPN2_SetChipType(ym3438_mode_readmode | (ladder ? ym3438_mode_ym2612 : 0));
 
 	if (argc > 2) return batch(argv[2], total);
 

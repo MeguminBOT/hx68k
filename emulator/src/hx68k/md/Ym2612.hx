@@ -53,6 +53,8 @@ class Ym2612 {
 	public var dac(default, null):Int = 0;
 	public var dacOn(default, null):Bool = false;
 
+	public var discrete:Bool = true;
+
 	final sine:Vector<Int> = new Vector<Int>(256);
 	final exponential:Vector<Int> = new Vector<Int>(256);
 
@@ -345,15 +347,19 @@ class Ym2612 {
 		for (i in 0...6) {
 			final channel = channels[i];
 
-			if (i == 5 && dacOn) {
-				final value = (dac - 0x80) << 1;
+			final value = i == 5 && dacOn ? (dac - 0x80) << 1 : channel.delivered;
+
+			if (!discrete) {
 				if (channel.left) left += value;
 				if (channel.right) right += value;
 				continue;
 			}
 
-			left += channel.onLeft();
-			right += channel.onRight();
+			final step = value >= 0 ? 1 : -1;
+			final driven = (value >= 0 ? value + 1 : value) + 3 * step;
+
+			left += channel.left ? driven : 4 * step;
+			right += channel.right ? driven : 4 * step;
 		}
 
 		return left + right;
