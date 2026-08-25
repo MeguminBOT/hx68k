@@ -112,8 +112,43 @@ fewer.** Suite 4 went from 90% to 93.3%. `genvdp.txt`'s pseudocode writes only t
 initial word rather than a whole word through the normal write path, which scores 87.3%, so the
 first write is an ordinary FIFO write and the fill engine follows it.
 
-**Where this stands.** Page one is 51.3% of its result rows and page two 76.2%, from 42.5% and
-72.9%. By the ROM's own count page one still passes 0 of its 9 suites, since a suite passes only
-when every test in it does. What is left is mostly the FIFO itself: suites 1, 2, 3 and 5 are the
-buffer's size, its separate read and write paths, DMA through it, and what a write to an invalid
-target does, and none of those can be right before the VDP costs the 68000 anything.
+**A CRAM or VSRAM read returns the bits it does not store from the last word written to VRAM.**
+CRAM keeps nine bits at 0EEEh and VSRAM eleven at 07FFh; the rest come from a latch. Which writes
+fill that latch is the part worth writing down, because it was measured rather than assumed:
+
+| what fills the latch | total result pixels passing |
+| --- | --- |
+| nothing | 5,653 |
+| every data port write | 5,968 |
+| VRAM writes only, CRAM reads exposing it | 6,078 |
+| VRAM writes only, CRAM and VSRAM reads exposing it | 6,418 |
+| VRAM and CRAM writes | 5,968 |
+| VRAM and VSRAM writes | 6,078 |
+
+A CRAM write does not fill it and neither does a VSRAM write. Only a VRAM write does, which is what
+a FIFO holding what is on its way to video memory would do. Filling it from every write costs suites
+8 and 9, the two that test CRAM and VSRAM directly, which is how the narrower rule was found. What
+CRAM and VSRAM keep of the word they are given makes no difference once the read exposes the latch,
+so the store masks are left as they are.
+
+**The oracle had to be taught it too.** `samples/hardware` writes 0E80h to colour 0, writes 1234h to
+VRAM, then reads colour 0 back through the port. With the latch that read returns 1E90h, and the
+Musashi harness still answered 0E80h, so the two emulators disagreed and the gate said so. The
+harness now holds the same latch, and the check that used to be called "colour 0 through the port"
+is called "colour 0 read back over the last VRAM write", because that is what it measures. What the
+CRAM cell itself holds is checked separately and is still 0E80h.
+
+**Where this stands.** Page one is 60.9% of its result rows and page two 83.2%, from 42.5% and
+72.9% when the ROM arrived. By the ROM's own count page one now passes **1 of its 9** suites, up
+from none: suite 2, the separate read and write buffers. On page two suite 13, register writes
+against the code register, is at 100% and suite 14, the pending flag's reset, at 92.8%.
+
+**Three suites went down for it and are written here rather than hidden**: the VRAM fill from 93.3%
+to 82.3%, VRAM byteswapping from 73.3% to 66.3%, and partial control port writes from 85.2% to
+74.8%. All three read back through CRAM or VSRAM, so what they are saying is that the latch is not
+the last VRAM write but the FIFO's own next entry, which differs from it exactly while a fill or a
+multi-word write is in flight. That is the FIFO, and it is the next piece.
+
+What is left is mostly the FIFO itself: suites 1, 3 and 5 are the buffer's size, DMA through it, and
+what a write to an invalid target does, and none of those can be right before the VDP costs the
+68000 anything.

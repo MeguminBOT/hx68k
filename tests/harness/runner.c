@@ -434,7 +434,7 @@ static void suite_probe_rom(const char *label, const char *name, const char *dir
 }
 
 static const probe_t hardware_expected[] = {
-	{ "colour 0 through the port",  0x0E80 },
+	{ "colour 0 read back over the last VRAM write", 0x1E90 },
 	{ "a word through VRAM",        0x1234 },
 	{ "the pad reports start and right", 0x88 },
 };

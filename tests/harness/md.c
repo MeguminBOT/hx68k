@@ -59,6 +59,8 @@ static void vram_write_word(uint32_t a, uint16_t v)
 	md_vram[a | 1] = (uint8_t)(v & 0xFF);
 }
 
+static uint16_t vdp_latch;
+
 static uint16_t vram_read_word(uint32_t a)
 {
 	a &= 0xFFFE;
@@ -71,6 +73,7 @@ static void vdp_store(uint16_t value)
 
 	switch (ctrl_code & 0x0F) {
 	case 0x01:
+		vdp_latch = value;
 		vram_write_word(a, value);
 		log_write(MD_W_VRAM, (uint16_t)(a & 0xFFFF), value);
 		break;
@@ -95,8 +98,14 @@ static uint16_t vdp_fetch(void)
 
 	switch (ctrl_code & 0x0F) {
 	case 0x00: v = vram_read_word(ctrl_addr); break;
-	case 0x08: v = md_cram[(ctrl_addr >> 1) & (MD_CRAM_SIZE - 1)]; break;
-	case 0x04: v = md_vsram[(ctrl_addr >> 1) % MD_VSRAM_SIZE]; break;
+	case 0x08:
+		v = (uint16_t)((md_cram[(ctrl_addr >> 1) & (MD_CRAM_SIZE - 1)] & 0x0EEE)
+			| (vdp_latch & 0xF111));
+		break;
+	case 0x04:
+		v = (uint16_t)((md_vsram[(ctrl_addr >> 1) % MD_VSRAM_SIZE] & 0x07FF)
+			| (vdp_latch & 0xF800));
+		break;
 	default: break;
 	}
 
@@ -462,6 +471,7 @@ void md_reset(void)
 	memset(md_cram, 0, sizeof(md_cram));
 	memset(md_vsram, 0, sizeof(md_vsram));
 	memset(md_vdp_reg, 0, sizeof(md_vdp_reg));
+	vdp_latch = 0;
 	memset(z80_ram, 0, sizeof(z80_ram));
 	memset(pad_control, 0, sizeof(pad_control));
 	memset(pad_data, 0, sizeof(pad_data));

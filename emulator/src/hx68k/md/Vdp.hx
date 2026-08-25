@@ -41,6 +41,7 @@ final class Vdp {
 	var vint:Bool = false;
 	var hint:Bool = false;
 	var hintCounter:Int = 0;
+	var latch:Int = 0;
 
 	public function new(memory:Memory) {
 		this.memory = memory;
@@ -66,6 +67,7 @@ final class Vdp {
 		vint = false;
 		hint = false;
 		hintCounter = 0;
+		latch = 0;
 		writes = 0;
 		reads = 0;
 	}
@@ -158,8 +160,8 @@ final class Vdp {
 		final value = switch (code & 0x0F) {
 			case 0x00: readVram(address);
 			case 0x0C: (vram.get(address & 0xFFFF) << 8) | vram.get((address ^ 1) & 0xFFFF);
-			case 0x08: cram[(address >> 1) & 63];
-			case 0x04: vsram[(address >> 1) % vsram.length];
+			case 0x08: (cram[(address >> 1) & 63] & 0x0EEE) | (latch & 0xF111);
+			case 0x04: (vsram[(address >> 1) % vsram.length] & 0x07FF) | (latch & 0xF800);
 			case _: 0;
 		}
 		address = (address + registers[15]) & 0xFFFF;
@@ -216,7 +218,9 @@ final class Vdp {
 
 	function store(value:Int):Void {
 		switch (code & 0x0F) {
-			case 0x01: writeVram(address, value);
+			case 0x01:
+				latch = value;
+				writeVram(address, value);
 			case 0x03:
 				cram[(address >> 1) & 63] = value & 0x0EEE;
 				colours++;
