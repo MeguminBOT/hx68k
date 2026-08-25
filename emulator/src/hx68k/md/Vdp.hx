@@ -56,6 +56,10 @@ final class Vdp {
 	public var queued(default, null):Int = 0;
 	public var stalledFor(default, null):Int = 0;
 
+	var dmaLeft:Int = 0;
+	var dmaWord:Int = 0;
+	var dmaBank:Int = 0;
+
 	var fifoHead:Int = 0;
 	var served:Int = 0;
 
@@ -87,6 +91,9 @@ final class Vdp {
 		fifoHead = 0;
 		queued = 0;
 		stalledFor = 0;
+		dmaLeft = 0;
+		dmaWord = 0;
+		dmaBank = 0;
 		served = 0;
 		writes = 0;
 		reads = 0;
@@ -94,7 +101,7 @@ final class Vdp {
 
 	public inline function tick(master:Int):Void {
 		dot += master;
-		if (queued > 0) drain();
+		if (queued > 0 || dmaLeft > 0) drain();
 		if (dot >= next) events();
 	}
 
@@ -128,12 +135,30 @@ final class Vdp {
 		final total = slotsPerLine();
 		final now = Std.int(dot * total / MASTER_PER_LINE);
 
-		while (served < now && queued > 0) {
+		while (served < now && (queued > 0 || dmaLeft > 0)) {
 			served++;
-			if (slotIsExternal(served)) pop();
+			if (!slotIsExternal(served)) continue;
+			if (queued > 0) pop() else carry();
 		}
 
 		if (served < now) served = now;
+	}
+
+	public function transferring():Bool {
+		return dmaLeft > 0;
+	}
+
+	function carry():Void {
+		commit(code, address, memory.readWord(dmaBank | ((dmaWord << 1) & 0x1FFFE)));
+		address = (address + registers[15]) & 0xFFFF;
+
+		dmaWord = (dmaWord + 1) & 0xFFFF;
+		registers[21] = dmaWord & 0xFF;
+		registers[22] = (dmaWord >> 8) & 0xFF;
+
+		dmaLeft--;
+		registers[19] = dmaLeft & 0xFF;
+		registers[20] = (dmaLeft >> 8) & 0xFF;
 	}
 
 	function pop():Void {
@@ -355,18 +380,9 @@ final class Vdp {
 	}
 
 	function transfer(length:Int):Void {
-		final bank = (registers[23] & 0x7F) << 17;
-		var word = registers[21] | (registers[22] << 8);
-
-		for (i in 0...length) {
-			store(memory.readWord(bank | ((word << 1) & 0x1FFFE)));
-			word = (word + 1) & 0xFFFF;
-		}
-
-		registers[21] = word & 0xFF;
-		registers[22] = (word >> 8) & 0xFF;
-		registers[19] = 0;
-		registers[20] = 0;
+		dmaBank = (registers[23] & 0x7F) << 17;
+		dmaWord = registers[21] | (registers[22] << 8);
+		dmaLeft = length;
 	}
 
 	function copyVram(length:Int):Void {

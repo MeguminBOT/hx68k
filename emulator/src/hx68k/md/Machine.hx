@@ -129,6 +129,7 @@ class Machine implements Bus implements Memory {
 		advance(4);
 		final held = store(addr & 0xFFFFFE, data & 0xFFFF, uds, lds);
 		if (held > 0) advance(Std.int((held + MASTER_PER_68K - 1) / MASTER_PER_68K));
+		while (vdp.transferring()) advance(1);
 	}
 
 	public function faultAccess(read:Bool, addr:Int, fc:Int, data:Int):Int {

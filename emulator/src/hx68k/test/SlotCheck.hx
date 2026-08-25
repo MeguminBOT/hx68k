@@ -3,11 +3,11 @@ package hx68k.test;
 import hx68k.md.Memory;
 import hx68k.md.Vdp;
 
-private class Empty implements Memory {
+private class Counting implements Memory {
 	public function new() {}
 
 	public function readWord(address:Int):Int {
-		return 0;
+		return 0x1000 | ((address >> 1) & 0x0FFF);
 	}
 }
 
@@ -43,7 +43,7 @@ class SlotCheck {
 	}
 
 	static function ready(width:Int, display:Int):Vdp {
-		final vdp = new Vdp(new Empty());
+		final vdp = new Vdp(new Counting());
 
 		set(vdp, 1, display);
 		set(vdp, 12, width);
@@ -120,10 +120,54 @@ class SlotCheck {
 		same("and so did the fourth", (vdp.vram.get(6) << 8) | vdp.vram.get(7), 0x4003);
 	}
 
+	static function transferring(width:Int, display:Int, words:Int):Int {
+		final vdp = ready(width, display);
+
+		set(vdp, 19, words & 0xFF);
+		set(vdp, 20, (words >> 8) & 0xFF);
+		set(vdp, 21, 0);
+		set(vdp, 22, 0);
+		set(vdp, 23, 0);
+
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x0080);
+
+		var carried = 0;
+		for (_ in 0...Vdp.MASTER_PER_LINE) {
+			vdp.tick(1);
+			if (!vdp.transferring()) break;
+			carried++;
+		}
+
+		var landed = 0;
+		for (at in 0...0x8000) if (vdp.vram.get(at * 2) != 0 || vdp.vram.get(at * 2 + 1) != 0) landed++;
+		return landed;
+	}
+
+	static function dma():Void {
+		final blank = transferring(H40, DISPLAY_OFF, 1000);
+		ok("a blanked H40 line carries about 205 words of a transfer",
+			blank >= 200 && blank <= 210, "it carried " + blank);
+
+		final active = transferring(H40, DISPLAY_ON, 1000);
+		ok("an active H40 line carries about 18",
+			active >= 15 && active <= 20, "it carried " + active);
+
+		final narrow = transferring(H32, DISPLAY_OFF, 1000);
+		ok("a blanked H32 line carries about 167",
+			narrow >= 162 && narrow <= 172, "it carried " + narrow);
+
+		final short = transferring(H40, DISPLAY_OFF, 40);
+		same("a transfer shorter than a line carries all of it", short, 40);
+	}
+
 	static function main():Void {
 		Sys.println("");
 		Sys.println("where the external access slots are");
 		counting();
+
+		Sys.println("what a transfer does with them");
+		dma();
 
 		Sys.println("what the write FIFO does with them");
 		holding();
