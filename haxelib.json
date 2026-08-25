@@ -1,0 +1,12 @@
+{
+  "name": "hx68k",
+  "version": "0.1.0",
+  "description": "Haxe for the Sega Mega Drive: a compiler, an SDK, and a cycle-accurate emulator with a source-level debugger",
+  "license": "MIT",
+  "contributors": [],
+  "tags": ["megadrive", "genesis", "68000", "emulator", "compiler"],
+  "classPath": "tools/src",
+  "main": "Run",
+  "releasenote": "",
+  "dependencies": {}
+}

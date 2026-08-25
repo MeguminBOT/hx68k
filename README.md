@@ -5,6 +5,36 @@ Haxe for the Sega Mega Drive / Genesis.
 Three parts: a Reflaxe compiler backend that turns Haxe into freestanding C for the 68000, a
 hardware SDK, and an emulator with a source-level debugger.
 
+## Getting started
+
+```
+git clone <this repository>
+cd hx68k
+haxelib dev hx68k .
+haxelib run hx68k setup
+```
+
+`setup` pulls every source the build and the gate need into `vendor/`, which is gitignored: SGDK
+and its m68k toolchain, reflaxe, SDL3 and miniaudio for the window, Musashi and Nuked-OPN2 as the
+oracles, and the SingleStepTests fixtures both cores are held to. It is about 1.6 GB, most of it
+the z80 suite.
+
+```
+haxelib run hx68k setup --minimal   only what is needed to build a ROM and the window, about 260 MB
+haxelib run hx68k check             what is present and what is missing
+```
+
+Then:
+
+```
+./tests/run.sh                             the gate
+cd samples/spike && ./build.sh             Haxe to a ROM
+./emulator/run-window.sh <rom.bin>         the machine in a window
+```
+
+Requires Haxe 4.3+, Java, `git` and `curl`. The m68k toolchain comes with SGDK, so there is nothing
+else to install.
+
 ## What works today
 
 Everything ticked has a test behind it that runs in `./tests/run.sh`. Everything unticked is not
@@ -249,8 +279,7 @@ cd samples/spike
 ./build.sh
 ```
 
-Produces `samples/spike/rom/out/rom.bin`. Requires Haxe 4.3+, `reflaxe 4.0.0-beta`, and Java.
-The m68k toolchain is vendored with SGDK; nothing else to install.
+Produces `samples/spike/rom/out/rom.bin`.
 
 ## Layout
 
@@ -266,15 +295,31 @@ docs/
 
 ## Vendored sources and licences
 
-`vendor/` holds reference material, not dependencies of shipped code. Licences differ and matter:
+`haxelib run hx68k setup` puts these in `vendor/`, which is gitignored. Licences differ and matter:
 
 | Source | Licence | Use |
 |---|---|---|
-| reflaxe, reflaxe.CPP | MIT | Framework and blueprint |
-| SGDK | MIT (gcc GPL3 + runtime exception) | Toolchain and library |
+| reflaxe, reflaxe.CPP | MIT | The framework the compiler backend is written on |
+| SGDK | MIT (gcc GPL3 + runtime exception) | The m68k toolchain and library |
+| SDL3 | zlib | The window, linked as-is |
+| miniaudio | MIT-0 / public domain | The audio device, called directly |
+| Musashi | MIT | The functional oracle, safe to port |
+| Nuked-OPN2 | LGPL-2.1 | The FM reference; porting it would make that module LGPL |
+| SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
+| Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
+
+Nothing above is patched in place. The harness copies Musashi into `tests/harness/.build/` before
+patching it, and anything else needing modification does the same.
+
+These are **not** fetched by `setup`, because nothing here builds against them. They were read while
+writing the emulator and are listed so their terms are on the record:
+
+| Source | Licence | Terms |
+|---|---|---|
 | marsdev | MIT | Non-Windows toolchain builds |
-| Musashi | MIT | 68000 core, safe to port |
-| superzazu/z80 | MIT | Z80 core, safe to port |
-| Nuked-OPN2 | LGPL-2.1 | YM2612; porting makes that module LGPL |
-| gwenesis | AGPL-3.0 | **Read-only reference. Do not copy.** |
-| Genesis Plus GX | non-commercial | **Read-only reference. Do not copy.** |
+| superzazu/z80 | MIT | Safe to port |
+| gwenesis | AGPL-3.0 | **Read-only reference. Never copy.** |
+| Genesis Plus GX | non-commercial | **Read-only reference. Never copy.** |
+
+Hardware behaviour here comes from documentation, from the SingleStepTests fixtures, or from test
+ROMs. It is not taken by reading a restrictive source and transcribing what it does.

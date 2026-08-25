@@ -6,7 +6,7 @@
 #   ./emulator/build.sh debug    the same carrying debug information, for a stack trace on a crash
 #
 # This is a plain hxcpp build like every other check in this directory. What it needs beyond a
-# Haxe install is SDL3 and miniaudio in vendor/, which vendor/fetch.sh puts there.
+# Haxe install is SDL3 and miniaudio in vendor/, which 'haxelib run hx68k setup' puts there.
 #
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -16,7 +16,7 @@ SDL3="$(cd "$HERE/../vendor" && pwd)/SDL3"
 MINIAUDIO="$(cd "$HERE/../vendor" && pwd)/miniaudio"
 
 if [ ! -f "$SDL3/lib/SDL3.lib" ] || [ ! -f "$MINIAUDIO/miniaudio.h" ]; then
-	echo "SDL3 or miniaudio is missing from vendor/. Run ./vendor/fetch.sh first." >&2
+	echo "SDL3 or miniaudio is missing from vendor/. Run: haxelib run hx68k setup" >&2
 	exit 1
 fi
 
