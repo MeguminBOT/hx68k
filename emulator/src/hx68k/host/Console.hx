@@ -690,7 +690,29 @@ class Console {
 		rebuilt = Clock.stamp() - REBUILD * 2;
 		rebuild();
 		panels();
+		ui.overlay();
 		ui.finish();
+	}
+
+	function dragCheck():Void {
+		final held = ui.offer("video", "video", 0, 0, 0, 0);
+		final onto = ui.offer("registers", "registers", 0, 0, 0, 0);
+
+		ui.moved(held.x + held.width * 0.5, held.y + ui.bar * 0.5);
+		ui.button(true);
+		pass();
+
+		ui.moved(onto.x + onto.width * 0.5, onto.y + onto.height * 0.5);
+		pass();
+
+		final left = paint.pending();
+
+		ui.button(false);
+		pass();
+
+		Sys.println("    drag overlay: " + (left == 0
+			? "every frame fully drawn"
+			: "UNFLUSHED, " + left + " floats land a frame late and behind the panels"));
 	}
 
 	function scrollCheck():Void {
@@ -812,6 +834,7 @@ class Console {
 		}
 
 		scrollCheck();
+		dragCheck();
 	}
 
 	function asked():Int {

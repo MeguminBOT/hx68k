@@ -74,6 +74,10 @@ class Paint {
 		return pen;
 	}
 
+	public function pending():Int {
+		return used;
+	}
+
 	public function flush():Void {
 		if (used == 0) return;
 		Sdl.renderGeometry(renderer, font.texture, cpp.Pointer.ofArray(batch).raw,

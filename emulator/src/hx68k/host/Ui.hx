@@ -835,6 +835,7 @@ class Ui {
 
 	public function finish():Void {
 		paint.release(tall);
+		paint.flush();
 		current = null;
 
 		if (shutting != null) {
