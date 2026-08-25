@@ -507,6 +507,18 @@ else
 fi
 neko "$ROOT/emulator/bin/layout.n"
 
+echo ""
+echo "--- the VDP's access slots and its write FIFO, with no ROM under them ---"
+printf "building %-16s" "slots"
+if (cd "$ROOT/emulator" && haxe slot.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/slot.n"
+
 # a tracked progress metric rather than a gate, the way the 68000 conformance number was until C1
 # finished: the timing half of the VDP is not written, so this cannot reach the top yet.
 echo ""

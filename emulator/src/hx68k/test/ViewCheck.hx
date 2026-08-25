@@ -188,6 +188,11 @@ class ViewCheck {
 	static function word(vdp:Vdp, code:Int, address:Int, value:Int):Void {
 		at(vdp, code, address);
 		vdp.writeData(value);
+		settle(vdp);
+	}
+
+	static function settle(vdp:Vdp):Void {
+		while (vdp.queued > 0) vdp.tick(16);
 	}
 
 	static function colour(vdp:Vdp, index:Int, value:Int):Void {

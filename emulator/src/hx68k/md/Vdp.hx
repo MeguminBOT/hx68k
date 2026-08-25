@@ -12,6 +12,12 @@ final class Vdp {
 	public static inline final ACTIVE_LINES = 224;
 	public static inline final ACTIVE_TICKS = 2560;
 
+	public static inline final FIFO_DEPTH = 4;
+
+	public static inline final SLOTS_H40 = 210;
+
+	public static inline final SLOTS_H32 = 171;
+
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
 
@@ -43,6 +49,16 @@ final class Vdp {
 	var hintCounter:Int = 0;
 	var latch:Int = 0;
 
+	final fifoCode:Vector<Int> = new Vector<Int>(FIFO_DEPTH);
+	final fifoAddress:Vector<Int> = new Vector<Int>(FIFO_DEPTH);
+	final fifoValue:Vector<Int> = new Vector<Int>(FIFO_DEPTH);
+
+	public var queued(default, null):Int = 0;
+	public var stalledFor(default, null):Int = 0;
+
+	var fifoHead:Int = 0;
+	var served:Int = 0;
+
 	public function new(memory:Memory) {
 		this.memory = memory;
 		reset();
@@ -68,13 +84,97 @@ final class Vdp {
 		hint = false;
 		hintCounter = 0;
 		latch = 0;
+		fifoHead = 0;
+		queued = 0;
+		stalledFor = 0;
+		served = 0;
 		writes = 0;
 		reads = 0;
 	}
 
 	public inline function tick(master:Int):Void {
 		dot += master;
+		if (queued > 0) drain();
 		if (dot >= next) events();
+	}
+
+	inline function slotsPerLine():Int {
+		return (registers[12] & 0x81) == 0x81 ? SLOTS_H40 : SLOTS_H32;
+	}
+
+	inline function blanked():Bool {
+		return (registers[1] & 0x40) == 0 || line >= ACTIVE_LINES;
+	}
+
+	public function slotIsExternal(at:Int):Bool {
+		final open = blanked();
+		if (at < 14) return open;
+
+		final wide = (registers[12] & 0x81) == 0x81;
+		final tail = wide ? 174 : 142;
+
+		if (at < tail) {
+			final within = (at - 14) % 32;
+			if (within == 25) return false;
+			return open || within == 1 || within == 9 || within == 17;
+		}
+
+		if (open) return true;
+		return wide ? (at == 174 || at == 175 || at == 199)
+			: (at == 142 || at == 143 || at == 157 || at == 171);
+	}
+
+	function drain():Void {
+		final total = slotsPerLine();
+		final now = Std.int(dot * total / MASTER_PER_LINE);
+
+		while (served < now && queued > 0) {
+			served++;
+			if (slotIsExternal(served)) pop();
+		}
+
+		if (served < now) served = now;
+	}
+
+	function pop():Void {
+		commit(fifoCode[fifoHead], fifoAddress[fifoHead], fifoValue[fifoHead]);
+		fifoHead = (fifoHead + 1) % FIFO_DEPTH;
+		queued--;
+	}
+
+	function until():Int {
+		final total = slotsPerLine();
+		final last = served + total * 2;
+		var at = served;
+
+		while (at < last) {
+			at++;
+			var index = at;
+			while (index >= total) index -= total;
+			if (slotIsExternal(index)) break;
+		}
+
+		final when = Std.int((at + 1) * MASTER_PER_LINE / total);
+		return when > dot ? when - dot : 0;
+	}
+
+	function push(value:Int):Int {
+		var held = 0;
+
+		if (queued == FIFO_DEPTH) {
+			held = until();
+			pop();
+		}
+
+		final at = (fifoHead + queued) % FIFO_DEPTH;
+		fifoCode[at] = code;
+		fifoAddress[at] = address;
+		fifoValue[at] = value;
+		queued++;
+		stalledFor += held;
+
+		address = (address + registers[15]) & 0xFFFF;
+		return held;
 	}
 
 	function events():Void {
@@ -106,6 +206,7 @@ final class Vdp {
 	}
 
 	function endOfLine():Void {
+		served = 0;
 		line++;
 		if (line == ACTIVE_LINES) vint = true;
 		if (line >= LINES_NTSC) {
@@ -149,10 +250,16 @@ final class Vdp {
 		if ((code & 0x20) != 0) startDma();
 	}
 
-	public function writeData(value:Int):Void {
+	public function writeData(value:Int):Int {
 		writes++;
 		pending = false;
-		if (filling) fillVram(value) else store(value);
+
+		if (filling) {
+			fillVram(value);
+			return 0;
+		}
+
+		return push(value);
 	}
 
 	public function readData():Int {
@@ -173,10 +280,11 @@ final class Vdp {
 		reads++;
 		pending = false;
 
-		var value = 0x3400 | 0x0200;
+		var value = 0x3400 | (queued == 0 ? 0x0200 : 0x0000);
 		if (line >= ACTIVE_LINES) value |= 0x0008;
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;
+		if (queued == FIFO_DEPTH) value |= 0x0100;
 		if (interlaced() && (frame & 1) != 0) value |= 0x0010;
 		return value;
 	}
@@ -217,17 +325,21 @@ final class Vdp {
 		vram.set(even | 1, (swap ? value >> 8 : value) & 0xFF);
 	}
 
-	function store(value:Int):Void {
-		switch (code & 0x0F) {
+	function commit(atCode:Int, at:Int, value:Int):Void {
+		switch (atCode & 0x0F) {
 			case 0x01:
 				latch = value;
-				writeVram(address, value);
+				writeVram(at, value);
 			case 0x03:
-				cram[(address >> 1) & 63] = value & 0x0EEE;
+				cram[(at >> 1) & 63] = value & 0x0EEE;
 				colours++;
-			case 0x05: vsram[(address >> 1) % vsram.length] = value & 0x07FF;
+			case 0x05: vsram[(at >> 1) % vsram.length] = value & 0x07FF;
 			case _:
 		}
+	}
+
+	function store(value:Int):Void {
+		commit(code, address, value);
 		address = (address + registers[15]) & 0xFFFF;
 	}
 

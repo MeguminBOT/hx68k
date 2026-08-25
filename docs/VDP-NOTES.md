@@ -210,6 +210,47 @@ follows the width, changes nothing at all: 6,090 again with the two-slot rule an
 the pixel. Halving the active-display slots to 9 and 8 raises suite 4 to 93.3% and suite 5 to 70.5%
 and still leaves the total at 6,142, below no FIFO at all, and suite 12 back at 62.5%.
 
+### The FIFO, as it is now
+
+**A VRAM word write costs one external access slot, not two**, and the diagram says so directly: a
+column in it is one word access, a layer pattern fetch is drawn two columns wide because a pattern
+row is two words, and an external access slot is drawn one column wide. The "a VRAM access costs
+two slots" figure in the secondary sources is counting the two bytes that one column already
+covers. Charging two is what made three earlier attempts worse.
+
+So the FIFO is in, at one slot a word: four entries, drained at the slot positions above, and a
+push onto a full one holds the bus until the next external slot, which `Machine.write` charges to
+the 68000. Status bit 9 says empty and bit 8 says full from the count rather than from a constant.
+
+**It changes nothing either ROM here does**, and that is the expected answer rather than a
+disappointment: both write to VRAM during blanking, where 205 external slots a line is faster than
+a 68000 can fill four entries. The FIFO is what a program writing to VRAM *during active display*
+runs into, which is 18 slots a line, and neither Sonic 2 nor the port access ROM does that in a
+burst long enough to matter. VDPFIFOTesting reads 60.9% and 86.8% with it and without it, the four
+frames of Sonic 2 are the same four frames, and the 240p patterns are the same seven.
+
+**It is not dormant code, because `emulator/slot.hxml` drives it.** `hx68k.test.SlotCheck` sets a
+VDP up through its own ports with no ROM anywhere and asserts what the diagram says: 18 external
+slots on an active H40 line, 16 on H32, 205 and 167 blanked, four words accepted with the bus never
+held and the fifth held for less than a line, sixty-four words accepted without a hold while the
+display is off, and everything queued landed in VRAM within one line. Seventeen checks. Three
+deliberate mutations, dropping an external slot from the repeating block, dropping one from the
+tail, and dropping the refresh cycle, were confirmed to fail the right ones first.
+
+**One thing the check found in the model.** The diagram numbers access slots from 1, and the drain
+was numbering from 0, so a blanked line offered 206 external slots instead of 205. The census in
+the check is what caught it.
+
+**And one thing it found in this repository's own tests.** `RenderCheck` and `ViewCheck` set a VDP
+up through its ports and then read it back with no time passing at all, so with a FIFO in the way
+every write was still queued and eleven render checks and the whole view suite failed. Their write
+helper now ticks the VDP until the queue is empty, which is what any program on the machine
+experiences, and both pass with the expectations they already had. A VDP write taking time to land
+is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
+Mega Drive does.
+
+### Three attempts before that, and what they cost
+
 **And a third time, with the positions above rather than a rate.** It makes no difference: 6,552
 with one slot per entry, which is the figure with no FIFO at all and no stall ever taken, and 5,974
 with a VRAM entry costing two, with the same three register-write suites falling to 62.5%, 62.5%
@@ -232,12 +273,13 @@ flight when the ROM looks for them. At one it is 18 words per active line, and t
 and never stalls, so the entire mechanism is inert and nothing moves. Neither is an improvement, so
 there is still no FIFO here.
 
-The reading that fits the diagram is one: a column in it is one access slot of four serial clock
-cycles, a layer pattern fetch takes two columns and an external access takes one, so the external
-column is already a whole word access. The "a VRAM access costs two slots" figure that appears in
-the secondary sources must be counting something below that, and the way to settle it is the ROM's
-own suite 1, which is called FIFO Buffer Size and is at 36.9%. Getting that one to move is the next
-piece of work, and it now has the positions to work from.
+That question is settled above, by measuring the width of a column in the diagram rather than by
+trying costs against the ROM: the answer is one, and the section above is what went in. Suite 1,
+FIFO Buffer Size, stays at 36.9% with it, because the ROM measures the FIFO through timing the
+68000 sees and the 68000 only sees it during active display. The next piece is DMA, which does not
+go through the FIFO here at all and costs the 68000 nothing, where on hardware it freezes the 68000
+for the whole transfer. That is suite 3, DMA Transfer using FIFO, at 49.3%, and it is a far larger
+divergence from hardware than anything the FIFO alone was going to fix.
 
 **Where this stands.** Page one is 60.9% of its result rows and page two 83.2%, from 42.5% and
 72.9% when the ROM arrived. By the ROM's own count page one now passes **1 of its 9** suites, up

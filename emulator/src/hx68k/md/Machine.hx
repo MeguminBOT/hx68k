@@ -127,7 +127,8 @@ class Machine implements Bus implements Memory {
 
 	public function write(addr:Int, fc:Int, data:Int, uds:Bool, lds:Bool):Void {
 		advance(4);
-		store(addr & 0xFFFFFE, data & 0xFFFF, uds, lds);
+		final held = store(addr & 0xFFFFFE, data & 0xFFFF, uds, lds);
+		if (held > 0) advance(Std.int((held + MASTER_PER_68K - 1) / MASTER_PER_68K));
 	}
 
 	public function faultAccess(read:Bool, addr:Int, fc:Int, data:Int):Int {
@@ -213,34 +214,31 @@ class Machine implements Bus implements Memory {
 		return 0xFFFF;
 	}
 
-	function store(at:Int, value:Int, uds:Bool, lds:Bool):Void {
+	function store(at:Int, value:Int, uds:Bool, lds:Bool):Int {
 		if (at >= 0xE00000) {
 			final r = at & 0xFFFF;
 			if (uds) ram.set(r, (value >> 8) & 0xFF);
 			if (lds) ram.set(r | 1, value & 0xFF);
-			return;
+			return 0;
 		}
 
-		if (at >= 0xC00000) {
-			vdpWrite(at, both(value, uds, lds));
-			return;
-		}
+		if (at >= 0xC00000) return vdpWrite(at, both(value, uds, lds));
 
 		if (at >= 0xA00000 && at < 0xA04000) {
 			final z = at & 0x1FFE;
 			if (uds) z80Ram.set(z, (value >> 8) & 0xFF);
 			if (lds) z80Ram.set(z | 1, value & 0xFF);
-			return;
+			return 0;
 		}
 
 		if (at >= 0xA04000 && at < 0xA06000) {
 			sound.ym.write(at & 3, both(value, uds, lds));
-			return;
+			return 0;
 		}
 
 		if (at >= 0xA11100 && at < 0xA11200) {
 			z80BusRequest = (both(value, uds, lds) & 0x0100) != 0;
-			return;
+			return 0;
 		}
 
 		if (at >= 0xA11200 && at < 0xA11300) {
@@ -260,7 +258,7 @@ class Machine implements Bus implements Memory {
 				z80Running = true;
 				z80Master = 0;
 			}
-			return;
+			return 0;
 		}
 
 		if (at >= 0xA10000 && at < 0xA10020) {
@@ -268,14 +266,15 @@ class Machine implements Bus implements Memory {
 			final byte = both(value, uds, lds) & 0xFF;
 			if (offset >= 2 && offset <= 6) padData[(offset >> 1) - 1] = byte;
 			else if (offset >= 8 && offset <= 12) padControl[(offset >> 1) - 4] = byte;
-			return;
+			return 0;
 		}
 
 		if (at >= 0xA130F0 && at < 0xA13100) {
 			final index = ((at | 1) & 0x0F) >> 1;
 			if (index > 0) banks[index] = (value & 0x3F);
-			return;
 		}
+
+		return 0;
 	}
 
 	public function writeByte(address:Int, value:Int):Void {
@@ -308,11 +307,12 @@ class Machine implements Bus implements Memory {
 		return 0x0000;
 	}
 
-	function vdpWrite(at:Int, value:Int):Void {
+	function vdpWrite(at:Int, value:Int):Int {
 		final port = at & 0x1F;
-		if (port < 0x04) vdp.writeData(value);
-		else if (port < 0x08) vdp.writeControl(value);
+		if (port < 0x04) return vdp.writeData(value);
+		if (port < 0x08) vdp.writeControl(value);
 		else if (port >= 0x10 && port < 0x18) sound.writePsg(value);
+		return 0;
 	}
 
 	function io(at:Int):Int {
