@@ -507,6 +507,20 @@ else
 fi
 neko "$ROOT/emulator/bin/layout.n"
 
+# a tracked progress metric rather than a gate, the way the 68000 conformance number was until C1
+# finished: the timing half of the VDP is not written, so this cannot reach the top yet.
+echo ""
+echo "--- the VDP against Nemesis' port access ROM ---"
+printf "building %-16s" "fifo"
+if (cd "$ROOT/emulator" && haxe fifo.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/fifo.n" "$ROOT"
+
 echo ""
 echo "--- the focus stack and the text field, with no window under them ---"
 printf "building %-16s" "widgets"

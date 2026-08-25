@@ -56,6 +56,11 @@ class Run {
 			about: "the FM reference the YM2612 is held to, sample for sample"
 		},
 		{
+			name: "VDPFIFOTesting", group: "test",
+			url: "", present: "VDPFIFOTesting/VDPFIFOTesting.bin", size: "512 KB",
+			about: "Nemesis' VDP port access ROM: fifteen suites the VDP's timing is held to"
+		},
+		{
 			name: "SingleStepTests-m68000", group: "test",
 			url: "https://github.com/SingleStepTests/m68000.git",
 			present: "SingleStepTests-m68000", size: "182 MB",
@@ -141,8 +146,12 @@ class Run {
 			}
 
 			Sys.println("  " + pad(source.name) + "fetching, about " + source.size);
-			final ok = source.name == "SDL3" ? sdl(vendor)
-				: (source.name == "miniaudio" ? miniaudio(vendor) : clone(source, vendor));
+			final ok = switch (source.name) {
+				case "SDL3": sdl(vendor);
+				case "miniaudio": miniaudio(vendor);
+				case "VDPFIFOTesting": fifo(vendor);
+				case _: clone(source, vendor);
+			}
 
 			if (!ok) {
 				Sys.println("  " + pad("") + "failed, see above");
@@ -206,6 +215,36 @@ class Run {
 		if (!FileSystem.exists(vendor + "/miniaudio")) FileSystem.createDirectory(vendor + "/miniaudio");
 		return download(base + "/miniaudio.h", vendor + "/miniaudio/miniaudio.h")
 			&& download(base + "/LICENSE", vendor + "/miniaudio/LICENSE");
+	}
+
+	static function fifo(vendor:String):Bool {
+		final archive = vendor + "/.vdpfifo.zip";
+		final into = vendor + "/VDPFIFOTesting";
+
+		if (!download("http://nemesis.exodusemulator.com/MegaDrive/Tests/VDPFIFOTesting/"
+				+ "VDPFIFOTesting.zip", archive)) return false;
+
+		if (!FileSystem.exists(into)) FileSystem.createDirectory(into);
+		unpack(archive, into);
+
+		FileSystem.deleteFile(archive);
+		return FileSystem.exists(into + "/VDPFIFOTesting.bin");
+	}
+
+	static function unpack(archive:String, into:String):Void {
+		final ways = [
+			{ tool: "unzip", flags: ["-o", "-q", archive, "-d", into] },
+			{ tool: "tar", flags: ["-xf", archive, "-C", into] }
+		];
+
+		for (way in ways) {
+			try {
+				final run = new sys.io.Process(way.tool, way.flags);
+				final code = run.exitCode();
+				run.close();
+				if (code == 0) return;
+			} catch (e:Dynamic) {}
+		}
 	}
 
 	static function download(url:String, into:String):Bool {
