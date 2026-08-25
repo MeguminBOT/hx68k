@@ -131,7 +131,7 @@ a FIFO holding what is on its way to video memory would do. Filling it from ever
 CRAM and VSRAM keep of the word they are given makes no difference once the read exposes the latch,
 so the store masks are left as they are.
 
-**The oracle had to be taught it too.** `samples/hardware` writes 0E80h to colour 0, writes 1234h to
+**The Musashi harness had to be taught it too.** `samples/hardware` writes 0E80h to colour 0, writes 1234h to
 VRAM, then reads colour 0 back through the port. With the latch that read returns 1E90h, and the
 Musashi harness still answered 0E80h, so the two emulators disagreed and the gate said so. The
 harness now holds the same latch, and the check that used to be called "colour 0 through the port"
@@ -248,6 +248,32 @@ helper now ticks the VDP until the queue is empty, which is what any program on 
 experiences, and both pass with the expectations they already had. A VDP write taking time to land
 is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
 Mega Drive does.
+
+### A transfer takes one external access slot a word, and freezes the 68000
+
+A 68000 to VDP transfer used to happen in one go inside the control port write, at no cost to the
+68000 at all. It now takes one external access slot a word, from the same schedule the FIFO drains
+on, and `Machine.write` holds the 68000 until it finishes, which is what `genvdp.txt` describes:
+the 68000 is frozen, the VDP reads a word, writes it, increments, repeats, and the 68000 resumes.
+The source and length registers count as it goes rather than being zeroed at the end.
+
+**The rate is the documented one, and it falls out rather than being written in.** A blanked H40
+line has 205 external slots in 3420 master clocks, which is 489 cycles of the 68000, so a word
+costs 2.39 cycles. The figure quoted for a transfer to a fast target is `words * 2.4 + 5.6`. The
+2.4 is not a constant here; it is 3420 divided by 205 divided by 7.
+
+`hx68k.test.SlotCheck` measures it: a blanked H40 line carries about 205 words, an active one about
+18, a blanked H32 line about 167, and a transfer shorter than a line finishes inside it. Making a
+slot carry two words was confirmed to fail three of those.
+
+**What it did to the ROMs.** Nothing visible. Sonic 2 draws the same four frames, the port access
+ROM reads the same 60.9% and 86.9%, and the 240p patterns are the same seven. What did change is
+how the machine spends a frame: the z80 gets 57,894 states a frame where it got 58,514, because the
+68000 now stands still through every transfer instead of teleporting through it. Sonic 2 does its
+transfers in vblank, where 205 slots a line is more than it needs, so nothing it draws moves.
+
+**Still instant, and still wrong**: the VRAM fill and the VRAM copy. Both are DMA and both should
+run at the same rate. They are left as they were rather than half changed.
 
 ### Three attempts before that, and what they cost
 

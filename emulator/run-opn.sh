@@ -29,7 +29,8 @@ neko "$HERE/bin/fixtures.n" "$SCRIPTS" > /dev/null
 mkdir -p "$SOUNDS"
 
 # only what changed is rendered again, since the reference for a fixture depends on nothing else.
-# the oracle is a Windows binary and cannot read a POSIX path, so the job list carries the other kind
+# the reference program is a Windows binary and cannot read a POSIX path, so the job list carries
+# the other kind
 JOBS="$BUILD/jobs.txt"
 LADDER="$BUILD/jobs-ladder.txt"
 : > "$JOBS"

@@ -11,7 +11,7 @@ static int g_fails;
 static int g_suite_fails;
 
 /*
- * What the oracle saw, written out so hx68k-emu can be held to the same numbers
+ * What Musashi saw, written out so hx68k-emu can be held to the same numbers
  * running the same ROM. Paths are relative to the repository root.
  */
 static FILE *g_dump;

@@ -47,7 +47,7 @@ class Run {
 			name: "Musashi", group: "test",
 			url: "https://github.com/kstenerud/Musashi.git",
 			present: "Musashi/m68kcpu.c", size: "2 MB",
-			about: "the functional oracle the compiler suite is checked against"
+			about: "the known-good 68000 the compiler suite checks its answers against"
 		},
 		{
 			name: "Nuked-OPN2", group: "test",

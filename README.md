@@ -15,8 +15,8 @@ haxelib run hx68k setup
 ```
 
 `setup` pulls every source the build and the gate need into `vendor/`, which is gitignored: SGDK
-and its m68k toolchain, reflaxe, SDL3 and miniaudio for the window, Musashi and Nuked-OPN2 as the
-oracles, and the SingleStepTests fixtures both cores are held to. It is about 1.6 GB, most of it
+and its m68k toolchain, reflaxe, SDL3 and miniaudio for the window, Musashi and Nuked-OPN2 to
+check answers against, and the SingleStepTests fixtures both cores are held to. It is about 1.6 GB, most of it
 the z80 suite.
 
 ```
@@ -297,7 +297,7 @@ Produces `samples/spike/rom/out/rom.bin`.
 compiler/    Reflaxe backend, Haxe -> C99 -> m68k
 sdk/         md.hw raw hardware, SGDK bindings later
 samples/     spike, conformance, hardware, bench roms
-tests/       headless 68000 harness (Musashi-based functional oracle)
+tests/       headless 68000 harness, built on Musashi, that answers are checked against
 emulator/    cycle-accurate cores + SingleStepTests conformance
 vendor/      third-party reference sources
 docs/
@@ -313,7 +313,7 @@ docs/
 | SGDK | MIT (gcc GPL3 + runtime exception) | The m68k toolchain and library |
 | SDL3 | zlib | The window, linked as-is |
 | miniaudio | MIT-0 / public domain | The audio device, called directly |
-| Musashi | MIT | The functional oracle, safe to port |
+| Musashi | MIT | The known-good 68000 the compiler suite checks against, safe to port |
 | Nuked-OPN2 | LGPL-2.1 | The FM reference; porting it would make that module LGPL |
 | SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
 | Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
