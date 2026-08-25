@@ -35,6 +35,12 @@ class Machine implements Bus implements Memory {
 	var z80Running:Bool = false;
 	var z80Master:Int = 0;
 	var z80Pending:Bool = false;
+
+	var z80Hold:Int = 0;
+
+	public var z80Raised(default, null):Int = 0;
+	public var z80Taken(default, null):Int = 0;
+	public var z80Dropped(default, null):Int = 0;
 	var lastLine:Int = 0;
 
 	public function new() {
@@ -54,6 +60,7 @@ class Machine implements Bus implements Memory {
 	public function reset():Void {
 		sound.reset();
 		z80Pending = false;
+		z80Hold = 0;
 		lastLine = 0;
 		ram.fill(0, ram.length, 0);
 		z80Ram.fill(0, z80Ram.length, 0);
@@ -92,7 +99,11 @@ class Machine implements Bus implements Memory {
 		cpu.step();
 
 		if (vdp.line != lastLine) {
-			if (vdp.line == Vdp.ACTIVE_LINES) z80Pending = true;
+			if (vdp.line == Vdp.ACTIVE_LINES) {
+				z80Pending = true;
+				z80Hold = Vdp.MASTER_PER_LINE;
+				z80Raised++;
+			}
 			lastLine = vdp.line;
 		}
 
@@ -141,6 +152,14 @@ class Machine implements Bus implements Memory {
 	function runZ80(master:Int):Void {
 		z80Master += master;
 
+		if (z80Pending) {
+			z80Hold -= master;
+			if (z80Hold <= 0) {
+				z80Pending = false;
+				z80Dropped++;
+			}
+		}
+
 		if (!z80Running || z80BusRequest) {
 			if (z80Running) requestedFor += master; else stoppedFor += master;
 			if (z80Master > MASTER_PER_Z80) z80Master = MASTER_PER_Z80;
@@ -149,10 +168,10 @@ class Machine implements Bus implements Memory {
 
 		while (z80Master >= MASTER_PER_Z80) {
 			if (z80Pending) {
-				z80Pending = false;
-
 				final before = z80Bus.states;
 				if (z80.interrupt()) {
+					z80Pending = false;
+					z80Taken++;
 					z80Master -= (z80Bus.states - before) * MASTER_PER_Z80;
 					continue;
 				}

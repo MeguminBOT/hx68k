@@ -19,12 +19,14 @@ class GameCheck {
 
 		var frames = 120;
 		var picture:Null<String> = null;
+		var tune:Null<String> = null;
 		var expected:Null<String> = null;
 
 		var i = 1;
 		while (i < args.length) {
 			switch (args[i]) {
 				case "--png": picture = args[++i];
+				case "--wav": tune = args[++i];
 				case "--digest": expected = args[++i];
 				case _: frames = Std.parseInt(args[i]);
 			}
@@ -38,10 +40,14 @@ class GameCheck {
 		var ran = 0;
 		var fault:Null<String> = null;
 
+		final heard:Array<Int> = [];
+		final taken = new haxe.ds.Vector<Int>(2048);
+
 		final started = haxe.Timer.stamp();
 		while (ran < frames) {
 			try {
 				machine.runFrame();
+				if (tune != null) hx68k.debug.Recording.drain(machine.sound, taken, heard);
 			} catch (e:Dynamic) {
 				fault = Std.string(e);
 				break;
@@ -56,6 +62,12 @@ class GameCheck {
 		}
 
 		final digest = report(machine, ran, seconds);
+
+		if (tune != null) {
+			hx68k.debug.Recording.save(heard, tune);
+			Sys.println("  wrote " + tune + ", " + Math.round(10.0 * (heard.length >> 1)
+				/ hx68k.md.Sound.RATE) / 10 + " seconds of it");
+		}
 
 		if (picture != null) {
 			hx68k.debug.Screenshot.save(machine.vdp.renderer, picture);
@@ -83,6 +95,11 @@ class GameCheck {
 			+ machine.z80Bus.soundWrites);
 		Sys.println("  share 68000 " + Std.int(machine.cycles / frames) + " cycles a frame of 128005"
 			+ ", z80 " + Std.int(machine.z80Bus.states / frames) + " states a frame of 59672");
+
+		Sys.println("  z80 v-ints raised " + machine.z80Raised + ", taken " + machine.z80Taken
+			+ ", dropped " + machine.z80Dropped
+			+ " (" + Math.round(1000.0 * machine.z80Dropped / (machine.z80Raised == 0 ? 1 : machine.z80Raised)) / 10
+			+ "%)");
 
 		Sys.println("  vdp   line=" + machine.vdp.line + " display="
 			+ ((machine.vdp.registers[1] & 0x40) != 0 ? "on" : "off")
