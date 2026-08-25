@@ -220,8 +220,11 @@ than tests failing throughout.
 **What that says, and it is not what it looked like.** The stall was the suspect and the stall is
 innocent. Keeping the whole model, stall and all, and *also* landing each write immediately so the
 FIFO only delays nothing, puts page two back to 86.8% with all three suites at 100% and takes page
-one slightly up, from 60.9% to 61.4%. So the timing of the hold is fine and what breaks those
-suites is a write not having landed when the ROM reads it back.
+one up from 60.9% to 61.4%, of which the part that matters is **suite 1, the FIFO's own size, going
+from 36.9% to 39.6%**. So the timing of the hold is fine, it is worth something, and what breaks
+those suites is a write not having landed when the ROM reads it back. 39.6% is the number the next
+attempt has to beat, and it has to beat it with a model where the write is genuinely queued rather
+than landing twice.
 
 That narrows the whole thing to one question: **how many external access slots does a VRAM word
 write consume?** At two it is 9 words per active line, the FIFO stalls, and writes are still in
