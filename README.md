@@ -32,8 +32,9 @@ cd samples/spike && ./build.sh             Haxe to a ROM
 ./emulator/run-window.sh <rom.bin>         the machine in a window
 ```
 
-Requires Haxe 4.3+, Java, `git` and `curl`. The m68k toolchain comes with SGDK, so there is nothing
-else to install.
+Requires Haxe 4.3+, `git` and `curl`, and for now a JVM: SGDK pads and checksums every ROM with a
+`.jar`, and compiles images and music with another. Removing that is on the list below. The m68k
+toolchain comes with SGDK, so there is nothing else to install.
 
 ## What works today
 
@@ -98,6 +99,8 @@ started or not finished, and nothing here is ticked on intent.
 - [ ] CI, hardware verification on a flashcart, packaging for haxelib
 - [ ] The game framework: states, sprites, input and collision, built for this hardware
 - [ ] Other 68000 machines: Neo Geo, then arcade boards
+- [ ] Dropping the Java dependency: SGDK's `sizebnd` pads and checksums every ROM, and its
+      `rescomp` compiles images and music. Both are `.jar` files today
 
 The hardware behind the emulator is written up in [docs/68000-NOTES.md](docs/68000-NOTES.md),
 [docs/Z80-NOTES.md](docs/Z80-NOTES.md) and [docs/YM2612-NOTES.md](docs/YM2612-NOTES.md): what the
