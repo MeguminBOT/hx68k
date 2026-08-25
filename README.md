@@ -5,7 +5,77 @@ Haxe for the Sega Mega Drive / Genesis.
 Three parts: a Reflaxe compiler backend that turns Haxe into freestanding C for the 68000, a
 hardware SDK, and an emulator with a source-level debugger.
 
-## Status
+## What works today
+
+Everything ticked has a test behind it that runs in `./tests/run.sh`. Everything unticked is not
+started or not finished, and nothing here is ticked on intent.
+
+### Compiler, Haxe to 68000 C
+
+- [x] Classes, pooled allocation, sized integers, fixed-capacity vectors, fixed point
+- [x] Enums as tagged unions, pattern matching as a jump table
+- [x] Inheritance with vtables only where something is overridden, interfaces as fat pointers
+- [x] Function pointers with nothing on the heap behind them
+- [x] Text and constant tables that stay in ROM
+- [x] Source maps: a 68000 address back to its Haxe file, line and function
+- [x] Optimisation passes, measured against hand-written C in 68000 cycles
+- [ ] Anything beyond A6: no closures over heap state, no dynamic dispatch outside vtables
+
+### SDK
+
+- [x] `md.hw.*` raw hardware, one volatile access per call
+- [x] SGDK bindings that stand alone, and the resource pipeline behind them
+- [ ] SGDK bindings that need a running Z80 (partly done)
+- [ ] Native Haxe replacements for the SGDK subsystems, gated on beating them
+
+### Emulator
+
+- [x] 68000 core, 317,500 tests at 100% on final state, cycle counts and bus transactions
+- [x] Z80 core, 1,604,000 tests at 100% on state, cycles and pins
+- [x] YM2612, 1032 of 1032 fixtures bit identical to Nuked-OPN2
+- [x] SN76489 including the noise LFSR
+- [x] Bus, memory map, Z80 arbitration, the SSF2 mapper, pads
+- [x] VDP renderer: planes, window, sprites, priority, shadow and highlight, H40/H32, V28/V30
+- [x] Sound to the speakers in stereo, resampled, at about 70 ms
+- [x] A commercial ROM boots, plays and draws its title screen
+- [ ] VDP timing: no FIFO, no `!DTACK` stall, no external access slots, no DMA cost. Blocked on
+      test ROMs that are not vendored
+- [ ] The price of bus contention. Arbitration is modelled, its cost is not
+- [ ] SRAM and EEPROM
+
+### Debugger
+
+- [x] Break on a Haxe function or a Haxe line, step by instruction or by line
+- [x] Read a Haxe static, a local or a parameter by name, through DWARF
+- [x] Backtrace in Haxe names, with no frame pointer to walk
+- [x] Disassembler, held to the same fixtures as the core, 100% on all three axes
+- [x] Instruction trace beside the Haxe that produced it
+- [x] Frame profiler by Haxe function and by scanline
+- [x] VDP viewers: layout, palettes, sprites, plane cells, VRAM use
+- [x] Raster overlay: where the beam was when the code touched the VDP
+- [x] Savestates and rewind
+- [ ] Hot reload, and a GDB stub
+
+### Window
+
+- [x] SDL3 and miniaudio called directly, no framework in between
+- [x] The machine paced by its own clock, independent of the display and the sound device
+- [x] Debugger panels, dockable, each poppable into a window of its own
+- [ ] Savestate and rewind on keys, and any configuration at all
+
+### Not started
+
+- [ ] CI, hardware verification on a flashcart, packaging for haxelib
+- [ ] The game framework: states, sprites, input and collision, built for this hardware
+- [ ] Other 68000 machines: Neo Geo, then arcade boards
+
+The hardware behind the emulator is written up in [docs/68000-NOTES.md](docs/68000-NOTES.md),
+[docs/Z80-NOTES.md](docs/Z80-NOTES.md) and [docs/YM2612-NOTES.md](docs/YM2612-NOTES.md): what the
+fixtures taught, and what is inferred rather than measured.
+
+## In more detail
+
+The checklist above is the summary. What follows is the evidence behind it.
 
 **Compiler.** Haxe compiles to a real ROM with classes, pooled allocation, sized integers,
 fixed-capacity vectors, fixed point, enums as tagged unions, pattern matching as a jump table,
