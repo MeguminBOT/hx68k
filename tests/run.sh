@@ -521,6 +521,19 @@ else
 fi
 neko "$ROOT/emulator/bin/fifo.n" "$ROOT"
 
+# the 240p suite's patterns are walked by emulator/pattern.hxml, which carries what each one drew
+# and checks itself. It is not run here: 2m48 on neko against a gate of about sixteen minutes, for
+# coverage the render check and the commercial ROM already largely have. Building it keeps it from
+# rotting, and one command runs it: neko emulator/bin/pattern.n .
+printf "building %-16s" "patterns"
+if (cd "$ROOT/emulator" && haxe pattern.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+
 echo ""
 echo "--- the focus stack and the text field, with no window under them ---"
 printf "building %-16s" "widgets"

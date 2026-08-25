@@ -61,6 +61,11 @@ class Run {
 			about: "Nemesis' VDP port access ROM: fifteen suites the VDP's timing is held to"
 		},
 		{
+			name: "240pTestSuite", group: "test",
+			url: "", present: "240pTestSuite/240p.bin", size: "256 KB",
+			about: "Artemio Urbina's pattern ROM: what the renderer is looked at through"
+		},
+		{
 			name: "SingleStepTests-m68000", group: "test",
 			url: "https://github.com/SingleStepTests/m68000.git",
 			present: "SingleStepTests-m68000", size: "182 MB",
@@ -150,6 +155,7 @@ class Run {
 				case "SDL3": sdl(vendor);
 				case "miniaudio": miniaudio(vendor);
 				case "VDPFIFOTesting": fifo(vendor);
+				case "240pTestSuite": patterns(vendor);
 				case _: clone(source, vendor);
 			}
 
@@ -229,6 +235,14 @@ class Run {
 
 		FileSystem.deleteFile(archive);
 		return FileSystem.exists(into + "/VDPFIFOTesting.bin");
+	}
+
+	static function patterns(vendor:String):Bool {
+		final into = vendor + "/240pTestSuite";
+		if (!FileSystem.exists(into)) FileSystem.createDirectory(into);
+
+		return download("https://archive.org/download/240p_Test_Suite_v1.07_by_Artemio_Ua_PD/"
+			+ "240p_Test_Suite_v1.07_by_Artemio_Urbina_PD.bin", into + "/240p.bin");
 	}
 
 	static function unpack(archive:String, into:String):Void {

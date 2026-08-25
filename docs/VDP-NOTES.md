@@ -253,3 +253,29 @@ multi-word write is in flight. That is the FIFO, and it is the next piece.
 What is left is mostly the FIFO itself: suites 1, 3 and 5 are the buffer's size, DMA through it, and
 what a write to an invalid target does, and none of those can be right before the VDP costs the
 68000 anything.
+
+## The 240p Test Suite, looked at
+
+`vendor/240pTestSuite/240p.bin` is Artemio Urbina's pattern ROM, v1.07, fetched by
+`haxelib run hx68k setup` from the Internet Archive, since the author distributes through itch.io
+and SourceForge and neither answers a plain fetch. `emulator/pattern.hxml` boots it, walks its own
+menus with the pad and says what each pattern drew, holding all seven to the digests it carries.
+
+**Every pattern renders correctly**, checked by looking as well as by digest: PLUGE's two side bars
+and its four centre blocks, the red, green, blue and white ramps of the colour bars in eleven steps
+each, the colour bars against grey, the grid, the linearity grid at one white line every eight
+pixels, the grey ramp and the white screen. The pad-driven tests on the main menu were looked at
+too: the drop shadow test draws its portrait cleanly with the sprite over it, the striped sprite
+test the same, and the checkerboard and horizontal stripes alternate at exactly one pixel, which
+was confirmed by reading the framebuffer rather than by eye, since at this size a one-pixel
+checkerboard looks like flat grey.
+
+**It is not in the gate.** The walk is 2 minutes 48 on neko against a gate of about sixteen minutes,
+and what it covers, plane rendering and CRAM levels, the render check and the commercial ROM already
+largely have. `./tests/run.sh` builds it so it cannot rot; running it is one command and it checks
+itself.
+
+**What it does not settle.** The colour bars are the pattern that would show the CRAM levels being
+expanded linearly rather than through the DAC's own curve, which this renderer does and real
+hardware does not. Eleven even steps is what linear expansion looks like, and it is what is drawn
+here. Telling that apart from the real curve needs a capture from a console, not a test ROM.
