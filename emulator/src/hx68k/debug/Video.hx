@@ -36,9 +36,13 @@ class Video implements View {
 
 		final cram = viewer.vdp.cram;
 		for (row in 0...4) {
-			final cells:Array<Part> = [said("palette " + row)];
-			for (column in 0...16) cells.push(value(StringTools.hex(cram[row * 16 + column], 4)));
-			out.push(new Row(cells));
+			for (half in 0...2) {
+				final cells:Array<Part> = [said(half == 0 ? "palette " + row : "")];
+				for (column in 0...8) {
+					cells.push(value(StringTools.hex(cram[row * 16 + half * 8 + column], 4)));
+				}
+				out.push(new Row(cells));
+			}
 		}
 
 		out.push(Row.blank());
