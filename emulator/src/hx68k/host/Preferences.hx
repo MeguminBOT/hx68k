@@ -1,7 +1,7 @@
 package hx68k.host;
 
 class Preferences {
-	public static final SECTIONS = ["display", "layout", "sound", "panels", "keys"];
+	public static final SECTIONS = ["display", "layout", "sound", "panels", "rom", "keys"];
 
 	public var section:Int = 0;
 	public var page:Int = 0;
@@ -13,6 +13,9 @@ class Preferences {
 	public var tiled:Bool = true;
 	public var sound:Bool = true;
 	public var rewind:Bool = false;
+	public var watching:Bool = false;
+	public var keeping:Bool = false;
+	public var romName:String = "";
 
 	public var titles:Array<String> = [];
 	public var open:Array<Bool> = [];
@@ -27,6 +30,7 @@ class Preferences {
 	public var toggled(default, null):Int = -1;
 	public var capture(default, null):String = "";
 	public var restore(default, null):Bool = false;
+	public var reload(default, null):Bool = false;
 	public var tookField(default, null):Bool = false;
 
 	final filter:Field = new Field("", 24);
@@ -43,6 +47,7 @@ class Preferences {
 		toggled = -1;
 		capture = "";
 		restore = false;
+		reload = false;
 		tookField = false;
 
 		widgets.scrim(width, height);
@@ -69,6 +74,7 @@ class Preferences {
 			case "layout": layout(widgets);
 			case "sound": speaker(widgets);
 			case "panels": panels(widgets, focus);
+			case "rom": cartridge(widgets);
 			case _: keys(widgets);
 		}
 	}
@@ -104,6 +110,24 @@ class Preferences {
 		widgets.rule();
 		widgets.say("rewind keeps every frame, which costs memory");
 		rewind = widgets.choice(["off", "on"], rewind ? 1 : 0) == 1;
+	}
+
+	function cartridge(widgets:Widgets):Void {
+		widgets.say(romName == "" ? "no ROM in the machine" : romName, Ui.DIM);
+		widgets.rule();
+
+		widgets.say("watch the file and load it again when it changes");
+		watching = widgets.choice(["off", "on"], watching ? 1 : 0) == 1;
+
+		widgets.say("and put the kept state back afterwards");
+		keeping = widgets.choice(["off", "on"], keeping ? 1 : 0) == 1;
+
+		widgets.rule();
+		widgets.say("a state only fits the ROM it came from, so keeping one across a rebuild", Ui.DIM);
+		widgets.say("is worth it while the code has not moved and not otherwise", Ui.DIM);
+
+		widgets.rule();
+		if (widgets.button("load it again now")) reload = true;
 	}
 
 	function keys(widgets:Widgets):Void {

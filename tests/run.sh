@@ -641,14 +641,12 @@ if [ -f "$GAME" ]; then
 		cat "$LOG"
 		exit 1
 	fi
-	neko "$ROOT/emulator/bin/game.n" "$GAME" 120 --digest E902E100
-
-	# the title screen is the narrowest thing this ROM does. Its attract mode reaches a two-player
-	# Emerald Hill about 1,200 frames in, which is the only place here that draws interlaced planes
+	# the title screen is the narrowest thing this ROM does, so one run checks four frames of the
+	# attract mode instead: the SEGA logo, two of the title screen, and the two-player Emerald Hill
+	# it reaches about 1,200 frames in, which is the only place here that draws interlaced planes
 	# and interlaced sprites, and the only one that draws a level at all. Four minutes on neko, and
-	# it is the widest check in this file.
-	echo ""
-	neko "$ROOT/emulator/bin/game.n" "$GAME" 1300 --digest E8E80E0E
+	# the widest check in this file.
+	neko "$ROOT/emulator/bin/game.n" "$GAME" 1300 		--digest 120:E902E100,400:B8B01EAE,900:67BCC091,1300:E8E80E0E
 fi
 
 echo ""

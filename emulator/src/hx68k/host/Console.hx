@@ -55,6 +55,8 @@ class Console {
 
 	static inline final NOTICE = 4.0;
 
+	static inline final LOOK = 1.0;
+
 	static inline final READABLE_COLUMN = 46;
 
 	static inline final MOST_TOOL_ROWS = 4;
@@ -116,6 +118,11 @@ class Console {
 	var rewind:Null<Rewind> = null;
 	var winding:Bool = false;
 	var slot:Null<haxe.io.Bytes> = null;
+	var watching:Bool = false;
+	var keepingState:Bool = false;
+	var romStamp:Float = 0;
+	var romSettled:Float = 0;
+	var lookedAt:Float = 0;
 	var notice:String = "";
 	var noticeUntil:Float = 0;
 
@@ -241,6 +248,7 @@ class Console {
 			pollEvents();
 			Sdl.padOpen();
 			pads();
+			watch();
 			update();
 			draw();
 			forDetached();
@@ -291,6 +299,8 @@ class Console {
 		rebuilt = 0;
 
 		setTitle(rom);
+		romStamp = stampOf(rom);
+		romSettled = romStamp;
 		Sys.println("running " + rom);
 	}
 
@@ -609,6 +619,9 @@ class Console {
 		preferences.tiled = tiled;
 		preferences.sound = !quiet;
 		preferences.rewind = winding;
+		preferences.watching = watching;
+		preferences.keeping = keepingState;
+		preferences.romName = romPath() == null ? "" : haxe.io.Path.withoutDirectory(romPath());
 
 		preferences.titles = [for (view in views) view.title()];
 		preferences.open = [for (view in views) ui.visible(view.title())];
@@ -637,6 +650,18 @@ class Console {
 
 		quiet = !preferences.sound;
 		if (preferences.rewind != winding) winds(preferences.rewind);
+
+		keepingState = preferences.keeping;
+		if (preferences.watching != watching) {
+			watching = preferences.watching;
+			romStamp = watching && romPath() != null ? stampOf(romPath()) : 0;
+			romSettled = romStamp;
+		}
+
+		if (preferences.reload) {
+			reload();
+			return;
+		}
 
 		if (preferences.reset) {
 			place(true);
@@ -882,6 +907,66 @@ class Console {
 
 		if (ui != null) ui.sealed = focus.has(PREFERENCES);
 		preferences.capturing = focus.capturing() ? focus.holding() : "";
+	}
+
+	function stampOf(path:String):Float {
+		try {
+			return sys.FileSystem.stat(path).mtime.getTime();
+		} catch (e:haxe.Exception) {
+			return 0;
+		}
+	}
+
+	function watch():Void {
+		if (!watching || !loaded) return;
+
+		final now = Clock.stamp();
+		if (now - lookedAt < LOOK) return;
+		lookedAt = now;
+
+		final rom = romPath();
+		if (rom == null) return;
+
+		final stamp = stampOf(rom);
+		if (stamp == 0 || stamp == romStamp) return;
+
+		if (stamp != romSettled) {
+			romSettled = stamp;
+			return;
+		}
+
+		reload();
+	}
+
+	function reload():Void {
+		final rom = romPath();
+		if (rom == null || !sys.FileSystem.exists(rom)) {
+			tell("there is no ROM to load again");
+			return;
+		}
+
+		final kept = keepingState ? slot : null;
+
+		insert(rom);
+		romStamp = stampOf(rom);
+		romSettled = romStamp;
+
+		debugger = new Debugger(machine, map());
+		views = Views.of(debugger);
+		said = [];
+		if (rewind != null) rewind = new Rewind(machine, REWIND_FRAMES);
+
+		if (kept == null) {
+			tell("loaded " + haxe.io.Path.withoutDirectory(rom) + " again");
+			return;
+		}
+
+		try {
+			Savestate.into(machine, kept);
+			tell("loaded it again and put the kept state back");
+		} catch (e:haxe.Exception) {
+			tell("loaded it again, but the kept state does not fit it: " + e.message);
+		}
 	}
 
 	function tell(what:String):Void {
@@ -1241,6 +1326,8 @@ class Console {
 		viewportSide = settings.text("viewport", "left") == "right" ? Right : Left;
 		tiled = settings.text("arrangement", "grid") != "floating";
 		quiet = !settings.flag("sound", true);
+		watching = settings.flag("watch", false);
+		keepingState = settings.flag("keep", false);
 		bindings.read(settings);
 	}
 
@@ -1274,6 +1361,8 @@ class Console {
 		settings.set("arrangement", tiled ? "grid" : "floating");
 		settings.setFlag("sound", !quiet);
 		settings.setFlag("rewind", winding);
+		settings.setFlag("watch", watching);
+		settings.setFlag("keep", keepingState);
 
 		final open = new Array<String>();
 		for (view in views) if (ui.visible(view.title())) open.push(view.title());

@@ -21,13 +21,14 @@ class GameCheck {
 		var picture:Null<String> = null;
 		var tune:Null<String> = null;
 		var expected:Null<String> = null;
+		final checkpoints = new Map<Int, String>();
 
 		var i = 1;
 		while (i < args.length) {
 			switch (args[i]) {
 				case "--png": picture = args[++i];
 				case "--wav": tune = args[++i];
-				case "--digest": expected = args[++i];
+				case "--digest": expected = wanted(args[++i], checkpoints);
 				case _: frames = Std.parseInt(args[i]);
 			}
 			i++;
@@ -38,6 +39,7 @@ class GameCheck {
 		Sys.println("booting " + haxe.io.Path.withoutDirectory(path) + " for " + frames + " frames");
 
 		var ran = 0;
+		var wrong = 0;
 		var fault:Null<String> = null;
 
 		final heard:Array<Int> = [];
@@ -53,6 +55,9 @@ class GameCheck {
 				break;
 			}
 			ran++;
+
+			final at = checkpoints.get(ran);
+			if (at != null && !holds(machine, ran, at)) wrong++;
 		}
 		final seconds = haxe.Timer.stamp() - started;
 
@@ -74,16 +79,57 @@ class GameCheck {
 			Sys.println("  wrote " + picture);
 		}
 
-		if (expected == null) Sys.exit(0);
-
-		if (StringTools.hex(digest, 8) == expected.toUpperCase()) {
-			Sys.println("  the frame is the one it drew last time");
-			Sys.exit(0);
+		if (expected != null) {
+			if (StringTools.hex(digest, 8) == expected.toUpperCase()) {
+				Sys.println("  the frame is the one it drew last time");
+			} else {
+				Sys.println("  the frame changed: expected " + expected.toUpperCase()
+					+ ", got " + StringTools.hex(digest, 8));
+				wrong++;
+			}
 		}
 
-		Sys.println("  the frame changed: expected " + expected.toUpperCase()
-			+ ", got " + StringTools.hex(digest, 8));
-		Sys.exit(1);
+		Sys.exit(wrong == 0 ? 0 : 1);
+	}
+
+	static function wanted(said:String, checkpoints:Map<Int, String>):Null<String> {
+		var last:Null<String> = null;
+
+		for (part in said.split(",")) {
+			final at = part.indexOf(":");
+			if (at < 0) {
+				last = part;
+				continue;
+			}
+
+			final frame = Std.parseInt(part.substr(0, at));
+			if (frame == null) continue;
+			checkpoints.set(frame, part.substr(at + 1));
+		}
+
+		return last;
+	}
+
+	static function holds(machine:Machine, frame:Int, expected:String):Bool {
+		final got = StringTools.hex(digestOf(machine), 8);
+		if (got == expected.toUpperCase()) {
+			Sys.println("  frame " + frame + " is the one it drew last time");
+			return true;
+		}
+
+		Sys.println("  frame " + frame + " changed: expected " + expected.toUpperCase()
+			+ ", got " + got);
+		return false;
+	}
+
+	static function digestOf(machine:Machine):Int {
+		var digest = 0;
+		for (y in 0...machine.vdp.renderer.height) {
+			for (x in 0...machine.vdp.renderer.width) {
+				digest = (digest * 31 + machine.vdp.renderer.pixels[y * Renderer.MAX_WIDTH + x]) | 0;
+			}
+		}
+		return digest;
 	}
 
 	static function report(machine:Machine, frames:Int, seconds:Float):Int {
@@ -167,12 +213,7 @@ class GameCheck {
 		for (colour in colours.keys()) distinct++;
 		Sys.println("  screen " + distinct + " distinct colours, " + ink + " pixels away from the corner one");
 
-		var digest = 0;
-		for (y in 0...machine.vdp.renderer.height) {
-			for (x in 0...machine.vdp.renderer.width) {
-				digest = (digest * 31 + machine.vdp.renderer.pixels[y * Renderer.MAX_WIDTH + x]) | 0;
-			}
-		}
+		final digest = digestOf(machine);
 		Sys.println("  digest " + StringTools.hex(digest, 8) + " of the frame it ended on");
 		return digest;
 	}
