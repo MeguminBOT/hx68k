@@ -1,0 +1,5 @@
+# the settings file and the arrangement it keeps, with no window and no SDL: neko, so
+# ./tests/run.sh can gate them
+-cp src
+-main hx68k.test.SettingsCheck
+-neko bin/settings.n

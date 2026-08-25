@@ -508,6 +508,31 @@ fi
 neko "$ROOT/emulator/bin/layout.n"
 
 echo ""
+echo "--- the focus stack and the text field, with no window under them ---"
+printf "building %-16s" "widgets"
+if (cd "$ROOT/emulator" && haxe widget.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/widget.n"
+
+echo ""
+echo "--- the settings file, and the arrangement it has to bring back ---"
+printf "building %-16s" "settings"
+if (cd "$ROOT/emulator" && haxe settings.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/settings.n" "$HERE/.settings"
+rm -rf "$HERE/.settings"
+
+echo ""
 echo "--- the VDP read back in the terms the documentation uses ---"
 printf "building %-16s" "viewers"
 if (cd "$ROOT/emulator" && haxe view.hxml) > "$LOG" 2>&1; then

@@ -42,6 +42,12 @@ class Ui {
 	var pressed:Bool = false;
 	var released:Bool = false;
 
+	public var sealed:Bool = false;
+
+	var freePressedX:Float = -1;
+	var freePressedY:Float = -1;
+	var freeReleased:Bool = false;
+
 	var dragging:Null<Panel> = null;
 	var resizing:Null<Panel> = null;
 	var scrubbing:Null<Panel> = null;
@@ -114,17 +120,28 @@ class Ui {
 		pointerY = y;
 	}
 
+	public function clicking():Bool {
+		return freeReleased;
+	}
+
 	public function turn(amount:Float):Void {
-		turned += amount;
+		if (!sealed) turned += amount;
 	}
 
 	public function button(held:Bool):Void {
 		if (held && !down) {
-			pressed = true;
-			pressedX = pointerX;
-			pressedY = pointerY;
+			freePressedX = pointerX;
+			freePressedY = pointerY;
+			if (!sealed) {
+				pressed = true;
+				pressedX = pointerX;
+				pressedY = pointerY;
+			}
 		}
-		if (!held && down) released = true;
+		if (!held && down) {
+			freeReleased = true;
+			if (!sealed) released = true;
+		}
 		down = held;
 	}
 
@@ -851,6 +868,7 @@ class Ui {
 		}
 		pressed = false;
 		released = false;
+		freeReleased = false;
 	}
 
 	public function order():Array<Panel> {

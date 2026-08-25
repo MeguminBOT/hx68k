@@ -1,5 +1,6 @@
 package hx68k.test;
 
+import hx68k.host.Keys;
 import hx68k.host.Native;
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
@@ -10,17 +11,6 @@ import hx68k.host.sdl.HostEvent;
 class WindowCheck {
 	static inline final MINIMUM_WIDTH = 640;
 	static inline final MINIMUM_HEIGHT = 480;
-
-	static function naming(mods:Int):String {
-		if (mods == Sdl.MOD_NONE) return "none";
-
-		final out = new Array<String>();
-		if (mods & Sdl.MOD_CTRL != 0) out.push("ctrl");
-		if (mods & Sdl.MOD_SHIFT != 0) out.push("shift");
-		if (mods & Sdl.MOD_ALT != 0) out.push("alt");
-		if (mods & Sdl.MOD_GUI != 0) out.push("gui");
-		return out.join("+");
-	}
 
 	static function surface(window:cpp.Star<Window>):Bool {
 		final scale:Float = Sdl.windowDisplayScale(window);
@@ -102,7 +92,7 @@ class WindowCheck {
 					case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:
 						running = false;
 					case Sdl.EVENT_KEY_DOWN:
-						Sys.println("key down: " + event.code + " mods " + naming(event.mods));
+						Sys.println("key down: " + event.code + " as " + Keys.name(event.code, event.mods));
 						if (event.code == 27) running = false;
 					case Sdl.EVENT_TEXT:
 						Sys.println("text: " + Std.string(Sdl.eventText(cpp.Pointer.addressOf(event).constRaw)));

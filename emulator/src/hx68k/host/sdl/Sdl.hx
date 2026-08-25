@@ -17,12 +17,6 @@ extern class Sdl {
 	public static inline final EVENT_WINDOW_FOCUS_GAINED = 11;
 	public static inline final EVENT_TEXT = 12;
 
-	public static inline final MOD_NONE = 0;
-	public static inline final MOD_SHIFT = 1;
-	public static inline final MOD_CTRL = 2;
-	public static inline final MOD_ALT = 4;
-	public static inline final MOD_GUI = 8;
-
 	@:native("host_sdl_init")
 	public static function init():Int;
 

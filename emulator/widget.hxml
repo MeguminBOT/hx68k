@@ -1,0 +1,5 @@
+# the focus stack and the text field on their own, with no window and no SDL: neko, so
+# ./tests/run.sh can gate them
+-cp src
+-main hx68k.test.WidgetCheck
+-neko bin/widget.n

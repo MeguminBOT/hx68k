@@ -27,4 +27,7 @@ tests/.hostcheck/
 
 # where the pad comparison puts the two ROMs it holds to each other
 tests/.pad/
+
+# the settings files the settings check writes and reads again
+tests/.settings/
 tests/opn2/.build/

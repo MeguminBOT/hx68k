@@ -9,7 +9,10 @@ import hx68k.map.Elf;
 import hx68k.map.SourceMap;
 import hx68k.debug.View;
 import hx68k.debug.Views;
+import hx68k.debug.Rewind;
+import hx68k.host.Focus.Holder;
 import hx68k.md.Machine;
+import hx68k.md.Savestate;
 import hx68k.md.Vdp;
 
 class Console {
@@ -24,17 +27,15 @@ class Console {
 
 	static inline final KEY_RETURN = 0x0000000d;
 	static inline final KEY_ESCAPE = 0x0000001b;
-	static inline final KEY_TAB = 0x00000009;
-	static inline final KEY_SPACE = 0x00000020;
-	static inline final KEY_C = 0x00000063;
-	static inline final KEY_X = 0x00000078;
 	static inline final KEY_Z = 0x0000007a;
-	static inline final KEY_F10 = 0x40000043;
-	static inline final KEY_F11 = 0x40000044;
+	static inline final KEY_BACKSPACE = 0x00000008;
+	static inline final KEY_DELETE = 0x0000007f;
+	static inline final KEY_HOME = 0x4000004a;
+	static inline final KEY_END = 0x4000004d;
+	static inline final KEY_A = 0x00000061;
 	static inline final KEY_RIGHT = 0x4000004f;
 	static inline final KEY_LEFT = 0x40000050;
 	static inline final KEY_DOWN = 0x40000051;
-	static inline final KEY_UP = 0x40000052;
 
 	static inline final CATCH_UP = 4;
 
@@ -45,6 +46,14 @@ class Console {
 	static inline final NOW = 0.0;
 
 	static inline final SCREEN = "screen";
+
+	static inline final PREFERENCES = "preferences";
+
+	static inline final FILTER = "filter";
+
+	static inline final REWIND_FRAMES = 120;
+
+	static inline final NOTICE = 4.0;
 
 	static inline final READABLE_COLUMN = 46;
 
@@ -93,6 +102,22 @@ class Console {
 	var grid:Grid = new Grid();
 	var floating:Floating = new Floating();
 	var tiled:Bool = true;
+
+	final focus:Focus = new Focus();
+	final settings:Settings = new Settings();
+
+	var widgets:Null<Widgets> = null;
+
+	final bindings:Bindings = new Bindings();
+	final preferences:Preferences = new Preferences();
+
+	var reading:Bool = false;
+
+	var rewind:Null<Rewind> = null;
+	var winding:Bool = false;
+	var slot:Null<haxe.io.Bytes> = null;
+	var notice:String = "";
+	var noticeUntil:Float = 0;
 
 	var loaded:Bool = false;
 	var paused:Bool = false;
@@ -151,6 +176,7 @@ class Console {
 		Clock.fine();
 
 		final rom = romPath();
+		remembered();
 
 		window = Sdl.createWindow("hx68k", width, height);
 		if (window == null) {
@@ -176,17 +202,19 @@ class Console {
 		Sys.println("display scale " + Sdl.windowDisplayScale(window)
 			+ ", so the window is measured in logical pixels");
 
-		scale = Font.held(asked());
+		scale = Font.held(asked() > 1 ? asked() : settings.whole("scale", 1));
 		final font = Font.on(renderer, scale);
 		screen = Screen.on(renderer);
 		paint = Paint.on(renderer, font);
 		ui = new Ui(paint);
+		widgets = new Widgets(ui);
 		since = Clock.stamp();
 
 		debugger = new Debugger(machine, map());
 		views = Views.of(debugger);
 		insert(rom);
 		arrange();
+		rearranged();
 
 		keyLog = flag("--keylog") != null || Sys.args().indexOf("--keylog") >= 0;
 		if (keyLog) Sys.println("key log on: every key event prints, with the pad mask it produced");
@@ -202,7 +230,9 @@ class Console {
 		}
 
 		setTitle(rom);
-		Sys.println("escape quits, space pauses, tab runs it flat out, f10 and f11 step");
+		Sys.println("escape quits, and every other key is in the preferences window, which "
+			+ bindings.chord("preferences") + " opens");
+		for (line in keyLines()) Sys.println(line);
 		Sys.println(debugger.map == null
 			? "no source map given, so the panels name addresses rather than Haxe"
 			: "source map loaded, so the panels name the Haxe behind an address");
@@ -216,6 +246,8 @@ class Console {
 			forDetached();
 			idle();
 		}
+
+		remember();
 
 		if (speaker != null) speaker.stop();
 		Sdl.padClose();
@@ -292,7 +324,7 @@ class Console {
 
 			var ran = 0;
 			while (ran < CATCH_UP && started >= due) {
-				machine.runFrame();
+				if (rewind != null) rewind.frame() else machine.runFrame();
 				due += period;
 				frames++;
 				ran++;
@@ -370,6 +402,7 @@ class Console {
 		toolbar();
 		panels();
 		ui.overlay();
+		sheet();
 		ui.finish();
 
 		final started = Clock.stamp();
@@ -465,7 +498,8 @@ class Console {
 
 	function sequence():Array<String> {
 		final out = ["open a ROM", "", paused ? "running" : "paused", "flat out",
-			quiet ? "silent" : "sound", "", "1x", "2x", "3x", tiled ? "grid" : "floating", "side", ""];
+			quiet ? "silent" : "sound", "rewind", "", "1x", "2x", "3x", tiled ? "grid" : "floating",
+			"side", PREFERENCES, ""];
 		for (view in views) out.push(view.title());
 		return out;
 	}
@@ -494,6 +528,9 @@ class Console {
 	}
 
 	function status():String {
+		if (notice != "" && Clock.stamp() > noticeUntil) notice = "";
+		if (notice != "") return notice;
+
 		return "pad " + padShown() + "   " + fixed(exactly, 6, 2) + " fps   68k " + fixed(sixtyEight, 3, 0)
 			+ "%   z80 " + fixed(eighty, 3, 0) + "% + " + fixed(taken, 2, 0) + "% bus   "
 			+ fixed(emulatingShown, 5, 2) + " + " + fixed(drawingShown, 5, 2)
@@ -524,6 +561,7 @@ class Console {
 		if (ui.tool(paused ? "running" : "paused", paused)) paused = !paused;
 		if (ui.tool("flat out", unlimited)) unlimited = !unlimited;
 		if (ui.tool(quiet ? "silent" : "sound", !quiet)) quiet = !quiet;
+		if (ui.tool("rewind", winding)) winds(!winding);
 		ui.gap();
 
 		var wanted = scale;
@@ -541,6 +579,10 @@ class Console {
 			place(false);
 			useLayout();
 		}
+
+		if (ui.tool(PREFERENCES, focus.has(PREFERENCES))) {
+			if (focus.has(PREFERENCES)) dismiss(PREFERENCES) else take(Holder.Modal, PREFERENCES);
+		}
 		ui.gap();
 
 		for (view in views) {
@@ -554,6 +596,72 @@ class Console {
 		ui.note(status());
 
 		if (wanted != scale) rescale(wanted);
+	}
+
+	function sheet():Void {
+		if (!focus.has(PREFERENCES)) return;
+
+		ui.done();
+
+		preferences.bindings = bindings;
+		preferences.scale = scale;
+		preferences.viewportRight = viewportSide == Right;
+		preferences.tiled = tiled;
+		preferences.sound = !quiet;
+		preferences.rewind = winding;
+
+		preferences.titles = [for (view in views) view.title()];
+		preferences.open = [for (view in views) ui.visible(view.title())];
+
+		final away = ui.clicking() && !focus.capturing();
+		preferences.draw(widgets, ui, focus, width, height);
+
+		if (preferences.shut) {
+			dismiss(PREFERENCES);
+			return;
+		}
+
+		if (preferences.scale != scale) rescale(preferences.scale);
+
+		final wantedSide = preferences.viewportRight ? Right : Left;
+		if (wantedSide != viewportSide) {
+			viewportSide = wantedSide;
+			place(false);
+			useLayout();
+		}
+
+		if (preferences.tiled != tiled) {
+			tiled = preferences.tiled;
+			useLayout();
+		}
+
+		quiet = !preferences.sound;
+		if (preferences.rewind != winding) winds(preferences.rewind);
+
+		if (preferences.reset) {
+			place(true);
+			useLayout();
+			tell("the arrangement was started again");
+		}
+
+		if (preferences.toggled >= 0) {
+			final title = preferences.titles[preferences.toggled];
+			if (ui.visible(title)) ui.conceal(title) else ui.reveal(title);
+		}
+
+		if (preferences.restore) {
+			bindings.reset();
+			preferences.clash = "";
+			tell("every key is back to what it was");
+		}
+
+		if (preferences.capture != "") {
+			take(Holder.Capture, preferences.capture);
+			return;
+		}
+
+		if (preferences.tookField) take(Holder.Field, FILTER);
+		else if (away && focus.on(FILTER)) escaped();
 	}
 
 	static function share(did:Int, wanted:Float, over:Float):Int {
@@ -623,9 +731,14 @@ class Console {
 				case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:
 					running = false;
 				case Sdl.EVENT_KEY_DOWN:
-					onKeyDown(event.code, event.value != 0);
+					onKeyDown(event.code, event.value != 0, event.mods);
 				case Sdl.EVENT_KEY_UP:
 					press(event.code, false);
+				case Sdl.EVENT_TEXT:
+					if (focus.top() == Holder.Field) {
+						preferences.field().insert(
+							Std.string(Sdl.eventText(cpp.Pointer.addressOf(event).constRaw)));
+					}
 				case Sdl.EVENT_MOUSE_MOVE:
 					if (ui != null) ui.moved(event.x, event.y);
 				case Sdl.EVENT_MOUSE_DOWN:
@@ -658,20 +771,185 @@ class Console {
 		}
 	}
 
-	function onKeyDown(code:Int, again:Bool):Void {
+	function onKeyDown(code:Int, again:Bool, mods:Int):Void {
+		switch (focus.top()) {
+			case Holder.Capture: captured(code, again, mods);
+			case Holder.Field: typed(code, mods);
+			case Holder.Modal: if (!again && code == KEY_ESCAPE) escaped();
+			case _: commanded(code, again, mods);
+		}
+	}
+
+	function commanded(code:Int, again:Bool, mods:Int):Void {
 		if (again) {
 			press(code, true);
 			return;
 		}
 
-		switch (code) {
-			case KEY_ESCAPE: running = false;
-			case KEY_SPACE: paused = !paused;
-			case KEY_TAB: unlimited = !unlimited;
-			case KEY_F10: step(false);
-			case KEY_F11: step(true);
+		if (code == KEY_ESCAPE) {
+			escaped();
+			return;
+		}
+
+		switch (bindings.commandFor(code, mods)) {
+			case "pause": paused = !paused;
+			case "flat out": unlimited = !unlimited;
+			case "step an instruction": step(false);
+			case "step a line": step(true);
+			case "keep a state": keep();
+			case "restore a state": restore();
+			case "back a frame": back();
+			case "preferences":
+				if (focus.has(PREFERENCES)) dismiss(PREFERENCES) else take(Holder.Modal, PREFERENCES);
 			case _: press(code, true);
 		}
+	}
+
+	function captured(code:Int, again:Bool, mods:Int):Void {
+		if (again || Keys.modifier(code)) return;
+		if (code == KEY_ESCAPE) {
+			preferences.clash = "";
+			escaped();
+			return;
+		}
+
+		final action = focus.holding();
+		final chord = Keys.name(code, mods);
+		if (chord == "") return;
+
+		final taken = bindings.clash(action, chord);
+		if (taken != "") {
+			preferences.clash = taken;
+			return;
+		}
+
+		preferences.clash = "";
+		bindings.bind(action, chord);
+		escaped();
+	}
+
+	function typed(code:Int, mods:Int):Void {
+		final selecting = mods & Keys.MOD_SHIFT != 0;
+		final byWord = mods & Keys.MOD_CTRL != 0;
+
+		switch (code) {
+			case KEY_ESCAPE: escaped();
+			case KEY_RETURN:
+				preferences.field().commit();
+				escaped();
+			case KEY_BACKSPACE: preferences.field().backspace();
+			case KEY_DELETE: preferences.field().erase();
+			case KEY_LEFT: preferences.field().left(selecting, byWord);
+			case KEY_RIGHT: preferences.field().right(selecting, byWord);
+			case KEY_HOME: preferences.field().home(selecting);
+			case KEY_END: preferences.field().end(selecting);
+			case KEY_A: if (byWord) preferences.field().all();
+			case _:
+		}
+	}
+
+	function take(kind:Holder, name:String):Void {
+		focus.take(kind, name);
+		settle();
+	}
+
+	function escaped():Void {
+		switch (focus.escape()) {
+			case Holder.Field: preferences.field().revert();
+			case Holder.Application: running = false;
+			case _:
+		}
+		settle();
+	}
+
+	function dismiss(name:String):Void {
+		while (focus.has(name)) focus.escape();
+		settle();
+	}
+
+	function settle():Void {
+		final wants = focus.typing();
+		if (wants != reading) {
+			reading = wants;
+			if (wants) {
+				keyed = 0;
+				tapped = 0;
+				Sdl.startTextInput(window);
+			} else {
+				Sdl.stopTextInput(window);
+			}
+		}
+
+		if (ui != null) ui.sealed = focus.has(PREFERENCES);
+		preferences.capturing = focus.capturing() ? focus.holding() : "";
+	}
+
+	function tell(what:String):Void {
+		notice = what;
+		noticeUntil = Clock.stamp() + NOTICE;
+	}
+
+	function statePath():Null<String> {
+		final rom = romPath();
+		return rom == null ? null : rom + ".state";
+	}
+
+	function keep():Void {
+		if (!loaded) return;
+
+		slot = Savestate.of(machine);
+		tell("state kept, " + Math.round(slot.length / 1024) + " KB");
+
+		final path = statePath();
+		if (path == null) return;
+
+		try {
+			sys.io.File.saveBytes(path, slot);
+			tell(notice + ", written beside the ROM");
+		} catch (e:haxe.Exception) {
+			tell("the state could not be written: " + e.message);
+		}
+	}
+
+	function restore():Void {
+		if (!loaded) return;
+
+		var bytes = slot;
+		final path = statePath();
+
+		if (bytes == null && path != null && sys.FileSystem.exists(path)) {
+			bytes = sys.io.File.getBytes(path);
+		}
+
+		if (bytes == null) {
+			tell("no state to go back to");
+			return;
+		}
+
+		try {
+			Savestate.into(machine, bytes);
+			slot = bytes;
+			tell("state restored");
+			if (rewind != null) rewind = new Rewind(machine, REWIND_FRAMES);
+		} catch (e:haxe.Exception) {
+			tell("that state does not fit this machine: " + e.message);
+		}
+	}
+
+	function back():Void {
+		if (rewind == null) {
+			tell("rewind is off, so there is nothing behind this frame");
+			return;
+		}
+
+		tell(rewind.back(1) ? "back one frame, " + rewind.depth + " left"
+			: "the rewind ring is empty");
+	}
+
+	function winds(on:Bool):Void {
+		winding = on;
+		rewind = on ? new Rewind(machine, REWIND_FRAMES) : null;
+		tell(on ? "rewind on, keeping " + REWIND_FRAMES + " frames" : "rewind off");
 	}
 
 	function step(wholeLine:Bool):Void {
@@ -684,18 +962,9 @@ class Console {
 	}
 
 	function press(code:Int, held:Bool):Void {
-		final button = switch (code) {
-			case KEY_UP: PAD_UP;
-			case KEY_DOWN: PAD_DOWN;
-			case KEY_LEFT: PAD_LEFT;
-			case KEY_RIGHT: PAD_RIGHT;
-			case KEY_Z: PAD_A;
-			case KEY_X: PAD_B;
-			case KEY_C: PAD_C;
-			case KEY_RETURN: PAD_START;
-			case _: 0;
-		}
+		if (focus.typing()) return;
 
+		final button = bindings.buttonMask(code);
 		if (button == 0) return;
 
 		keyed = held ? keyed | button : keyed & ~button;
@@ -740,21 +1009,22 @@ class Console {
 		rebuild();
 		panels();
 		ui.overlay();
+		sheet();
 		ui.finish();
 	}
 
 	function padCheck():Void {
 		keyed = 0;
 
-		onKeyDown(KEY_RIGHT, false);
+		onKeyDown(KEY_RIGHT, false, 0);
 		pads();
 		final one = machine.buttons[0];
 
-		onKeyDown(KEY_Z, false);
+		onKeyDown(KEY_Z, false, 0);
 		pads();
 		final two = machine.buttons[0];
 
-		onKeyDown(KEY_DOWN, false);
+		onKeyDown(KEY_DOWN, false, 0);
 		pads();
 		final three = machine.buttons[0];
 
@@ -952,6 +1222,87 @@ class Console {
 		scrollCheck();
 		dragCheck();
 		padCheck();
+	}
+
+	function remembered():Void {
+		if (!settings.read(Settings.path())) {
+			if (settings.problem != "") Sys.println(settings.problem);
+			return;
+		}
+
+		if (settings.problem != "") Sys.println(settings.problem);
+		Sys.println("settings read from " + Settings.path());
+
+		final wide = settings.whole("window.width", width);
+		final high = settings.whole("window.height", height);
+		if (wide >= MINIMUM_WIDTH) width = wide;
+		if (high >= MINIMUM_HEIGHT) height = high;
+
+		viewportSide = settings.text("viewport", "left") == "right" ? Right : Left;
+		tiled = settings.text("arrangement", "grid") != "floating";
+		quiet = !settings.flag("sound", true);
+		bindings.read(settings);
+	}
+
+	function rearranged():Void {
+		if (settings.flag("rewind", false)) winds(true);
+
+		final open = settings.text("panels", "");
+		if (open != "") {
+			final wanted = open.split(",");
+			for (view in views) {
+				final title = view.title();
+				if (wanted.indexOf(title) >= 0) ui.reveal(title) else ui.conceal(title);
+			}
+		}
+
+		Group.restore(ui.groups(), settings.text("groups", ""));
+
+		final tree = settings.text(tiled ? "layout.grid" : "layout.floating", "");
+		if (tree != "") {
+			if (tiled) grid.load(tree, ui.groups()) else floating.load(tree, ui.groups());
+		}
+
+		useLayout();
+	}
+
+	function remember():Void {
+		settings.setWhole("window.width", Std.int(width));
+		settings.setWhole("window.height", Std.int(height));
+		settings.setWhole("scale", scale);
+		settings.set("viewport", viewportSide == Right ? "right" : "left");
+		settings.set("arrangement", tiled ? "grid" : "floating");
+		settings.setFlag("sound", !quiet);
+		settings.setFlag("rewind", winding);
+
+		final open = new Array<String>();
+		for (view in views) if (ui.visible(view.title())) open.push(view.title());
+		settings.set("panels", open.join(","));
+
+		settings.set("groups", Group.written(ui.groups()));
+		settings.set(tiled ? "layout.grid" : "layout.floating",
+			tiled ? grid.save() : floating.save());
+		bindings.write(settings);
+
+		if (settings.write(Settings.path())) Sys.println("settings written to " + Settings.path());
+		else Sys.println(settings.problem);
+	}
+
+	function keyLines():Array<String> {
+		final out = new Array<String>();
+		var line = "  ";
+
+		for (action in Bindings.actions()) {
+			final said = action + " " + bindings.chord(action) + "   ";
+			if (line.length + said.length > 100) {
+				out.push(line);
+				line = "  ";
+			}
+			line += said;
+		}
+
+		if (StringTools.trim(line) != "") out.push(line);
+		return out;
 	}
 
 	function asked():Int {
