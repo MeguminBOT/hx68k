@@ -1,6 +1,5 @@
 package hx68k.host;
 
-import hx68k.host.Panel.Dock;
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
 import hx68k.host.sdl.Renderer;
@@ -47,6 +46,16 @@ class Console {
 
 	static inline final SCREEN = "screen";
 
+	static inline final READABLE_COLUMN = 46;
+
+	static inline final MOST_TOOL_ROWS = 4;
+
+	static inline final MINIMUM_WIDTH = 640;
+	static inline final MINIMUM_HEIGHT = 480;
+
+	static inline final Left = 0;
+	static inline final Right = 1;
+
 	static inline final NATIVE = Vdp.MASTER_HZ / (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC);
 
 	static inline final SPIN = 0.0015;
@@ -68,6 +77,13 @@ class Console {
 	var speaker:Null<Speaker> = null;
 	var paint:Null<Paint> = null;
 	var ui:Null<Ui> = null;
+
+	var scale:Int = 2;
+	var viewportSide:Int = Left;
+
+	var grid:Grid = new Grid();
+	var floating:Floating = new Floating();
+	var tiled:Bool = true;
 
 	var loaded:Bool = false;
 	var paused:Bool = false;
@@ -141,7 +157,12 @@ class Console {
 		Sys.println("the machine runs at " + Math.round(NATIVE * 100) / 100
 			+ " Hz on its own clock, which is neither the display's nor the sound device's");
 
-		final font = Font.on(renderer);
+		Sdl.setWindowMinimumSize(window, MINIMUM_WIDTH, MINIMUM_HEIGHT);
+		Sys.println("display scale " + Sdl.windowDisplayScale(window)
+			+ ", so the window is measured in logical pixels");
+
+		scale = Font.held(asked());
+		final font = Font.on(renderer, scale);
 		screen = Screen.on(renderer);
 		paint = Paint.on(renderer, font);
 		ui = new Ui(paint);
@@ -151,6 +172,15 @@ class Console {
 		views = Views.of(debugger);
 		insert(rom);
 		arrange();
+
+		final measuring = flag("--measure");
+		if (measuring != null) {
+			for (spec in measuring.split(",")) report(spec);
+			Sdl.destroyRenderer(renderer);
+			Sdl.destroyWindow(window);
+			Sdl.quit();
+			return;
+		}
 
 		setTitle(rom);
 		Sys.println("escape quits, space pauses, tab runs it flat out, f10 and f11 step");
@@ -303,9 +333,11 @@ class Console {
 
 		Sdl.renderClear(renderer, 0.04, 0.05, 0.06, 1);
 
+		ui.rows(toolRows());
 		ui.begin(width, height);
 		toolbar();
 		panels();
+		ui.overlay();
 		ui.finish();
 
 		final started = Clock.stamp();
@@ -325,19 +357,54 @@ class Console {
 	}
 
 	function arrange():Void {
-		final top = ui.reserved + 8;
-		final column = Math.max(paint.font.advance * 46, width * 0.36);
-		final split = width - column - 12;
+		place(true);
 
-		ui.offer(SCREEN, "screen", 8, top, split - 8, height - top - 8);
+		ui.nest(SCREEN).add(SCREEN);
+		for (view in views) ui.nest(view.title()).add(view.title());
 
-		final each = (height - top - 8) / views.length;
+		useLayout();
+	}
+
+	function useLayout():Void {
+		grid.anchor(SCREEN, 0.5, viewportSide == Left);
+		ui.arrangeBy(tiled ? cast grid : cast floating);
+	}
+
+	function place(seed:Bool):Void {
+		final pad = ui.margin;
+		final top = ui.reserved + pad;
+		final usable = width - pad * 3;
+
+		final wanted = paint.font.advance * READABLE_COLUMN;
+		final column = Math.max(0, Math.min(wanted, usable - width * 0.5));
+
+		final screenWide = usable - column;
+		final screenAt = viewportSide == Right ? pad + column + pad : pad;
+		final columnAt = viewportSide == Right ? pad : pad + screenWide + pad;
+
+		final tall = height - top - pad;
+
+		put(SCREEN, "screen", screenAt, top, screenWide, tall, seed);
+
+		final each = tall / views.length;
 		var y = top;
 
 		for (view in views) {
-			ui.offer(view.title(), view.title(), split + 4, y, column, each - 6);
+			put(view.title(), view.title(), columnAt, y, column, each - pad * 0.75, seed);
 			y += each;
 		}
+	}
+
+	function put(id:String, title:String, x:Float, y:Float, wide:Float, tall:Float,
+			seed:Bool):Void {
+		final panel = ui.offer(id, title, x, y, wide, tall);
+		if (seed) return;
+
+		panel.x = x;
+		panel.y = y;
+		panel.width = wide;
+		panel.height = tall;
+		ui.seat(id, x, y, wide, tall);
 	}
 
 	function rebuild():Void {
@@ -347,8 +414,11 @@ class Console {
 
 		for (view in views) {
 			final title = view.title();
-			if (!ui.showing(title) && !apart.exists(title)) continue;
-			said.set(title, view.rows(60));
+			final open = ui.visible(title) && ui.showing(title);
+			if (!open && !apart.exists(title)) continue;
+
+			final room = open ? ui.rowsFor(title) : 0;
+			said.set(title, view.rows(room > BACKLOG ? room : BACKLOG));
 		}
 
 		for (title in apart.keys()) {
@@ -361,27 +431,73 @@ class Console {
 		}
 	}
 
+	function sequence():Array<String> {
+		final out = ["open a ROM", "", paused ? "running" : "paused", "flat out",
+			quiet ? "silent" : "sound", "", "1x", "2x", "3x", tiled ? "grid" : "floating", "side", ""];
+		for (view in views) out.push(view.title());
+		return out;
+	}
+
+	function status():String {
+		return round(exactly) + " fps   68k " + sixtyEight + "%   z80 " + eighty + "%"
+			+ (taken > 0 ? " + " + taken + "% bus" : "") + "   "
+			+ round(emulating) + " + " + round(drawing) + " ms, worst " + round(worst)
+			+ (behind >= 1 ? ", gave up " + round(behind) : "") + "   "
+			+ sound() + (paused ? "   f10 f11 step" : "");
+	}
+
+	function keeping():Float {
+		return Math.min(paint.font.measure(status()), width * 0.4);
+	}
+
+	function toolRows():Int {
+		final want = sequence();
+		final keep = keeping();
+
+		for (rows in 1...MOST_TOOL_ROWS + 1) if (ui.fits(want, rows, keep, width)) return rows;
+		return MOST_TOOL_ROWS;
+	}
+
 	function toolbar():Void {
 		ui.toolbar();
+		ui.keeping(keeping());
 
 		if (ui.tool("open a ROM", false)) choose();
-		ui.gap(8);
+		ui.gap();
 
 		if (ui.tool(paused ? "running" : "paused", paused)) paused = !paused;
 		if (ui.tool("flat out", unlimited)) unlimited = !unlimited;
 		if (ui.tool(quiet ? "silent" : "sound", !quiet)) quiet = !quiet;
 		ui.gap();
 
-		for (view in views) {
-			final panel = ui.offer(view.title(), view.title(), 0, 0, 0, 0);
-			if (ui.tool(view.title(), panel.open)) panel.open = !panel.open;
+		var wanted = scale;
+		if (ui.tool("1x", scale == 1)) wanted = 1;
+		if (ui.tool("2x", scale == 2)) wanted = 2;
+		if (ui.tool("3x", scale == 3)) wanted = 3;
+
+		if (ui.tool(tiled ? "grid" : "floating", true)) {
+			tiled = !tiled;
+			useLayout();
 		}
 
-		ui.note(round(exactly) + " fps   68k " + sixtyEight + "%   z80 " + eighty + "%"
-			+ (taken > 0 ? " + " + taken + "% bus" : "") + "   "
-			+ round(emulating) + " + " + round(drawing) + " ms, worst " + round(worst)
-			+ (behind >= 1 ? ", gave up " + round(behind) : "") + "   "
-			+ sound() + (paused ? "   f10 f11 step" : ""));
+		if (ui.tool("side", viewportSide == Right)) {
+			viewportSide = viewportSide == Left ? Right : Left;
+			place(false);
+			useLayout();
+		}
+		ui.gap();
+
+		for (view in views) {
+			final title = view.title();
+			final shown = ui.visible(title);
+			if (ui.tool(title, shown)) {
+				if (shown) ui.conceal(title) else ui.reveal(title);
+			}
+		}
+
+		ui.note(status());
+
+		if (wanted != scale) rescale(wanted);
 	}
 
 	static function share(did:Int, wanted:Float, over:Float):Int {
@@ -521,6 +637,133 @@ class Console {
 
 		if (button == 0) return;
 		machine.buttons[0] = held ? machine.buttons[0] | button : machine.buttons[0] & ~button;
+	}
+
+	function flag(name:String):Null<String> {
+		final args = Sys.args();
+		for (i in 0...args.length) {
+			if (args[i] == name && i + 1 < args.length) return args[i + 1];
+		}
+		return null;
+	}
+
+	function pass():Void {
+		ui.rows(toolRows());
+		ui.begin(width, height);
+		toolbar();
+		rebuilt = Clock.stamp() - REBUILD * 2;
+		rebuild();
+		panels();
+		ui.finish();
+	}
+
+	function scrollCheck():Void {
+		for (view in views) {
+			final title = view.title();
+			if (!ui.scrollsDown(title)) continue;
+
+			final panel = ui.offer(title, title, 0, 0, 0, 0);
+			final limit = ui.contentOf(title) - ui.roomOf(title);
+
+			panel.scroll = 0;
+			ui.moved(panel.x + panel.width * 0.5, panel.y + ui.bar + 4);
+			for (_ in 0...60) {
+				ui.turn(-1);
+				pass();
+			}
+			final byWheel = panel.scroll;
+
+			panel.scroll = 0;
+			final trackX = panel.x + panel.width - ui.scrollThickness() * 0.5 - 1;
+
+			ui.moved(trackX, panel.y + ui.bar + (panel.height - ui.bar) * 0.5);
+			ui.button(true);
+			pass();
+
+			ui.moved(trackX, panel.y + panel.height * 2);
+			pass();
+			final byThumb = panel.scroll;
+
+			ui.button(false);
+			pass();
+
+			Sys.println("    " + title + " scroll: wheel to end " + Math.round(byWheel)
+				+ ", thumb to end " + Math.round(byThumb) + ", limit " + Math.round(limit)
+				+ (Math.abs(byWheel - byThumb) <= 1 && Math.abs(byWheel - limit) <= 1
+					? "  agree" : "  DISAGREE"));
+
+			panel.scroll = 0;
+			return;
+		}
+	}
+
+	function report(spec:String):Void {
+		final at = spec.indexOf("x");
+		final wide = Std.parseInt(spec.substr(0, at));
+		final high = Std.parseInt(spec.substr(at + 1));
+		if (wide == null || high == null) return;
+
+		width = wide;
+		height = high;
+
+		ui.rows(toolRows());
+		ui.begin(width, height);
+		place(false);
+		pass();
+
+		final viewport = ui.offer(SCREEN, "screen", 0, 0, 0, 0);
+		var rows = 0;
+		var least = -1.0;
+
+		for (view in views) {
+			final panel = ui.offer(view.title(), view.title(), 0, 0, 0, 0);
+			rows += ui.rowsFor(view.title());
+			final body = panel.height - ui.bar;
+			if (least < 0 || body < least) least = body;
+		}
+
+		Sys.println(spec + " scale " + scale
+			+ ": viewport " + Math.round(100 * viewport.width / width) + "% of width"
+			+ ", " + rows + " rows of view content"
+			+ ", smallest body " + Math.round(least) + " px"
+			+ " (" + Std.int(least / paint.font.height) + " rows)"
+			+ ", toolbar " + toolRows() + " row(s)"
+			+ (ui.overflowing() ? ", CONTROLS DROPPED" : ", every control drawn"));
+
+		for (view in views) {
+			final title = view.title();
+			final rowsGiven = said.exists(title) ? said.get(title).length : 0;
+
+			Sys.println("    " + title + ": " + rowsGiven + " rows given, content "
+				+ Math.round(ui.contentOf(title)) + " px in " + Math.round(ui.roomOf(title)) + " px, "
+				+ (ui.scrollsDown(title)
+					? "thumb " + Math.round(100 * ui.thumbShare(title)) + "% of track"
+					: "no vertical bar")
+				+ (ui.scrollsAcross(title) ? ", horizontal bar" : ""));
+		}
+
+		scrollCheck();
+	}
+
+	function asked():Int {
+		final args = Sys.args();
+		for (i in 0...args.length) {
+			if (args[i] != "--scale" || i + 1 >= args.length) continue;
+			final value = Std.parseInt(args[i + 1]);
+			if (value != null) return value;
+		}
+		return 2;
+	}
+
+	function rescale(wanted:Int):Void {
+		final held = Font.held(wanted);
+		if (held == scale) return;
+
+		scale = held;
+		final font = Font.on(renderer, scale);
+		paint = Paint.on(renderer, font);
+		ui.reface(paint);
+		place(false);
 	}
 
 	function romPath():Null<String> {

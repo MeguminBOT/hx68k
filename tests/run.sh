@@ -472,6 +472,18 @@ case "$(echo "$PROFILE" | sed -n '4p')" in
 esac
 
 echo ""
+echo "--- the frontend layout model, held to the 1280x720 floor ---"
+printf "building %-16s" "layout"
+if (cd "$ROOT/emulator" && haxe layout.hxml) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+neko "$ROOT/emulator/bin/layout.n"
+
+echo ""
 echo "--- the VDP read back in the terms the documentation uses ---"
 printf "building %-16s" "viewers"
 if (cd "$ROOT/emulator" && haxe view.hxml) > "$LOG" 2>&1; then

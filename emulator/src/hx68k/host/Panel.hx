@@ -1,12 +1,5 @@
 package hx68k.host;
 
-enum abstract Dock(Int) from Int to Int {
-	var Loose = 0;
-	var Left = 1;
-	var Right = 2;
-	var Bottom = 3;
-}
-
 class Panel {
 	public final id:String;
 
@@ -15,7 +8,6 @@ class Panel {
 	public var y:Float;
 	public var width:Float;
 	public var height:Float;
-	public var docked:Dock = Loose;
 	public var collapsed:Bool = false;
 	public var open:Bool = true;
 	public var order:Int = 0;
@@ -23,7 +15,10 @@ class Panel {
 	public var scroll:Float = 0;
 	public var content:Float = 0;
 
+	public var scrollAcross:Float = 0;
+
 	public var widest:Float = 0;
+	public var reach:Float = 0;
 
 	public var wantsApart:Bool = false;
 
@@ -46,7 +41,7 @@ class Panel {
 	}
 
 	public function grip(pointerX:Float, pointerY:Float, reach:Float):{across:Int, down:Int} {
-		if (collapsed || docked != Loose) return {across: 0, down: 0};
+		if (collapsed) return {across: 0, down: 0};
 
 		final near = pointerX >= x - reach && pointerX < x + width + reach
 			&& pointerY >= y - reach && pointerY < y + height + reach;

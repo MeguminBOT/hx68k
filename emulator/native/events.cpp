@@ -1,6 +1,19 @@
 #include "events.h"
 #include <SDL3/SDL.h>
 
+static int host_mods_of(SDL_Keymod mod) {
+	int out = HOST_MOD_NONE;
+	if (mod & SDL_KMOD_SHIFT) out |= HOST_MOD_SHIFT;
+	if (mod & SDL_KMOD_CTRL) out |= HOST_MOD_CTRL;
+	if (mod & SDL_KMOD_ALT) out |= HOST_MOD_ALT;
+	if (mod & SDL_KMOD_GUI) out |= HOST_MOD_GUI;
+	return out;
+}
+
+extern "C" const char *host_event_text(const HostEvent *event) {
+	return event->text;
+}
+
 extern "C" int host_poll_event(HostEvent *out) {
 	SDL_Event event;
 	if (!SDL_PollEvent(&event)) return 0;
@@ -9,8 +22,10 @@ extern "C" int host_poll_event(HostEvent *out) {
 	out->windowID = 0;
 	out->code = 0;
 	out->value = 0;
+	out->mods = HOST_MOD_NONE;
 	out->x = 0;
 	out->y = 0;
+	out->text[0] = 0;
 
 	switch (event.type) {
 		case SDL_EVENT_QUIT:
@@ -22,13 +37,25 @@ extern "C" int host_poll_event(HostEvent *out) {
 			out->windowID = event.key.windowID;
 			out->code = static_cast<int>(event.key.key);
 			out->value = event.key.repeat ? 1 : 0;
+			out->mods = host_mods_of(event.key.mod);
 			break;
 
 		case SDL_EVENT_KEY_UP:
 			out->type = HOST_EVENT_KEY_UP;
 			out->windowID = event.key.windowID;
 			out->code = static_cast<int>(event.key.key);
+			out->mods = host_mods_of(event.key.mod);
 			break;
+
+		case SDL_EVENT_TEXT_INPUT: {
+			out->type = HOST_EVENT_TEXT;
+			out->windowID = event.text.windowID;
+			out->mods = host_mods_of(SDL_GetModState());
+			if (event.text.text != nullptr) {
+				SDL_strlcpy(out->text, event.text.text, HOST_EVENT_TEXT_BYTES);
+			}
+			break;
+		}
 
 		case SDL_EVENT_MOUSE_MOTION:
 			out->type = HOST_EVENT_MOUSE_MOVE;
@@ -41,6 +68,7 @@ extern "C" int host_poll_event(HostEvent *out) {
 			out->type = HOST_EVENT_MOUSE_DOWN;
 			out->windowID = event.button.windowID;
 			out->code = event.button.button;
+			out->mods = host_mods_of(SDL_GetModState());
 			out->x = event.button.x;
 			out->y = event.button.y;
 			break;
@@ -49,6 +77,7 @@ extern "C" int host_poll_event(HostEvent *out) {
 			out->type = HOST_EVENT_MOUSE_UP;
 			out->windowID = event.button.windowID;
 			out->code = event.button.button;
+			out->mods = host_mods_of(SDL_GetModState());
 			out->x = event.button.x;
 			out->y = event.button.y;
 			break;

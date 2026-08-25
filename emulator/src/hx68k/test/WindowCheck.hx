@@ -8,6 +8,53 @@ import hx68k.host.sdl.Texture;
 import hx68k.host.sdl.HostEvent;
 
 class WindowCheck {
+	static inline final MINIMUM_WIDTH = 640;
+	static inline final MINIMUM_HEIGHT = 480;
+
+	static function naming(mods:Int):String {
+		if (mods == Sdl.MOD_NONE) return "none";
+
+		final out = new Array<String>();
+		if (mods & Sdl.MOD_CTRL != 0) out.push("ctrl");
+		if (mods & Sdl.MOD_SHIFT != 0) out.push("shift");
+		if (mods & Sdl.MOD_ALT != 0) out.push("alt");
+		if (mods & Sdl.MOD_GUI != 0) out.push("gui");
+		return out.join("+");
+	}
+
+	static function surface(window:cpp.Star<Window>):Bool {
+		final scale:Float = Sdl.windowDisplayScale(window);
+		final width = Sdl.windowWidth(window);
+		final height = Sdl.windowHeight(window);
+		final pixelWidth = Sdl.windowPixelWidth(window);
+		final pixelHeight = Sdl.windowPixelHeight(window);
+
+		Sys.println("display scale " + Math.round(scale * 100) / 100
+			+ ", logical " + width + "x" + height + ", physical " + pixelWidth + "x" + pixelHeight
+			+ ", so the two are " + (width == pixelWidth && height == pixelHeight ? "equal here"
+				: "apart, and a resize event carries the logical pair"));
+
+		Sdl.setWindowMinimumSize(window, MINIMUM_WIDTH, MINIMUM_HEIGHT);
+		Sdl.setWindowSize(window, 320, 240);
+
+		final heldWidth = Sdl.windowWidth(window);
+		final heldHeight = Sdl.windowHeight(window);
+
+		if (heldWidth < MINIMUM_WIDTH || heldHeight < MINIMUM_HEIGHT) {
+			Sys.println("the minimum window size is not held: asked for 320x240 under a "
+				+ MINIMUM_WIDTH + "x" + MINIMUM_HEIGHT + " minimum and got "
+				+ heldWidth + "x" + heldHeight);
+			return false;
+		}
+
+		Sys.println("minimum window size held: 320x240 was clamped to " + heldWidth + "x" + heldHeight);
+
+		Sdl.setWindowSize(window, 640, 480);
+		Sdl.startTextInput(window);
+		Sys.println("text input started, so typing prints a text event beside its key event");
+		return true;
+	}
+
 	static function main():Void {
 		Native.init();
 
@@ -27,6 +74,8 @@ class WindowCheck {
 			Sys.println("renderer failed to create");
 			Sys.exit(1);
 		}
+
+		if (!surface(window)) Sys.exit(1);
 
 		final texture = Sdl.createTexture(renderer, 8, 8);
 		final pixels = new Array<cpp.UInt8>();
@@ -53,8 +102,10 @@ class WindowCheck {
 					case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:
 						running = false;
 					case Sdl.EVENT_KEY_DOWN:
-						Sys.println("key down: " + event.code);
+						Sys.println("key down: " + event.code + " mods " + naming(event.mods));
 						if (event.code == 27) running = false;
+					case Sdl.EVENT_TEXT:
+						Sys.println("text: " + Std.string(Sdl.eventText(cpp.Pointer.addressOf(event).constRaw)));
 					case Sdl.EVENT_WINDOW_RESIZED:
 						Sys.println("resized to " + event.code + "x" + event.value);
 					case _:

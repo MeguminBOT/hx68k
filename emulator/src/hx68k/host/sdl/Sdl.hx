@@ -15,6 +15,13 @@ extern class Sdl {
 	public static inline final EVENT_WINDOW_RESIZED = 9;
 	public static inline final EVENT_WINDOW_FOCUS_LOST = 10;
 	public static inline final EVENT_WINDOW_FOCUS_GAINED = 11;
+	public static inline final EVENT_TEXT = 12;
+
+	public static inline final MOD_NONE = 0;
+	public static inline final MOD_SHIFT = 1;
+	public static inline final MOD_CTRL = 2;
+	public static inline final MOD_ALT = 4;
+	public static inline final MOD_GUI = 8;
 
 	@:native("host_sdl_init")
 	public static function init():Int;
@@ -24,6 +31,9 @@ extern class Sdl {
 
 	@:native("host_poll_event")
 	public static function pollEvent(out:cpp.RawPointer<HostEvent>):Int;
+
+	@:native("host_event_text")
+	public static function eventText(event:cpp.RawConstPointer<HostEvent>):cpp.ConstCharStar;
 
 	@:native("host_window_create")
 	public static function createWindow(title:cpp.ConstCharStar, width:Int, height:Int):cpp.Star<Window>;
@@ -42,6 +52,27 @@ extern class Sdl {
 
 	@:native("host_window_height")
 	public static function windowHeight(window:cpp.Star<Window>):Int;
+
+	@:native("host_window_pixel_width")
+	public static function windowPixelWidth(window:cpp.Star<Window>):Int;
+
+	@:native("host_window_pixel_height")
+	public static function windowPixelHeight(window:cpp.Star<Window>):Int;
+
+	@:native("host_window_set_size")
+	public static function setWindowSize(window:cpp.Star<Window>, width:Int, height:Int):Void;
+
+	@:native("host_window_set_minimum_size")
+	public static function setWindowMinimumSize(window:cpp.Star<Window>, width:Int, height:Int):Void;
+
+	@:native("host_window_display_scale")
+	public static function windowDisplayScale(window:cpp.Star<Window>):Single;
+
+	@:native("host_text_input_start")
+	public static function startTextInput(window:cpp.Star<Window>):Void;
+
+	@:native("host_text_input_stop")
+	public static function stopTextInput(window:cpp.Star<Window>):Void;
 
 	@:native("host_renderer_create")
 	public static function createRenderer(window:cpp.Star<Window>, vsync:Int):cpp.Star<Renderer>;

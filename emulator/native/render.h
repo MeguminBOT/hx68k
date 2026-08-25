@@ -16,6 +16,13 @@ unsigned int host_window_id(SDL_Window *window);
 void host_window_set_title(SDL_Window *window, const char *title);
 int host_window_width(SDL_Window *window);
 int host_window_height(SDL_Window *window);
+int host_window_pixel_width(SDL_Window *window);
+int host_window_pixel_height(SDL_Window *window);
+void host_window_set_size(SDL_Window *window, int width, int height);
+void host_window_set_minimum_size(SDL_Window *window, int width, int height);
+float host_window_display_scale(SDL_Window *window);
+void host_text_input_start(SDL_Window *window);
+void host_text_input_stop(SDL_Window *window);
 
 SDL_Renderer *host_renderer_create(SDL_Window *window, int vsync);
 

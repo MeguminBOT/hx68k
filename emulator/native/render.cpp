@@ -37,6 +37,39 @@ extern "C" int host_window_height(SDL_Window *window) {
 	return height;
 }
 
+extern "C" int host_window_pixel_width(SDL_Window *window) {
+	int width = 0;
+	SDL_GetWindowSizeInPixels(window, &width, nullptr);
+	return width;
+}
+
+extern "C" int host_window_pixel_height(SDL_Window *window) {
+	int height = 0;
+	SDL_GetWindowSizeInPixels(window, nullptr, &height);
+	return height;
+}
+
+extern "C" void host_window_set_size(SDL_Window *window, int width, int height) {
+	SDL_SetWindowSize(window, width, height);
+}
+
+extern "C" void host_window_set_minimum_size(SDL_Window *window, int width, int height) {
+	SDL_SetWindowMinimumSize(window, width, height);
+}
+
+extern "C" float host_window_display_scale(SDL_Window *window) {
+	const float scale = SDL_GetWindowDisplayScale(window);
+	return scale <= 0.0f ? 1.0f : scale;
+}
+
+extern "C" void host_text_input_start(SDL_Window *window) {
+	SDL_StartTextInput(window);
+}
+
+extern "C" void host_text_input_stop(SDL_Window *window) {
+	SDL_StopTextInput(window);
+}
+
 extern "C" SDL_Renderer *host_renderer_create(SDL_Window *window, int vsync) {
 	SDL_Renderer *renderer = SDL_CreateRenderer(window, nullptr);
 	if (renderer != nullptr) SDL_SetRenderVSync(renderer, vsync ? 1 : SDL_RENDERER_VSYNC_DISABLED);

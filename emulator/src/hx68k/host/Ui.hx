@@ -2,7 +2,6 @@ package hx68k.host;
 
 import hx68k.debug.Row;
 import hx68k.debug.Row.Kind;
-import hx68k.host.Panel.Dock;
 
 class Ui {
 	public static inline final BACKGROUND = 0x14181D;
@@ -12,16 +11,28 @@ class Ui {
 	public static inline final INK = 0xD5DAE0;
 	public static inline final DIM = 0x7C8794;
 
-	static inline final GRIP = 6.0;
-	static inline final EDGE = 48.0;
-	static inline final MARGIN = 8.0;
+	static inline final CONTROLS = 3;
 
-	public final paint:Paint;
+	public var paint(default, null):Paint;
 
 	public var bar(default, null):Float;
 
+	public var margin(default, null):Float;
+
+	var grip:Float;
+	var edge:Float;
+	var controlGap:Float;
+	var barText:Float;
+	var toolText:Float;
+	var toolPad:Float;
+
 	var panels:Map<String, Panel> = [];
 	var arrangement:Array<Panel> = [];
+
+	var nests:Array<Group> = [];
+	var byNest:Map<String, Group> = [];
+	var layout:Null<Layout> = null;
+	final zone:Zone = new Zone();
 
 	var pointerX:Float = 0;
 	var pointerY:Float = 0;
@@ -33,6 +44,8 @@ class Ui {
 
 	var dragging:Null<Panel> = null;
 	var resizing:Null<Panel> = null;
+	var scrubbing:Null<Panel> = null;
+	var scrubbingAcross:Null<Panel> = null;
 	var acrossFrom:Int = 0;
 	var downFrom:Int = 0;
 	var grabX:Float = 0;
@@ -43,6 +56,15 @@ class Ui {
 	public var reserved(default, null):Float = 0;
 
 	var toolPen:Float = 0;
+	var reserve:Float = 0;
+	var overflowed:Bool = false;
+	var toolInset:Float = 0;
+	var toolRows:Int = 1;
+	var toolRow:Int = 0;
+	var shutting:Null<String> = null;
+	var columnGap:Float = 0;
+	var scrollThick:Float = 0;
+	var scrollLeast:Float = 0;
 
 	var width:Float = 0;
 	var height:Float = 0;
@@ -53,8 +75,38 @@ class Ui {
 
 	public function new(paint:Paint) {
 		this.paint = paint;
-		this.bar = paint.font.height + 8;
-		this.reserved = bar + 6;
+		measured();
+	}
+
+	public function reface(paint:Paint):Void {
+		this.paint = paint;
+		measured();
+	}
+
+	public function measured():Void {
+		final font = paint.font;
+
+		margin = Math.max(4, font.advance * 0.5);
+		controlGap = Math.max(2, font.advance * 0.25);
+
+		grip = Math.max(4, font.advance * 0.375);
+		edge = font.advance * 3;
+
+		bar = font.height + Math.max(4, font.advance * 0.5);
+		reserved = bar * toolRows + Math.max(3, font.advance * 0.375);
+
+		barText = (bar - font.height) * 0.5 + font.ascent;
+		toolText = (bar - font.height) * 0.5 + font.ascent;
+		toolPad = Math.max(4, font.advance * 0.5);
+		toolInset = Math.max(2, font.advance * 0.25);
+		columnGap = Math.max(4, font.advance * 0.5);
+		scrollThick = Math.max(6, font.advance * 0.5);
+		scrollLeast = font.height;
+	}
+
+	inline function controlAt(panel:Panel, index:Int):Float {
+		return panel.x + panel.width - margin - (index + 1) * paint.font.advance
+			- index * controlGap;
 	}
 
 	public function moved(x:Float, y:Float):Void {
@@ -85,50 +137,204 @@ class Ui {
 	public function toolbar():Void {
 		paint.rectangle(0, 0, width, reserved, BAR);
 		paint.rectangle(0, reserved - 1, width, 1, FRAME);
-		toolPen = MARGIN;
+		toolPen = margin;
+		toolRow = 0;
+		reserve = 0;
+		overflowed = false;
+	}
+
+	public function toolWidth(label:String):Float {
+		return paint.font.measure(label) + toolPad * 2;
+	}
+
+	public function fits(sequence:Array<String>, rows:Int, keep:Float, across:Float):Bool {
+		var row = 0;
+		var pen = margin;
+
+		for (label in sequence) {
+			if (label == "") {
+				pen += paint.font.advance;
+				continue;
+			}
+
+			final wide = toolWidth(label);
+			if (pen + wide > across - margin - (row == rows - 1 ? keep : 0)) {
+				if (row + 1 >= rows) return false;
+				row++;
+				pen = margin;
+			}
+			pen += wide + controlGap;
+		}
+
+		return true;
+	}
+
+	public function rows(count:Int):Void {
+		final wanted = count < 1 ? 1 : count;
+		if (wanted == toolRows) return;
+		toolRows = wanted;
+		measured();
 	}
 
 	public function tool(label:String, on:Bool):Bool {
-		final wide = paint.font.measure(label) + 16;
-		if (toolPen + wide > width - MARGIN) return false;
-		final over = pointerY < reserved && pointerX >= toolPen && pointerX < toolPen + wide;
+		final wide = paint.font.measure(label) + toolPad * 2;
 
-		if (on) paint.rectangle(toolPen, 4, wide, reserved - 9, ACTIVE, 0.75);
-		else if (over) paint.rectangle(toolPen, 4, wide, reserved - 9, FRAME);
+		if (toolPen + wide > width - margin - (toolRow == toolRows - 1 ? reserve : 0)) {
+			if (toolRow + 1 >= toolRows) {
+				overflowed = true;
+				return false;
+			}
+			toolRow++;
+			toolPen = margin;
+		}
 
-		paint.text(label, toolPen + 8, reserved - 9, on ? INK : DIM);
-		final hit = clicked(toolPen, 4, wide, reserved - 9);
-		toolPen += wide + 4;
+		final top = toolRow * bar + toolInset;
+		final high = bar - toolInset * 2;
+		final over = pointerY >= toolRow * bar && pointerY < (toolRow + 1) * bar
+			&& pointerX >= toolPen && pointerX < toolPen + wide;
+
+		if (on) paint.rectangle(toolPen, top, wide, high, ACTIVE, 0.75);
+		else if (over) paint.rectangle(toolPen, top, wide, high, FRAME);
+
+		paint.text(label, toolPen + toolPad, toolRow * bar + toolText, on ? INK : DIM);
+		final hit = clicked(toolPen, top, wide, high);
+		toolPen += wide + controlGap;
 
 		return hit;
 	}
 
-	public function gap(width:Float = 16):Void {
-		toolPen += width;
+	public function keeping(room:Float):Void {
+		reserve = room;
+	}
+
+	public function overflowing():Bool {
+		return overflowed;
+	}
+
+	public function gap(width:Float = -1):Void {
+		toolPen += width < 0 ? paint.font.advance : width;
 	}
 
 	public function note(text:String):Void {
-		final room = width - MARGIN - toolPen;
-		if (room <= 0) return;
+		final room = width - margin - toolPen;
+		if (room < paint.font.advance) return;
 
-		var said = text;
-		var wide = paint.font.measure(said);
+		final said = shorten(text, room);
+		paint.text(said, width - paint.font.measure(said) - margin, toolRow * bar + toolText, DIM);
+	}
 
-		if (wide > room) {
-			said = said.substr(0, Std.int(said.length * room / wide));
-			wide = paint.font.measure(said);
-			while (said.length > 1 && wide > room) {
-				said = said.substr(0, said.length - 1);
-				wide = paint.font.measure(said);
-			}
-		}
-
-		paint.text(said, width - wide - MARGIN, reserved - 9, DIM);
+	public function noteRoom():Int {
+		return Std.int((width - margin - toolPen) / paint.font.advance);
 	}
 
 	public function showing(id:String):Bool {
 		final panel = panels.get(id);
 		return panel != null && panel.open;
+	}
+
+	public function rowsFor(id:String):Int {
+		final panel = panels.get(id);
+		if (panel == null || !panel.open || panel.collapsed) return 0;
+
+		final body = panel.height - bar - margin;
+		if (body <= 0) return 0;
+		return Std.int(body / paint.font.height);
+	}
+
+	public function scrollThickness():Float {
+		return scrollThick;
+	}
+
+	public function contentOf(id:String):Float {
+		final panel = panels.get(id);
+		return panel == null ? 0 : panel.content;
+	}
+
+	public function roomOf(id:String):Float {
+		final panel = panels.get(id);
+		return panel == null ? 0 : roomDown(panel);
+	}
+
+	public function scrollsDown(id:String):Bool {
+		final panel = panels.get(id);
+		return panel != null && panel.open && downwards(panel);
+	}
+
+	public function scrollsAcross(id:String):Bool {
+		final panel = panels.get(id);
+		return panel != null && panel.open && sideways(panel);
+	}
+
+	public function thumbShare(id:String):Float {
+		final panel = panels.get(id);
+		if (panel == null || !downwards(panel)) return 1;
+		return roomDown(panel) / panel.content;
+	}
+
+	public function rowsVisible():Int {
+		var total = 0;
+		for (panel in arrangement) total += rowsFor(panel.id);
+		return total;
+	}
+
+	public function metrics():Metrics {
+		return new Metrics(paint.font.advance, paint.font.height, toolRows);
+	}
+
+	public function groups():Array<Group> {
+		return nests;
+	}
+
+	public function nest(id:String):Group {
+		var group = byNest.get(id);
+		if (group == null) {
+			group = new Group(id);
+			byNest.set(id, group);
+			nests.push(group);
+		}
+		return group;
+	}
+
+	public function seat(id:String, x:Float, y:Float, wide:Float, tall:Float):Void {
+		final group = nestOf(id);
+		if (group == null) return;
+
+		group.x = x;
+		group.y = y;
+		group.width = wide;
+		group.height = tall;
+	}
+
+	public function visible(id:String):Bool {
+		return nestOf(id) != null;
+	}
+
+	public function conceal(id:String):Void {
+		final group = nestOf(id);
+		if (group == null) return;
+
+		group.drop(id);
+		final panel = panels.get(id);
+		if (panel != null) panel.open = false;
+
+		if (group.empty() && layout != null) layout.adopt(nests);
+	}
+
+	public function reveal(id:String):Void {
+		if (nestOf(id) != null) return;
+
+		nest(id).add(id);
+		if (layout != null) layout.adopt(nests);
+	}
+
+	public function nestOf(panel:String):Null<Group> {
+		for (group in nests) if (group.holds(panel)) return group;
+		return null;
+	}
+
+	public function arrangeBy(layout:Layout):Void {
+		this.layout = layout;
+		layout.adopt(nests);
 	}
 
 	public function offer(id:String, title:String, x:Float, y:Float, wide:Float, tall:Float):Panel {
@@ -143,16 +349,16 @@ class Ui {
 	}
 
 	public function begin(wide:Float, high:Float):Void {
-		if (width > 0 && height > 0 && (wide != width || high != height)) {
+		if (layout != null && layout.freeform() && width > 0 && height > 0
+				&& (wide != width || high != height)) {
 			final across = wide / width;
 			final downward = high / height;
 
-			for (panel in arrangement) {
-				if (panel.docked != Loose) continue;
-				panel.x *= across;
-				panel.y *= downward;
-				panel.width *= across;
-				panel.height *= downward;
+			for (group in nests) {
+				group.x *= across;
+				group.y *= downward;
+				group.width *= across;
+				group.height *= downward;
 			}
 		}
 
@@ -160,8 +366,41 @@ class Ui {
 		height = high;
 		tall = Std.int(high);
 
-		for (panel in arrangement) if (panel.docked == Loose && panel.y < reserved) panel.y = reserved;
-		dock();
+		if (layout == null) return;
+
+		layout.place(nests, width, height, metrics());
+		mirror();
+	}
+
+	function mirror():Void {
+		for (group in nests) {
+			for (id in group.members) {
+				final panel = panels.get(id);
+				if (panel == null) continue;
+
+				panel.open = group.showing() == id;
+				panel.x = group.x;
+				panel.y = group.y;
+				panel.width = group.width;
+				panel.height = group.height;
+			}
+		}
+	}
+
+	public function tabsOf(id:String):Null<Group> {
+		final group = nestOf(id);
+		return group != null && group.tabbed() ? group : null;
+	}
+
+	public function aiming():Zone {
+		return zone;
+	}
+
+	public function overlay():Void {
+		if (!zone.landing()) return;
+
+		paint.rectangle(zone.x, zone.y, zone.width, zone.height, ACTIVE, 0.3);
+		paint.outline(zone.x, zone.y, zone.width, zone.height, ACTIVE);
 	}
 
 	public function panel(id:String):Bool {
@@ -169,6 +408,7 @@ class Ui {
 		if (panel == null || !panel.open) return false;
 
 		current = panel;
+		scrub(panel);
 		handle(panel);
 		wheel(panel);
 		hold(panel);
@@ -180,29 +420,175 @@ class Ui {
 		paint.rectangle(panel.x, panel.y, panel.width, bar, dragging == panel ? ACTIVE : BAR);
 		paint.outline(panel.x, panel.y, panel.width, panel.collapsed ? bar : panel.height, FRAME);
 
-		paint.text(panel.collapsed ? "+" : "-", panel.x + 8, panel.y + bar - 7, DIM);
-		paint.text(panel.title, panel.x + 24, panel.y + bar - 7, INK);
-		paint.text("x", panel.x + panel.width - 16, panel.y + bar - 7, DIM);
-		paint.text("^", panel.x + panel.width - 34, panel.y + bar - 7, DIM);
-		paint.text("=", panel.x + panel.width - 52, panel.y + bar - 7, DIM);
+		final baseline = panel.y + barText;
+		final titleAt = panel.x + margin + paint.font.advance * 2;
 
-		if (panel.docked != Loose) paint.text(edgeName(panel.docked), panel.x + panel.width - 60,
-			panel.y + bar - 7, DIM);
+		final group = layout != null ? nestOf(panel.id) : null;
 
-		paint.clip(panel.x, panel.y + bar, panel.width, panel.height - bar, tall);
+		if (group != null && group.tabbed()) {
+			strip(panel, group, baseline);
+		} else {
+			paint.text(panel.collapsed ? "+" : "-", panel.x + margin, baseline, DIM);
+			paint.text("x", controlAt(panel, 0), baseline, DIM);
+			paint.text("^", controlAt(panel, 1), baseline, DIM);
+			paint.text("=", controlAt(panel, 2), baseline, DIM);
+
+			final titleRoom = controlAt(panel, CONTROLS - 1) - controlGap - titleAt;
+			if (titleRoom > 0) paint.text(shorten(panel.title, titleRoom), titleAt, baseline, INK);
+		}
+
+		final down = downwards(panel);
+		final across = sideways(panel);
+
+		bars(panel, down, across);
+
+		paint.clip(panel.x, panel.y + bar, panel.width - (down ? scrollThick : 0),
+			panel.height - bar - (across ? scrollThick : 0), tall);
 
 		pen = panel.y + bar + paint.font.height - panel.scroll;
 		panel.widest = 0;
+		panel.reach = 0;
 		return !panel.collapsed;
+	}
+
+	inline function roomDown(panel:Panel):Float {
+		return panel.height - bar - margin;
+	}
+
+	inline function roomAcross(panel:Panel):Float {
+		return panel.width - margin * 2;
+	}
+
+	function downwards(panel:Panel):Bool {
+		return !panel.collapsed && panel.content > roomDown(panel) + 1;
+	}
+
+	function sideways(panel:Panel):Bool {
+		return !panel.collapsed && panel.reach > roomAcross(panel) + 1;
+	}
+
+	function bars(panel:Panel, down:Bool, across:Bool):Void {
+		if (down) {
+			final trackY = panel.y + bar;
+			final trackHigh = panel.height - bar - (across ? scrollThick : 0);
+			final trackX = panel.x + panel.width - scrollThick - 1;
+
+			paint.rectangle(trackX, trackY, scrollThick, trackHigh, BAR, 0.7);
+
+			final room = roomDown(panel);
+			final span = Math.max(1, panel.content - room);
+			final high = Math.max(scrollLeast, trackHigh * room / panel.content);
+			final at = trackY + (trackHigh - high) * (panel.scroll / span);
+
+			paint.rectangle(trackX + 1, at, scrollThick - 2, high,
+				scrubbing == panel ? ACTIVE : FRAME);
+		}
+
+		if (across) {
+			final trackX = panel.x;
+			final trackWide = panel.width - (down ? scrollThick : 0);
+			final trackY = panel.y + panel.height - scrollThick - 1;
+
+			paint.rectangle(trackX, trackY, trackWide, scrollThick, BAR, 0.7);
+
+			final room = roomAcross(panel);
+			final span = Math.max(1, panel.reach - room);
+			final wide = Math.max(scrollLeast, trackWide * room / panel.reach);
+			final at = trackX + (trackWide - wide) * (panel.scrollAcross / span);
+
+			paint.rectangle(at, trackY + 1, wide, scrollThick - 2,
+				scrubbingAcross == panel ? ACTIVE : FRAME);
+		}
+	}
+
+	function scrub(panel:Panel):Void {
+		final down = downwards(panel);
+		final across = sideways(panel);
+
+		if (pressed && down) {
+			final trackX = panel.x + panel.width - scrollThick - 1;
+			final trackY = panel.y + bar;
+			final trackHigh = panel.height - bar - (across ? scrollThick : 0);
+
+			if (pointerX >= trackX && pointerX < trackX + scrollThick
+					&& pointerY >= trackY && pointerY < trackY + trackHigh) {
+				scrubbing = panel;
+				panel.order = top++;
+			}
+		}
+
+		if (pressed && across) {
+			final trackY = panel.y + panel.height - scrollThick - 1;
+			final trackWide = panel.width - (down ? scrollThick : 0);
+
+			if (pointerY >= trackY && pointerY < trackY + scrollThick
+					&& pointerX >= panel.x && pointerX < panel.x + trackWide) {
+				scrubbingAcross = panel;
+				panel.order = top++;
+			}
+		}
+
+		if (scrubbing == panel && down) {
+			final trackY = panel.y + bar;
+			final trackHigh = panel.height - bar - (across ? scrollThick : 0);
+			final room = roomDown(panel);
+			final high = Math.max(scrollLeast, trackHigh * room / panel.content);
+			final travel = trackHigh - high;
+
+			panel.scroll = travel <= 0 ? 0
+				: (panel.content - room) * ((pointerY - trackY - high * 0.5) / travel);
+		}
+
+		if (scrubbingAcross == panel && across) {
+			final trackWide = panel.width - (down ? scrollThick : 0);
+			final room = roomAcross(panel);
+			final wide = Math.max(scrollLeast, trackWide * room / panel.reach);
+			final travel = trackWide - wide;
+
+			panel.scrollAcross = travel <= 0 ? 0
+				: (panel.reach - room) * ((pointerX - panel.x - wide * 0.5) / travel);
+		}
+	}
+
+	function strip(panel:Panel, group:Group, baseline:Float):Void {
+		var pen = panel.x;
+		final close = controlAt(panel, 0);
+
+		for (i in 0...group.members.length) {
+			final id = group.members[i];
+			final held = panels.get(id);
+			final name = held == null ? id : held.title;
+			final wide = paint.font.measure(name) + toolPad * 2;
+
+			if (pen + wide > close - controlGap) {
+				paint.text("+" + (group.members.length - i), pen + toolPad, baseline, DIM);
+				break;
+			}
+
+			final on = i == group.active;
+			if (on) paint.rectangle(pen, panel.y, wide, bar, BACKGROUND);
+			paint.text(name, pen + toolPad, baseline, on ? INK : DIM);
+
+			if (clicked(pen, panel.y, wide, bar)) group.active = i;
+			pen += wide;
+			paint.rectangle(pen, panel.y + 2, 1, bar - 4, FRAME);
+		}
+
+		if (clicked(close - controlGap, panel.y, paint.font.advance + controlGap * 2, bar)) {
+			shutting = group.showing();
+		}
+		paint.text("x", close, baseline, DIM);
 	}
 
 	public function line(text:String, colour:Int = INK):Void {
 		final panel = current;
 		if (panel == null) return;
 
-		final end = paint.text(text, panel.x + MARGIN, pen, colour);
-		final ran = end - (panel.x + MARGIN);
+		final at = panel.x + margin - panel.scrollAcross;
+		final end = paint.text(text, at, pen, colour);
+		final ran = end - at;
 		if (ran > panel.widest) panel.widest = ran;
+		if (ran > panel.reach) panel.reach = ran;
 
 		pen += paint.font.height;
 		panel.content = pen + panel.scroll - (panel.y + bar);
@@ -212,34 +598,32 @@ class Ui {
 		final panel = current;
 		if (panel == null || rows.length == 0) return;
 
-		final room = panel.width - MARGIN * 2;
 		final widths = measure(rows);
-		final showing = fitting(widths, room);
+
+		var wanted = 0.0;
+		for (width in widths) wanted += width + columnGap;
+		wanted = Math.max(0, wanted - columnGap);
+
+		panel.reach = wanted;
+		if (wanted > panel.widest) panel.widest = wanted;
+
+		final left = panel.x + margin - panel.scrollAcross;
 
 		for (row in rows) {
 			if (row.apart) {
-				if (row.parts.length > 0) write(row.parts[0], panel.x + MARGIN, room);
+				if (row.parts.length > 0) write(row.parts[0], left, wanted);
 				advance(panel);
 				continue;
 			}
 
-			var at = panel.x + MARGIN;
-			for (column in 0...showing) {
-				if (column >= row.parts.length) break;
-
-				final last = column == showing - 1;
-				if (last && row.parts[column].kind == Label && column + 1 < row.parts.length) break;
-
+			var at = left;
+			for (column in 0...row.parts.length) {
 				write(row.parts[column], at, widths[column]);
-				at += widths[column] + paint.font.advance;
+				at += widths[column] + columnGap;
 			}
 
 			advance(panel);
 		}
-
-		var wanted = 0.0;
-		for (width in widths) wanted += width + paint.font.advance;
-		if (wanted > panel.widest) panel.widest = wanted;
 	}
 
 	function advance(panel:Panel):Void {
@@ -265,17 +649,6 @@ class Ui {
 		}
 
 		return widths;
-	}
-
-	function fitting(widths:Array<Float>, room:Float):Int {
-		var used = 0.0;
-
-		for (column in 0...widths.length) {
-			used += widths[column] + paint.font.advance;
-			if (used > room) return column == 0 ? 1 : column;
-		}
-
-		return widths.length;
 	}
 
 	function shorten(text:String, room:Float):String {
@@ -306,8 +679,8 @@ class Ui {
 
 		if (over) paint.rectangle(panel.x + 1, row, panel.width - 2, paint.font.height, FRAME, 0.6);
 
-		paint.text(value ? "[x]" : "[ ]", panel.x + MARGIN, pen, value ? INK : DIM);
-		paint.text(label, panel.x + MARGIN + paint.font.advance * 4, pen, INK);
+		paint.text(value ? "[x]" : "[ ]", panel.x + margin, pen, value ? INK : DIM);
+		paint.text(label, panel.x + margin + paint.font.advance * 4, pen, INK);
 		final hit = clicked(panel.x, row, panel.width, paint.font.height);
 		pen += paint.font.height;
 
@@ -328,10 +701,17 @@ class Ui {
 	public function finish():Void {
 		paint.release(tall);
 		current = null;
+
+		if (shutting != null) {
+			conceal(shutting);
+			shutting = null;
+		}
 		turned = 0;
 		if (released) {
 			dragging = null;
 			resizing = null;
+			scrubbing = null;
+			scrubbingAcross = null;
 		}
 		pressed = false;
 		released = false;
@@ -343,8 +723,10 @@ class Ui {
 	}
 
 	function handle(panel:Panel):Void {
-		final edge = panel.grip(pointerX, pointerY, GRIP);
-		final onEdge = edge.across != 0 || edge.down != 0;
+		if (scrubbing != null || scrubbingAcross != null) return;
+
+		final held = panel.grip(pointerX, pointerY, grip);
+		final onEdge = held.across != 0 || held.down != 0;
 
 		if (dragging == null && resizing == null && pressed
 				&& (panel.holds(pointerX, pointerY, bar) || onEdge)) {
@@ -352,15 +734,18 @@ class Ui {
 
 			if (onEdge) {
 				resizing = panel;
-				acrossFrom = edge.across;
-				downFrom = edge.down;
+				acrossFrom = held.across;
+				downFrom = held.down;
 				grabX = pointerX;
 				grabWidth = panel.width;
 			} else if (panel.onBar(pointerX, pointerY, bar)) {
-				if (pointerX < panel.x + 20) panel.collapsed = !panel.collapsed;
-				else if (pointerX > panel.x + panel.width - 24) panel.open = false;
-				else if (pointerX > panel.x + panel.width - 42) panel.wantsApart = true;
-				else if (pointerX > panel.x + panel.width - 60) fit(panel);
+				if (pointerX < panel.x + margin + paint.font.advance * 1.5) {
+					panel.collapsed = !panel.collapsed;
+				} else if (pointerX >= controlAt(panel, 0) - controlGap * 0.5) {
+					if (layout != null) conceal(panel.id) else panel.open = false;
+				}
+				else if (pointerX >= controlAt(panel, 1) - controlGap * 0.5) panel.wantsApart = true;
+				else if (pointerX >= controlAt(panel, 2) - controlGap * 0.5) fit(panel);
 				else {
 					dragging = panel;
 					grabX = pointerX - panel.x;
@@ -370,16 +755,42 @@ class Ui {
 		}
 
 		if (dragging == panel) {
-			panel.docked = Loose;
-			panel.x = pointerX - grabX;
-			panel.y = Math.max(reserved, pointerY - grabY);
-			if (released) settle(panel);
+			if (layout != null) {
+				final group = nestOf(panel.id);
+				if (group != null) {
+					layout.aim(nests, group, pointerX, pointerY, width, height, metrics(), zone);
+
+					if (layout.freeform()) {
+						group.x = pointerX - grabX;
+						group.y = Math.max(reserved, pointerY - grabY);
+					}
+
+					if (released) {
+						layout.settle(nests, group, zone);
+						zone.clear();
+					}
+				}
+			}
 		}
 
 		if (resizing == panel) resize(panel);
 	}
 
 	function resize(panel:Panel):Void {
+		if (layout != null && !layout.freeform()) return;
+
+		final group = layout != null ? nestOf(panel.id) : null;
+		if (group != null) {
+			if (acrossFrom > 0) group.width = Math.max(paint.font.advance * 12, pointerX - group.x);
+			else if (acrossFrom < 0) {
+				final right = group.x + group.width;
+				group.x = Math.min(pointerX, right - paint.font.advance * 12);
+				group.width = right - group.x;
+			}
+			if (downFrom > 0) group.height = Math.max(bar * 3, pointerY - group.y);
+			return;
+		}
+
 		final least = paint.font.advance * 12;
 
 		if (acrossFrom > 0) panel.width = Math.max(least, pointerX - panel.x);
@@ -394,15 +805,17 @@ class Ui {
 
 	public function fit(panel:Panel):Void {
 		if (panel.widest <= 0) return;
-		panel.width = panel.widest + MARGIN * 2 + 2;
-		panel.docked = Loose;
+		panel.width = panel.widest + margin * 2 + 2;
 	}
 
 	function hold(panel:Panel):Void {
-		final room = panel.height - bar - 4;
-		final most = Math.max(0, panel.content - room);
+		final most = Math.max(0, panel.content - roomDown(panel));
 		if (panel.scroll > most) panel.scroll = most;
 		if (panel.scroll < 0) panel.scroll = 0;
+
+		final widest = Math.max(0, panel.reach - roomAcross(panel));
+		if (panel.scrollAcross > widest) panel.scrollAcross = widest;
+		if (panel.scrollAcross < 0) panel.scrollAcross = 0;
 	}
 
 	function wheel(panel:Panel):Void {
@@ -410,51 +823,7 @@ class Ui {
 		panel.scroll -= turned * paint.font.height;
 	}
 
-	function settle(panel:Panel):Void {
-		if (pointerX < EDGE) panel.docked = Left;
-		else if (pointerX > width - EDGE) panel.docked = Right;
-		else if (pointerY > height - EDGE) panel.docked = Bottom;
-	}
 
-	function dock():Void {
-		for (edge in [Left, Right, Bottom]) {
-			final along = [];
-			for (panel in order()) if (panel.open && panel.docked == edge) along.push(panel);
-			if (along.length == 0) continue;
 
-			final strip = edge == Bottom ? height * 0.3 : width * 0.32;
 
-			for (i in 0...along.length) {
-				final panel = along[i];
-				if (edge == Bottom) {
-					panel.width = width / along.length;
-					panel.height = strip;
-					panel.x = panel.width * i;
-					panel.y = height - strip;
-				} else {
-					final usable = height - reserved;
-					panel.width = strip;
-					panel.height = usable / along.length;
-					panel.x = edge == Left ? 0 : width - strip;
-					panel.y = reserved + panel.height * i;
-				}
-			}
-		}
-	}
-
-	public function taken(edge:Dock):Float {
-		for (panel in arrangement) if (panel.open && panel.docked == edge) {
-			return edge == Bottom ? panel.height : panel.width;
-		}
-		return 0;
-	}
-
-	static function edgeName(edge:Dock):String {
-		return switch (edge) {
-			case Left: "left";
-			case Right: "right";
-			case Bottom: "bottom";
-			case _: "";
-		}
-	}
 }
