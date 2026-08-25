@@ -91,6 +91,7 @@ class Run {
 			case "list": list(root);
 			case "build": build(root, chosen(root, flags), flags.indexOf("--debug") >= 0);
 			case "run": play(root, flags);
+			case "pad": padRom(called, flags);
 			case _: help();
 		}
 	}
@@ -107,6 +108,9 @@ class Run {
 		Sys.println("  haxelib run hx68k build --debug      the same, carrying debug information");
 		Sys.println("  haxelib run hx68k list               every target and where it is put");
 		Sys.println("  haxelib run hx68k run <rom>          build the window and run it");
+		Sys.println("");
+		Sys.println("  haxelib run hx68k pad <rom.bin> -sizealign 131072 -checksum");
+		Sys.println("                                       pad a ROM and write its header checksum");
 		Sys.println("");
 	}
 
@@ -335,6 +339,79 @@ class Run {
 		}
 
 		if (name == "window") File.copy(exe, dir + "/hx68k.exe");
+	}
+
+	static function padRom(called:String, flags:Array<String>):Void {
+		var name = "";
+		var align = 256;
+		var fill = 0;
+		var checksum = false;
+		var at = 0;
+
+		while (at < flags.length) {
+			final flag = flags[at++];
+			switch (flag.toLowerCase()) {
+				case "-sizealign": align = number(flag, flags[at++]);
+				case "-fill": fill = number(flag, flags[at++]) & 0xFF;
+				case "-checksum": checksum = true;
+				case _:
+					if (StringTools.startsWith(flag, "-")) fail("no option called " + flag);
+					name = flag;
+			}
+		}
+
+		if (name == "") fail("nothing to pad. Try: haxelib run hx68k pad <rom.bin> -sizealign 131072 -checksum");
+		final path = absolute(called, name);
+		if (!FileSystem.exists(path)) fail("no file at " + path);
+		if (align < 4) align = 4;
+
+		final rom = File.getBytes(path);
+		final over = rom.length % align;
+		final padded = haxe.io.Bytes.alloc(over == 0 ? rom.length : rom.length + (align - over));
+		padded.fill(0, padded.length, fill);
+		padded.blit(0, rom, 0, rom.length);
+		if (checksum) writeChecksum(padded);
+		File.saveBytes(path, padded);
+	}
+
+	static function writeChecksum(rom:haxe.io.Bytes):Void {
+		final offset = 0x18E;
+		if (rom.length < offset + 2) fail("a ROM shorter than its own header cannot carry a checksum");
+
+		rom.set(offset, 0);
+		rom.set(offset + 1, 0);
+
+		var folded = 0;
+		var at = 0;
+		while (at + 3 < rom.length) {
+			folded ^= (rom.get(at) << 24) | (rom.get(at + 1) << 16) | (rom.get(at + 2) << 8) | rom.get(at + 3);
+			at += 4;
+		}
+
+		final sum = (folded ^ (folded >> 16)) & 0xFFFF;
+		rom.set(offset, (sum >> 8) & 0xFF);
+		rom.set(offset + 1, sum & 0xFF);
+	}
+
+	static function number(flag:String, given:Null<String>):Int {
+		final value:Null<Int> = given == null ? null : Std.parseInt(given);
+		if (value == null) {
+			fail(flag + " wants a number after it");
+			return 0;
+		}
+		return value;
+	}
+
+	static function absolute(called:String, name:String):String {
+		final rooted = StringTools.startsWith(name, "/") || StringTools.startsWith(name, "\\")
+			|| (name.length > 1 && name.charAt(1) == ":");
+		return haxe.io.Path.normalize(FileSystem.absolutePath(rooted ? name : called + "/" + name));
+	}
+
+	static function fail(why:String):Void {
+		Sys.stderr().writeString("hx68k pad: " + why + "
+");
+		Sys.exit(2);
 	}
 
 	static function play(root:String, flags:Array<String>):Void {

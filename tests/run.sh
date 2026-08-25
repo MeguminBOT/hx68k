@@ -102,6 +102,30 @@ else
 fi
 absent  "no heap"     '\b(malloc|calloc|realloc|free)\('
 
+# the ROMs are padded and checksummed by hx68k rather than by sizebnd.jar. Where a JVM is here,
+# hold the two to the same bytes on the unpadded output the linker actually produced.
+printf "codegen %-16s" "rom padding"
+SIZEBND_JAR="$ROOT/vendor/SGDK/bin/sizebnd.jar"
+RAW="$HERE/.pad"
+if command -v java > /dev/null 2>&1 && [ -f "$SIZEBND_JAR" ]; then
+	rm -rf "$RAW"
+	mkdir -p "$RAW"
+	"$ROOT/vendor/SGDK/bin/objcopy" -O binary "$ROOT/samples/spike/rom/out/release/rom.out" "$RAW/theirs.bin"
+	cp "$RAW/theirs.bin" "$RAW/ours.bin"
+	java -jar "$SIZEBND_JAR" "$RAW/theirs.bin" -sizealign 131072 -checksum > "$LOG" 2>&1
+	haxelib run hx68k pad "$RAW/ours.bin" -sizealign 131072 -checksum > "$LOG" 2>&1
+	if cmp -s "$RAW/theirs.bin" "$RAW/ours.bin"; then
+		echo "ok"
+	else
+		echo "FAILED"
+		echo "  hx68k pad and sizebnd.jar disagree on the spike ROM"
+		exit 1
+	fi
+	rm -rf "$RAW"
+else
+	echo "skipped, no JVM to compare against"
+fi
+
 echo ""
 "$HERE/harness/.build/mdtest" "$ROOT" "$@"
 

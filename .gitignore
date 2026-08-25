@@ -24,4 +24,7 @@ tests/.observables.txt
 
 # the window type check, which writes nothing it keeps
 tests/.hostcheck/
+
+# where the pad comparison puts the two ROMs it holds to each other
+tests/.pad/
 tests/opn2/.build/
