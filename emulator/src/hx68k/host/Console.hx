@@ -83,6 +83,11 @@ class Console {
 	var ui:Null<Ui> = null;
 
 	var scale:Int = 1;
+	var keyed:Int = 0;
+	var tapped:Int = 0;
+	var handed:Int = -1;
+	var padSeen:Bool = false;
+	var keyLog:Bool = false;
 	var viewportSide:Int = Left;
 
 	var grid:Grid = new Grid();
@@ -183,6 +188,9 @@ class Console {
 		insert(rom);
 		arrange();
 
+		keyLog = flag("--keylog") != null || Sys.args().indexOf("--keylog") >= 0;
+		if (keyLog) Sys.println("key log on: every key event prints, with the pad mask it produced");
+
 		final measuring = flag("--measure");
 		if (measuring != null) {
 			if (loaded) for (_ in 0...SETTLE) machine.runFrame();
@@ -201,6 +209,8 @@ class Console {
 
 		while (running) {
 			pollEvents();
+			Sdl.padOpen();
+			pads();
 			update();
 			draw();
 			forDetached();
@@ -208,6 +218,7 @@ class Console {
 		}
 
 		if (speaker != null) speaker.stop();
+		Sdl.padClose();
 		Sdl.destroyRenderer(renderer);
 		Sdl.destroyWindow(window);
 		Sdl.quit();
@@ -473,8 +484,17 @@ class Console {
 		return text;
 	}
 
+	function padShown():String {
+		final held = machine.buttons[0];
+		final names = ["U", "D", "L", "R", "B", "C", "A", "S"];
+
+		var out = "";
+		for (i in 0...8) out += (held & (1 << i)) != 0 ? names[i] : ".";
+		return out;
+	}
+
 	function status():String {
-		return fixed(exactly, 6, 2) + " fps   68k " + fixed(sixtyEight, 3, 0)
+		return "pad " + padShown() + "   " + fixed(exactly, 6, 2) + " fps   68k " + fixed(sixtyEight, 3, 0)
 			+ "%   z80 " + fixed(eighty, 3, 0) + "% + " + fixed(taken, 2, 0) + "% bus   "
 			+ fixed(emulatingShown, 5, 2) + " + " + fixed(drawingShown, 5, 2)
 			+ " ms, worst " + fixed(worst, 5, 2)
@@ -603,7 +623,7 @@ class Console {
 				case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:
 					running = false;
 				case Sdl.EVENT_KEY_DOWN:
-					onKeyDown(event.code);
+					onKeyDown(event.code, event.value != 0);
 				case Sdl.EVENT_KEY_UP:
 					press(event.code, false);
 				case Sdl.EVENT_MOUSE_MOVE:
@@ -638,7 +658,12 @@ class Console {
 		}
 	}
 
-	function onKeyDown(code:Int):Void {
+	function onKeyDown(code:Int, again:Bool):Void {
+		if (again) {
+			press(code, true);
+			return;
+		}
+
 		switch (code) {
 			case KEY_ESCAPE: running = false;
 			case KEY_SPACE: paused = !paused;
@@ -672,7 +697,31 @@ class Console {
 		}
 
 		if (button == 0) return;
-		machine.buttons[0] = held ? machine.buttons[0] | button : machine.buttons[0] & ~button;
+
+		keyed = held ? keyed | button : keyed & ~button;
+		if (held) tapped |= button;
+
+		if (keyLog) {
+			Sys.println("key " + StringTools.hex(code, 8) + (held ? " down" : " up  ")
+				+ "  pad now " + StringTools.hex(keyed, 2));
+		}
+	}
+
+	function pads():Void {
+		final gamepad = Sdl.padState();
+		if (gamepad != 0 && !padSeen) {
+			padSeen = true;
+			Sys.println("a gamepad is answering, so the pad is no longer limited by keyboard rollover");
+		}
+
+		final now = keyed | tapped | gamepad;
+		tapped = 0;
+		machine.buttons[0] = now;
+
+		if (keyLog && now != handed) {
+			Sys.println("machine sees " + StringTools.hex(now, 2) + "  " + padShown());
+			handed = now;
+		}
 	}
 
 	function flag(name:String):Null<String> {
@@ -692,6 +741,73 @@ class Console {
 		panels();
 		ui.overlay();
 		ui.finish();
+	}
+
+	function padCheck():Void {
+		keyed = 0;
+
+		onKeyDown(KEY_RIGHT, false);
+		pads();
+		final one = machine.buttons[0];
+
+		onKeyDown(KEY_Z, false);
+		pads();
+		final two = machine.buttons[0];
+
+		onKeyDown(KEY_DOWN, false);
+		pads();
+		final three = machine.buttons[0];
+
+		press(KEY_Z, false);
+		pads();
+		final back = machine.buttons[0];
+
+		Sys.println("    pad state: right " + one + ", +A " + two + ", +down " + three
+			+ ", A released " + back
+			+ (two == (PAD_RIGHT | PAD_A) && three == (PAD_RIGHT | PAD_A | PAD_DOWN)
+				&& back == (PAD_RIGHT | PAD_DOWN) ? "  holds together" : "  ONLY ONE AT A TIME"));
+
+		keyed = 0;
+		machine.writeByte(0xA10009, 0x40);
+
+		final names = ["up", "down", "left", "right", "B", "C", "A", "start"];
+		final combos = [
+			[PAD_LEFT, PAD_DOWN], [PAD_RIGHT, PAD_DOWN], [PAD_LEFT, PAD_UP],
+			[PAD_RIGHT, PAD_UP], [PAD_LEFT, PAD_B], [PAD_LEFT, PAD_DOWN, PAD_B],
+			[PAD_RIGHT, PAD_DOWN, PAD_B]
+		];
+
+		for (combo in combos) {
+			var want = 0;
+			var said = "";
+			for (bit in combo) {
+				want |= bit;
+				for (i in 0...8) if (bit == 1 << i) said += (said == "" ? "" : "+") + names[i];
+			}
+
+			machine.buttons[0] = want;
+
+			machine.writeByte(0xA10003, 0x40);
+			final high = machine.read(0xA10002, 0, false, true) & 0x7F;
+			machine.writeByte(0xA10003, 0x00);
+			final low = machine.read(0xA10002, 0, false, true) & 0x7F;
+
+			var saw = 0;
+			if (high & 0x01 == 0) saw |= PAD_UP;
+			if (high & 0x02 == 0) saw |= PAD_DOWN;
+			if (high & 0x04 == 0) saw |= PAD_LEFT;
+			if (high & 0x08 == 0) saw |= PAD_RIGHT;
+			if (high & 0x10 == 0) saw |= PAD_B;
+			if (high & 0x20 == 0) saw |= PAD_C;
+			if (low & 0x10 == 0) saw |= PAD_A;
+			if (low & 0x20 == 0) saw |= PAD_START;
+
+			Sys.println("    pad " + StringTools.rpad(said, " ", 18)
+				+ " wanted " + StringTools.hex(want, 2) + " saw " + StringTools.hex(saw, 2)
+				+ (saw == want ? "  ok" : "  WRONG"));
+		}
+
+		machine.buttons[0] = 0;
 	}
 
 	function dragCheck():Void {
@@ -835,6 +951,7 @@ class Console {
 
 		scrollCheck();
 		dragCheck();
+		padCheck();
 	}
 
 	function asked():Int {

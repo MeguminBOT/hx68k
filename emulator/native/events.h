@@ -29,6 +29,17 @@ enum {
 	HOST_MOD_GUI = 8
 };
 
+enum {
+	HOST_PAD_UP = 0x01,
+	HOST_PAD_DOWN = 0x02,
+	HOST_PAD_LEFT = 0x04,
+	HOST_PAD_RIGHT = 0x08,
+	HOST_PAD_B = 0x10,
+	HOST_PAD_C = 0x20,
+	HOST_PAD_A = 0x40,
+	HOST_PAD_START = 0x80
+};
+
 #define HOST_EVENT_TEXT_BYTES 32
 
 typedef struct {
@@ -44,6 +55,10 @@ typedef struct {
 
 int host_poll_event(HostEvent *out);
 const char *host_event_text(const HostEvent *event);
+
+int host_pad_open(void);
+int host_pad_state(void);
+void host_pad_close(void);
 
 #ifdef __cplusplus
 }

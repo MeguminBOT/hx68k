@@ -2,7 +2,7 @@
 #include <cstring>
 
 extern "C" int host_sdl_init() {
-	return SDL_Init(SDL_INIT_VIDEO) ? 1 : 0;
+	return SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD) ? 1 : 0;
 }
 
 extern "C" void host_sdl_quit() {

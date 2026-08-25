@@ -14,6 +14,57 @@ extern "C" const char *host_event_text(const HostEvent *event) {
 	return event->text;
 }
 
+static SDL_Gamepad *hostPad = nullptr;
+
+extern "C" int host_pad_open(void) {
+	if (hostPad != nullptr && SDL_GamepadConnected(hostPad)) return 1;
+
+	if (hostPad != nullptr) {
+		SDL_CloseGamepad(hostPad);
+		hostPad = nullptr;
+	}
+
+	int count = 0;
+	SDL_JoystickID *ids = SDL_GetGamepads(&count);
+	if (ids == nullptr) return 0;
+
+	if (count > 0) hostPad = SDL_OpenGamepad(ids[0]);
+	SDL_free(ids);
+
+	return hostPad != nullptr ? 1 : 0;
+}
+
+extern "C" void host_pad_close(void) {
+	if (hostPad == nullptr) return;
+	SDL_CloseGamepad(hostPad);
+	hostPad = nullptr;
+}
+
+extern "C" int host_pad_state(void) {
+	if (hostPad == nullptr) return 0;
+
+	int out = 0;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_DPAD_UP)) out |= HOST_PAD_UP;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_DPAD_DOWN)) out |= HOST_PAD_DOWN;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_DPAD_LEFT)) out |= HOST_PAD_LEFT;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) out |= HOST_PAD_RIGHT;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_WEST)) out |= HOST_PAD_A;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_SOUTH)) out |= HOST_PAD_B;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_EAST)) out |= HOST_PAD_C;
+	if (SDL_GetGamepadButton(hostPad, SDL_GAMEPAD_BUTTON_START)) out |= HOST_PAD_START;
+
+	const int dead = 12000;
+	const int x = SDL_GetGamepadAxis(hostPad, SDL_GAMEPAD_AXIS_LEFTX);
+	const int y = SDL_GetGamepadAxis(hostPad, SDL_GAMEPAD_AXIS_LEFTY);
+
+	if (x < -dead) out |= HOST_PAD_LEFT;
+	if (x > dead) out |= HOST_PAD_RIGHT;
+	if (y < -dead) out |= HOST_PAD_UP;
+	if (y > dead) out |= HOST_PAD_DOWN;
+
+	return out;
+}
+
 extern "C" int host_poll_event(HostEvent *out) {
 	SDL_Event event;
 	if (!SDL_PollEvent(&event)) return 0;

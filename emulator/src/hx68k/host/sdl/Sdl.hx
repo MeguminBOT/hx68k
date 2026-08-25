@@ -32,6 +32,15 @@ extern class Sdl {
 	@:native("host_poll_event")
 	public static function pollEvent(out:cpp.RawPointer<HostEvent>):Int;
 
+	@:native("host_pad_open")
+	public static function padOpen():Int;
+
+	@:native("host_pad_state")
+	public static function padState():Int;
+
+	@:native("host_pad_close")
+	public static function padClose():Void;
+
 	@:native("host_event_text")
 	public static function eventText(event:cpp.RawConstPointer<HostEvent>):cpp.ConstCharStar;
 
