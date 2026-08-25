@@ -138,6 +138,63 @@ harness now holds the same latch, and the check that used to be called "colour 0
 is called "colour 0 read back over the last VRAM write", because that is what it measures. What the
 CRAM cell itself holds is checked separately and is still 0E80h.
 
+**In mode 4 the registers above 10 cannot be written.** Register 1 bit 2 chooses between the Master
+System's mode 4 and the Mega Drive's mode 5, and `genvdp.txt` says that in mode 4 "none of the
+registers which normally affect the Genesis work". Refusing a write to register 11 and above while
+that bit is clear takes suite 12 from 79.6% to 100% and nothing else moves. Refusing a write above
+register 23, which the same document also describes, changes nothing this ROM can see, so it is not
+claimed.
+
+It also caught a fault in this repository's own tests. `RenderCheck` and `ViewCheck` set the VDP up
+through its ports and both wrote 40h to register 1: display on, and mode 4, which no Mega Drive
+program does. Every register they set after that was legally ignored and five render checks and the
+whole view suite failed. They write 44h now, display on and mode 5, and pass with exactly the
+expectations they had before.
+
+## The FIFO, and why there is not one yet
+
+A write FIFO was built and then taken out again, which is worth writing down so the next attempt
+starts from the measurement rather than from the same idea.
+
+**What was built.** Four entries, each holding the code, the address and the word; the data port
+pushes and the address register increments at the push; `tick` drains one entry per external access
+slot, spread evenly over the line at 18 slots in H40, 16 in H32 and 167 while blanked; a push onto a
+full FIFO holds the bus until the next slot, which the machine charges to the write; and status bit
+9 says empty and bit 8 says full from the count rather than from a constant.
+
+**What it did.** Nothing. The test ROM fills it to 3 of its 4 entries and never overflows, the bus
+is never held for a single clock, Sonic 2 is byte for byte the same over 1,300 frames, and the
+result rows do not move: 6,552 passing pixels with the FIFO and 6,552 without. An evenly spread
+slot every 190 master clocks is faster than a 68000 can write, so the FIFO is never the thing that
+is waiting.
+
+**What making it slower did.** A VRAM entry taking two slots rather than one is the obvious
+refinement, since VRAM is byte wide and a word costs two accesses. It does produce stalls, 1,314
+master clocks over the run, and it takes suite 1 from 36.9% to 39.8% and suite 15 from 54.3% to
+60.4%. It also takes suites 11 and 12 from 100% to 62.5% and the total from 6,552 down to 6,090.
+Slowing the blanked rate as well makes it worse again, 5,918 and 5,936.
+
+**And it was tried again with better numbers.** The blanked figure of 167 is the H32 one; H40 has
+205 external slots and 5 refresh slots against H32's 167 and 4. Splitting the two, so the rate
+follows the width, changes nothing at all: 6,090 again with the two-slot rule and 6,552 without, to
+the pixel. Halving the active-display slots to 9 and 8 raises suite 4 to 93.3% and suite 5 to 70.5%
+and still leaves the total at 6,142, below no FIFO at all, and suite 12 back at 62.5%.
+
+**What that says.** Every variant that stalls at all takes suites 11 and 12 from 100% to 62.5%, and
+both of those are register writes, which are control port traffic rather than data port traffic. So
+what a stall disturbs is *when* a register write lands relative to the line, and an evenly spread
+rate is the wrong shape for that: the real slots sit at particular points in the line and are absent
+through the sprite and pattern fetches, so a write arriving just before a cluster waits far less
+than one arriving just after, and averaging that out moves every write by the wrong amount. The next
+attempt needs the slot positions within a line, not a slot rate. Until those are in hand a FIFO
+makes this emulator less accurate rather than more, and the figures worth carrying forward are
+that a VRAM access costs two slots where CRAM and VSRAM cost one, that a blanked line offers 205
+external slots in H40 and 167 in H32 beside 5 and 4 refresh slots, that an active line offers 16 to
+20 in H40 and 16 to 18 in H32, and that **the largest gap between consecutive external slots is 26
+slots wide**. That last figure is the one that says an average cannot work, and it is also the check
+a positional model can be held to once the positions are found: they are in Nemesis' timing diagrams
+on SpritesMind, published as images rather than as text, which is why they are not here yet.
+
 **Where this stands.** Page one is 60.9% of its result rows and page two 83.2%, from 42.5% and
 72.9% when the ROM arrived. By the ROM's own count page one now passes **1 of its 9** suites, up
 from none: suite 2, the separate read and write buffers. On page two suite 13, register writes

@@ -130,7 +130,8 @@ final class Vdp {
 
 	public function writeControl(value:Int):Void {
 		if (!pending && (value & 0xC000) == 0x8000) {
-			registers[(value >> 8) & 0x1F] = value & 0xFF;
+			final index = (value >> 8) & 0x1F;
+			if (index < 11 || (registers[1] & 0x04) != 0) registers[index] = value & 0xFF;
 			code = code & 0x3C;
 			return;
 		}

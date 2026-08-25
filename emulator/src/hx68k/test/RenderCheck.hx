@@ -51,7 +51,7 @@ class RenderCheck {
 	static function setup():Vdp {
 		final vdp = new Vdp(new Empty());
 
-		register(vdp, 1, 0x40);
+		register(vdp, 1, 0x44);
 		register(vdp, 12, 0x81);
 		register(vdp, 2, PLANE_A >> 10);
 		register(vdp, 4, PLANE_B >> 13);
