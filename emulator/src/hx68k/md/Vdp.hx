@@ -33,6 +33,7 @@ final class Vdp {
 	final memory:Memory;
 
 	var dot:Int = 0;
+	var next:Int = ACTIVE_TICKS;
 	var address:Int = 0;
 	var code:Int = 0;
 	var pending:Bool = false;
@@ -57,6 +58,7 @@ final class Vdp {
 		line = 0;
 		frame = 0;
 		dot = 0;
+		next = ACTIVE_TICKS;
 		address = 0;
 		code = 0;
 		pending = false;
@@ -70,17 +72,23 @@ final class Vdp {
 
 	public inline function tick(master:Int):Void {
 		dot += master;
-		if (dot >= MASTER_PER_LINE) lines();
+		if (dot >= next) events();
 	}
 
-	function lines():Void {
-		while (dot >= MASTER_PER_LINE) {
-			dot -= MASTER_PER_LINE;
-			nextLine();
+	function events():Void {
+		while (dot >= next) {
+			if (next == ACTIVE_TICKS) {
+				endOfDisplay();
+				next = MASTER_PER_LINE;
+			} else {
+				dot -= MASTER_PER_LINE;
+				endOfLine();
+				next = ACTIVE_TICKS;
+			}
 		}
 	}
 
-	function nextLine():Void {
+	function endOfDisplay():Void {
 		if (rendering && line < ACTIVE_LINES) renderer.line(this, line);
 
 		if (line <= ACTIVE_LINES) {
@@ -93,7 +101,9 @@ final class Vdp {
 		} else {
 			hintCounter = registers[10];
 		}
+	}
 
+	function endOfLine():Void {
 		line++;
 		if (line == ACTIVE_LINES) vint = true;
 		if (line >= LINES_NTSC) {

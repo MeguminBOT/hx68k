@@ -160,6 +160,7 @@ class Savestate {
 		vdp.line = input.readInt32();
 		vdp.frame = input.readInt32();
 		vdp.dot = input.readInt32();
+		vdp.next = vdp.dot < Vdp.ACTIVE_TICKS ? Vdp.ACTIVE_TICKS : Vdp.MASTER_PER_LINE;
 		vdp.address = input.readInt32();
 		vdp.code = input.readInt32();
 		vdp.hintCounter = input.readInt32();
