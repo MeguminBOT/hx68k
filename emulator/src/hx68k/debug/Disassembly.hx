@@ -22,13 +22,17 @@ class Disassembly implements View {
 		final out = new Array<Row>();
 		var at = debugger.at();
 
+		if (debugger.map == null) {
+			out.push(Row.said("no source map loaded, so these are addresses rather than Haxe"));
+		}
+
 		for (i in 0...limit) {
 			final instruction = disassembler.at(at);
 			final place = debugger.map == null ? null : debugger.map.resolve(at);
 
-			final site = place == null
-				? names.at(at)
-				: haxe.io.Path.withoutDirectory(place.file) + ":" + place.line;
+			final site = place != null
+				? haxe.io.Path.withoutDirectory(place.file) + ":" + place.line
+				: (debugger.map == null ? "" : names.at(at));
 
 			final space = instruction.text.indexOf(" ");
 			final what = space < 0 ? instruction.text : instruction.text.substr(0, space);

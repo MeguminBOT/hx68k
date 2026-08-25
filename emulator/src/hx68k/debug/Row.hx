@@ -47,7 +47,7 @@ class Row {
 
 	public function toString():String {
 		final out = new Array<String>();
-		for (one in parts) out.push(one.text);
+		for (one in parts) if (one.text != "") out.push(one.text);
 		return out.join("  ");
 	}
 }
