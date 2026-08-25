@@ -8,21 +8,17 @@
 # arrows, z x c, return, space, escape
 #
 set -e
-HERE="$(cd "$(dirname "$0")" && pwd)"
 
-# the ROM is resolved against where this was called from, before moving to where it is built
+# the ROM is resolved against where this was called from, before moving to the repository root
 ROM=""
 if [ -n "${1:-}" ]; then
 	ROM="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 fi
 
-"$HERE/build.sh" > /dev/null
-
-cd "$HERE"
-BUILT="bin/window/hx68k.exe"
+cd "$(cd "$(dirname "$0")" && pwd)/.."
 
 if [ -z "$ROM" ]; then
-	exec "./$BUILT"
+	exec haxelib run hx68k run
 fi
 
-exec "./$BUILT" "$ROM"
+exec haxelib run hx68k run "$ROM"

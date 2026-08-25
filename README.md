@@ -27,10 +27,17 @@ haxelib run hx68k check             what is present and what is missing
 Then:
 
 ```
+haxelib run hx68k build                    the emulator window
+haxelib run hx68k run <rom.bin>            build it and run a ROM in it
+haxelib run hx68k list                     every target and where it is put
 ./tests/run.sh                             the gate
 cd samples/spike && ./build.sh             Haxe to a ROM
-./emulator/run-window.sh <rom.bin>         the machine in a window
 ```
+
+`build` takes target names, so `haxelib run hx68k build sst z80 opn` builds those three and
+`build --all` builds all twenty-one. `--debug` carries debug information through. The shell scripts
+`emulator/build.sh` and `emulator/run-window.sh` call the same thing, so the SDL3 and miniaudio
+paths live in one place.
 
 Requires Haxe 4.3+, `git` and `curl`, and for now a JVM: SGDK pads and checksums every ROM with a
 `.jar`, and compiles images and music with another. Removing that is on the list below. The m68k
