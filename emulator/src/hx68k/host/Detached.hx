@@ -1,34 +1,30 @@
 package hx68k.host;
 
 import hx68k.debug.View;
-import lime.app.Application;
-import lime.graphics.RenderContext;
-import lime.ui.Window;
+import hx68k.host.sdl.Sdl;
+import hx68k.host.sdl.Window;
+import hx68k.host.sdl.Renderer;
 
+@:unreflective
 class Detached {
 	public final view:View;
-	public final window:Window;
+	public final id:Int;
 
 	public var closed(default, null):Bool = false;
 
-	final path:String;
+	final window:cpp.Star<Window>;
+	final renderer:cpp.Star<Renderer>;
+	final paint:Paint;
 
-	var paint:Null<Paint> = null;
 	var said:Array<hx68k.debug.Row> = [];
 
-	public function new(application:Application, view:View, path:String) {
+	public function new(view:View) {
 		this.view = view;
-		this.path = path;
 
-		window = application.createWindow({
-			title: "hx68k  " + view.title(),
-			width: 560,
-			height: 420,
-			resizable: true
-		});
-
-		window.onRender.add(draw);
-		window.onClose.add(() -> closed = true);
+		window = Sdl.createWindow("hx68k  " + view.title(), 560, 420);
+		id = Sdl.windowID(window);
+		renderer = Sdl.createRenderer(window, 0);
+		paint = Paint.on(renderer, Font.on(renderer));
 	}
 
 	public function say(rows:Array<hx68k.debug.Row>):Void {
@@ -36,19 +32,17 @@ class Detached {
 	}
 
 	public function shut():Void {
-		if (!closed) window.close();
+		if (!closed) {
+			Sdl.destroyRenderer(renderer);
+			Sdl.destroyWindow(window);
+		}
 		closed = true;
 	}
 
-	function draw(context:RenderContext):Void {
-		final gl = context.webgl;
-		if (gl == null || closed) return;
+	public function draw():Void {
+		if (closed) return;
 
-		if (paint == null) paint = new Paint(gl, new Font(gl, path, 14));
-
-		gl.viewport(0, 0, window.width, window.height);
-		gl.clearColor(0.08, 0.09, 0.11, 1);
-		gl.clear(gl.COLOR_BUFFER_BIT);
+		Sdl.renderClear(renderer, 0.08, 0.09, 0.11, 1);
 
 		final step = paint.font.height;
 		var y = step * 1.5;
@@ -56,12 +50,15 @@ class Detached {
 		paint.text(view.title(), 10, y, Ui.DIM);
 		y += step;
 
+		final height = Sdl.windowHeight(window);
+
 		for (row in said) {
 			y += step;
-			if (y > window.height - 4) break;
+			if (y > height - 4) break;
 			paint.text(row.toString(), 10, y, Ui.INK);
 		}
 
-		paint.flush(window.width, window.height);
+		paint.flush();
+		Sdl.renderPresent(renderer);
 	}
 }

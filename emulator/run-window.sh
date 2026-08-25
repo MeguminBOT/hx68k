@@ -19,7 +19,7 @@ fi
 "$HERE/build.sh" > /dev/null
 
 cd "$HERE"
-BUILT="bin/window/windows/bin/hx68k.exe"
+BUILT="bin/window/hx68k.exe"
 
 if [ -z "$ROM" ]; then
 	exec "./$BUILT"

@@ -1,147 +1,85 @@
 package hx68k.host;
 
-import lime.graphics.WebGLRenderContext;
-import lime.graphics.opengl.GLTexture;
-import lime.utils.UInt8Array;
+import hx68k.host.sdl.Sdl;
+import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Texture;
 
-typedef Cell = {
-	var u:Float;
-	var v:Float;
-	var width:Float;
-	var height:Float;
-	var bearingX:Float;
-	var bearingY:Float;
-	var advance:Float;
-}
-
+@:unreflective
 class Font {
-	static inline final FIRST = 32;
-	static inline final LAST = 126;
-	static inline final SIDE = 512;
+	static inline final SCALE = 2;
+	static inline final CELL_WIDTH = Glyphs.WIDTH * SCALE;
+	static inline final CELL_HEIGHT = Glyphs.HEIGHT * SCALE;
+	static inline final ASCENT = 12 * SCALE;
+	static inline final GLYPHS = Glyphs.LAST - Glyphs.FIRST + 1;
+	static inline final SOLID_COLUMN = GLYPHS;
 
-	public final height:Int;
-	public final advance:Float;
-	public final texture:GLTexture;
-	public final solid:Cell;
+	public final height:Int = CELL_HEIGHT;
+	public final advance:Float = CELL_WIDTH;
+	public final ascent:Float = ASCENT;
 
-	public var atlasWidth(default, null):Float = SIDE;
-	public var atlasHeight(default, null):Float = SIDE;
+	public final atlasWidth:Float = (GLYPHS + 1) * CELL_WIDTH;
+	public final atlasHeight:Float = CELL_HEIGHT;
 
-	final gl:WebGLRenderContext;
-	final cells:Map<Int, Cell> = [];
+	public final solidU:Float = SOLID_COLUMN * CELL_WIDTH + CELL_WIDTH * 0.5;
+	public final solidV:Float = CELL_HEIGHT * 0.5;
 
-	public function new(gl:WebGLRenderContext, path:String, size:Int) {
-		this.gl = gl;
+	public var texture(default, null):cpp.Star<Texture>;
 
-		final font = lime.text.Font.fromFile(path);
-		if (font == null) throw "no font at " + path;
+	function new() {}
 
-		final images:Map<Int, lime.graphics.Image> = [];
-		var widest = 0.0;
-		var tallest = 0;
+	public static function on(renderer:cpp.Star<Renderer>):Font {
+		final font = new Font();
+		final width = (GLYPHS + 1) * CELL_WIDTH;
+		final height = CELL_HEIGHT;
+		final pixels = new Array<cpp.UInt8>();
+		for (i in 0...width * height * 4) pixels[i] = 0;
 
-		for (code in FIRST...LAST + 1) {
-			final glyph = font.getGlyph(String.fromCharCode(code));
-			final image = font.renderGlyph(glyph, size);
+		for (code in Glyphs.FIRST...Glyphs.LAST + 1) shelve(pixels, width, code - Glyphs.FIRST, code);
+		fillSolid(pixels, width);
 
-			final step = font.getGlyphMetrics(glyph).advance.x / 64.0;
-			if (step > widest) widest = step;
-
-			if (image != null) {
-				images.set(code, image);
-				if (image.height > tallest) tallest = image.height;
-			}
-
-			cells.set(code, {
-				u: 0, v: 0,
-				width: image == null ? 0 : image.width,
-				height: image == null ? 0 : image.height,
-				bearingX: image == null ? 0 : image.x,
-				bearingY: image == null ? 0 : image.y,
-				advance: step
-			});
-		}
-
-		this.advance = widest;
-		this.height = Std.int(size * 1.35);
-		this.solid = {
-			u: SIDE - 4, v: SIDE - 4, width: 2, height: 2,
-			bearingX: 0, bearingY: 0, advance: 0
-		};
-		this.texture = shelve(images, tallest);
+		font.texture = Sdl.createTexture(renderer, width, height);
+		Sdl.updateTexture(font.texture, cpp.Pointer.ofArray(pixels).raw, width, height);
+		return font;
 	}
 
-	public function cellOf(code:Int):Null<Cell> {
-		return cells.get(code);
+	public inline function cellOf(code:Int):Float {
+		final index = code >= Glyphs.FIRST && code <= Glyphs.LAST ? code - Glyphs.FIRST : 0;
+		return index * CELL_WIDTH;
 	}
 
-	public function measure(text:String):Float {
-		var total = 0.0;
-		for (i in 0...text.length) {
-			final cell = cells.get(text.charCodeAt(i));
-			if (cell != null) total += cell.advance;
-		}
-		return total;
+	public inline function measure(text:String):Float {
+		return text.length * advance;
 	}
 
-	function shelve(images:Map<Int, lime.graphics.Image>, tallest:Int):GLTexture {
-		final pixels = new UInt8Array(SIDE * SIDE * 4);
-		for (i in 0...pixels.length) pixels[i] = 0;
+	static function shelve(pixels:Array<cpp.UInt8>, atlasWidth:Int, column:Int, code:Int):Void {
+		final rows = Glyphs.of(code);
+		final atX = column * CELL_WIDTH;
 
-		var penX = 0;
-		var penY = 0;
+		for (row in 0...Glyphs.HEIGHT) {
+			final byte = rows.get(row);
+			for (col in 0...Glyphs.WIDTH) {
+				final on = (byte & (0x80 >> col)) != 0;
+				if (!on) continue;
 
-		for (code in FIRST...LAST + 1) {
-			final image = images.get(code);
-			final cell = cells.get(code);
-			if (image == null || cell == null || image.width == 0) continue;
-
-			if (penX + image.width >= SIDE) {
-				penX = 0;
-				penY += tallest + 1;
-			}
-
-			cell.u = penX;
-			cell.v = penY;
-			blit(pixels, image, penX, penY);
-			penX += image.width + 1;
-		}
-
-		if (penY + tallest >= SIDE - 8) throw "the glyphs did not fit the atlas at this size";
-
-		for (y in 0...2) {
-			for (x in 0...2) {
-				final at = ((Std.int(solid.v) + y) * SIDE + Std.int(solid.u) + x) * 4;
-				pixels[at] = 0xFF;
-				pixels[at + 1] = 0xFF;
-				pixels[at + 2] = 0xFF;
-				pixels[at + 3] = 0xFF;
+				for (dy in 0...SCALE) for (dx in 0...SCALE) {
+					final x = atX + col * SCALE + dx;
+					final y = row * SCALE + dy;
+					paint(pixels, atlasWidth, x, y);
+				}
 			}
 		}
-
-		final made = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, made);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, SIDE, SIDE, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-		return made;
 	}
 
-	function blit(pixels:UInt8Array, image:lime.graphics.Image, atX:Int, atY:Int):Void {
-		final data = image.buffer.data;
+	static function fillSolid(pixels:Array<cpp.UInt8>, atlasWidth:Int):Void {
+		final atX = SOLID_COLUMN * CELL_WIDTH;
+		for (y in 0...CELL_HEIGHT) for (x in 0...CELL_WIDTH) paint(pixels, atlasWidth, atX + x, y);
+	}
 
-		for (y in 0...image.height) {
-			for (x in 0...image.width) {
-				final from = (y * image.width + x) * 4;
-				final to = ((atY + y) * SIDE + atX + x) * 4;
-				pixels[to] = data[from];
-				pixels[to + 1] = data[from + 1];
-				pixels[to + 2] = data[from + 2];
-				pixels[to + 3] = data[from + 3];
-			}
-		}
+	static inline function paint(pixels:Array<cpp.UInt8>, atlasWidth:Int, x:Int, y:Int):Void {
+		final at = (y * atlasWidth + x) * 4;
+		pixels[at] = 255;
+		pixels[at + 1] = 255;
+		pixels[at + 2] = 255;
+		pixels[at + 3] = 255;
 	}
 }

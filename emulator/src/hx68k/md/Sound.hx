@@ -11,9 +11,9 @@ final class Sound {
 
 	static inline final PER_FM = 1008;
 
-	static inline final WANTED = 2048;
+	public static inline final WANTED = 3072;
 
-	static inline final BEND = 0.02;
+	static inline final BEND = 0.005;
 
 	static inline final COUPLING = 0.9975;
 
@@ -143,10 +143,6 @@ final class Sound {
 	public function steerBy(much:Float):Void {
 		bend = much;
 		perMaster = RATE * bend / Vdp.MASTER_HZ;
-	}
-
-	public inline function short():Bool {
-		return (waiting > held ? waiting : held) < WANTED;
 	}
 
 	public function steer(downstream:Int):Void {

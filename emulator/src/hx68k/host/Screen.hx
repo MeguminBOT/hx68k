@@ -1,92 +1,45 @@
 package hx68k.host;
 
-import hx68k.md.Renderer;
-import lime.graphics.WebGLRenderContext;
-import lime.graphics.opengl.GLBuffer;
-import lime.graphics.opengl.GLProgram;
-import lime.graphics.opengl.GLTexture;
-import lime.utils.Float32Array;
-import lime.utils.UInt8Array;
+import hx68k.host.sdl.Sdl;
+import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Texture;
+import hx68k.md.Renderer as MdRenderer;
 
+@:unreflective
 class Screen {
-	static inline final VERTEX = "
-		attribute vec2 corner;
-		varying vec2 uv;
-		void main() {
-			uv = corner * vec2(0.5, -0.5) + 0.5;
-			gl_Position = vec4(corner, 0.0, 1.0);
-		}
-	";
+	var texture:cpp.Star<Texture>;
 
-	static inline final FRAGMENT = "
-		varying vec2 uv;
-		uniform sampler2D frame;
-		uniform float rows;
-		void main() {
-			gl_FragColor = texture2D(frame, vec2(uv.x, uv.y * rows));
-		}
-	";
+	final upload:Array<cpp.UInt8> = new Array<cpp.UInt8>();
 
-	final gl:WebGLRenderContext;
-	final texture:GLTexture;
-	final program:GLProgram;
-	final quad:GLBuffer;
-	final corner:Int;
-	final rows:Int;
-	final upload:UInt8Array = new UInt8Array(Renderer.MAX_WIDTH * Renderer.MAX_HEIGHT * 4);
+	function new() {}
 
-	public function new(gl:WebGLRenderContext) {
-		this.gl = gl;
-
-		program = Shader.link(gl, VERTEX, FRAGMENT);
-		corner = gl.getAttribLocation(program, "corner");
-		rows = gl.getUniformLocation(program, "rows");
-
-		quad = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-			-1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
-			-1.0, 1.0, 1.0, -1.0, 1.0, 1.0
-		]), gl.STATIC_DRAW);
-
-		texture = gl.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, Renderer.MAX_WIDTH, Renderer.MAX_HEIGHT, 0,
-			gl.RGBA, gl.UNSIGNED_BYTE, null);
+	public static function on(renderer:cpp.Star<Renderer>):Screen {
+		final screen = new Screen();
+		screen.texture = Sdl.createTexture(renderer, MdRenderer.MAX_WIDTH, MdRenderer.MAX_HEIGHT);
+		for (i in 0...MdRenderer.MAX_WIDTH * MdRenderer.MAX_HEIGHT * 4) screen.upload[i] = 0;
+		return screen;
 	}
 
-	public function draw(renderer:Renderer, atX:Int, atY:Int, width:Int, height:Int):Void {
+	public function draw(sdlRenderer:cpp.Star<Renderer>, renderer:MdRenderer, atX:Int, atY:Int,
+			width:Int, height:Int):Void {
 		fill(renderer);
-
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, Renderer.MAX_WIDTH, Renderer.MAX_HEIGHT,
-			gl.RGBA, gl.UNSIGNED_BYTE, upload);
+		Sdl.updateTexture(texture, cpp.Pointer.ofArray(upload).raw, MdRenderer.MAX_WIDTH, MdRenderer.MAX_HEIGHT);
 
 		final scale = Std.int(Math.min(width * 3, height * 4));
 		final shown = Std.int(scale / 3);
 		final tall = Std.int(scale / 4);
+		final dstX = atX + Std.int((width - shown) / 2);
+		final dstY = atY + Std.int((height - tall) / 2);
 
-		gl.viewport(atX + Std.int((width - shown) / 2), atY + Std.int((height - tall) / 2), shown, tall);
-
-		gl.useProgram(program);
-		gl.uniform1f(rows, renderer.height / Renderer.MAX_HEIGHT);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-		gl.enableVertexAttribArray(corner);
-		gl.vertexAttribPointer(corner, 2, gl.FLOAT, false, 0, 0);
-		gl.drawArrays(gl.TRIANGLES, 0, 6);
-		gl.disableVertexAttribArray(corner);
+		Sdl.renderTextureRegion(sdlRenderer, texture, MdRenderer.MAX_WIDTH, renderer.height,
+			dstX, dstY, shown, tall);
 	}
 
-	function fill(renderer:Renderer):Void {
+	function fill(renderer:MdRenderer):Void {
 		final pixels = renderer.pixels;
 		var at = 0;
 
-		for (i in 0...Renderer.MAX_WIDTH * Renderer.MAX_HEIGHT) {
+		for (i in 0...MdRenderer.MAX_WIDTH * MdRenderer.MAX_HEIGHT) {
 			final pixel = pixels[i];
 			upload[at++] = (pixel >> 16) & 0xFF;
 			upload[at++] = (pixel >> 8) & 0xFF;

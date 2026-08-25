@@ -2,77 +2,64 @@ package hx68k.host;
 
 import haxe.ds.Vector;
 import hx68k.md.Sound;
-import lime.media.openal.AL;
-import lime.media.openal.ALBuffer;
-import lime.media.openal.ALSource;
-import lime.utils.Int16Array;
 
 class Speaker {
-	public static inline final CHUNK = 256;
-
-	static inline final BUFFERS = 14;
+	static inline final CHUNK = 256;
 
 	static inline final GAIN = 21;
 
 	public var playing(default, null):Bool = false;
 
-	public var starved(default, null):Int = 0;
-
-	public var queued(default, null):Int = 0;
-
-	final source:ALSource;
-	final spare:Array<ALBuffer> = [];
 	final taken:Vector<Int> = new Vector<Int>(CHUNK * 2);
-	final shaped:Int16Array = new Int16Array(CHUNK * 2);
+	final shaped:Array<cpp.Int16> = new Array<cpp.Int16>();
 
 	public function new() {
-		source = AL.createSource();
-		for (buffer in AL.genBuffers(BUFFERS)) spare.push(buffer);
+		for (i in 0...CHUNK * 2) shaped[i] = 0;
+		playing = Audio.start(Sound.RATE) != 0;
+	}
+
+	public var starved(get, never):Int;
+
+	inline function get_starved():Int {
+		return Audio.starved();
 	}
 
 	public function feed(sound:Sound):Void {
-		recover();
+		if (!playing) return;
 
-		while (spare.length > 0 && sound.ready() >= CHUNK) {
+		while (sound.ready() >= CHUNK) {
 			final got = sound.take(taken, CHUNK);
 			if (got < CHUNK) break;
 
 			for (i in 0...CHUNK * 2) shaped[i] = clamp(taken[i]);
 
-			final buffer = spare.pop();
-			AL.bufferData(buffer, AL.FORMAT_STEREO16, shaped, CHUNK * 4, Sound.RATE);
-			AL.sourceQueueBuffer(source, buffer);
+			var pushed = 0;
+			while (pushed < CHUNK) {
+				final at = cpp.Pointer.ofArray(shaped).add(pushed * 2).raw;
+				final took = Audio.push(at, CHUNK - pushed);
+				if (took == 0) break;
+				pushed += took;
+			}
 		}
 
-		queued = AL.getSourcei(source, AL.BUFFERS_QUEUED);
-
-		sound.steer(queued * CHUNK);
-
-		if (queued == 0) return;
-
-		final state:Int = AL.getSourcei(source, AL.SOURCE_STATE);
-		if (state == AL.PLAYING) return;
-
-		if (playing) starved++;
-		AL.sourcePlay(source);
-		playing = true;
-	}
-
-	function recover():Void {
-		final done:Int = AL.getSourcei(source, AL.BUFFERS_PROCESSED);
-		if (done <= 0) return;
-
-		for (buffer in AL.sourceUnqueueBuffers(source, done)) spare.push(buffer);
+		sound.steer(Audio.queued());
 	}
 
 	public function silence():Void {
-		AL.sourceStop(source);
-		recover();
+		Audio.clear();
+	}
+
+	public function stop():Void {
+		Audio.stop();
 		playing = false;
 	}
 
+	public function queued():Int {
+		return Audio.queued();
+	}
+
 	public function delay():Int {
-		return Std.int(1000 * queued * CHUNK / Sound.RATE);
+		return Std.int(1000 * queued() / Sound.RATE);
 	}
 
 	static inline function clamp(sample:Int):Int {

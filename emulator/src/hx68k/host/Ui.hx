@@ -159,7 +159,6 @@ class Ui {
 		width = wide;
 		height = high;
 		tall = Std.int(high);
-		paint.knows(Std.int(wide));
 
 		for (panel in arrangement) if (panel.docked == Loose && panel.y < reserved) panel.y = reserved;
 		dock();

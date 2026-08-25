@@ -1,6 +1,10 @@
 package hx68k.host;
 
 import hx68k.host.Panel.Dock;
+import hx68k.host.sdl.Sdl;
+import hx68k.host.sdl.Window;
+import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.HostEvent;
 import hx68k.debug.Debugger;
 import hx68k.map.Elf;
 import hx68k.map.SourceMap;
@@ -8,15 +12,8 @@ import hx68k.debug.View;
 import hx68k.debug.Views;
 import hx68k.md.Machine;
 import hx68k.md.Vdp;
-import lime.app.Application;
-import lime.graphics.RenderContext;
-import lime.ui.KeyCode;
-import lime.ui.KeyModifier;
-import lime.ui.FileDialog;
-import lime.ui.FileDialogType;
-import lime.ui.MouseButton;
 
-class Console extends Application {
+class Console {
 	static inline final PAD_UP = 0x01;
 	static inline final PAD_DOWN = 0x02;
 	static inline final PAD_LEFT = 0x04;
@@ -26,11 +23,23 @@ class Console extends Application {
 	static inline final PAD_A = 0x40;
 	static inline final PAD_START = 0x80;
 
+	static inline final KEY_RETURN = 0x0000000d;
+	static inline final KEY_ESCAPE = 0x0000001b;
+	static inline final KEY_TAB = 0x00000009;
+	static inline final KEY_SPACE = 0x00000020;
+	static inline final KEY_C = 0x00000063;
+	static inline final KEY_X = 0x00000078;
+	static inline final KEY_Z = 0x0000007a;
+	static inline final KEY_F10 = 0x40000043;
+	static inline final KEY_F11 = 0x40000044;
+	static inline final KEY_RIGHT = 0x4000004f;
+	static inline final KEY_LEFT = 0x40000050;
+	static inline final KEY_DOWN = 0x40000051;
+	static inline final KEY_UP = 0x40000052;
+
 	static inline final CATCH_UP = 4;
 
 	static inline final BACKLOG = 12;
-
-	static inline final LEAD = 2;
 
 	static inline final REBUILD = 0.1;
 
@@ -38,12 +47,22 @@ class Console extends Application {
 
 	static inline final SCREEN = "screen";
 
+	static inline final NATIVE = Vdp.MASTER_HZ / (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC);
+
+	static inline final SPIN = 0.0015;
+
 	final machine:Machine = new Machine();
 
 	var views:Array<View> = [];
 	var debugger:Null<Debugger> = null;
 	var apart:Map<String, Detached> = [];
 	var said:Map<String, Array<hx68k.debug.Row>> = [];
+
+	var window:cpp.Star<Window>;
+	var renderer:cpp.Star<Renderer>;
+	var windowID:Int;
+	var width:Int = 960;
+	var height:Int = 672;
 
 	var screen:Null<Screen> = null;
 	var speaker:Null<Speaker> = null;
@@ -54,10 +73,10 @@ class Console extends Application {
 	var paused:Bool = false;
 	var unlimited:Bool = false;
 	var quiet:Bool = false;
+	var running:Bool = true;
 
 	var frames:Int = 0;
 	var since:Float = 0;
-	var owed:Float = 0;
 	var last:Float = -1;
 	var madeLast:Int = 0;
 	var perSecond:Int = 0;
@@ -81,25 +100,80 @@ class Console extends Application {
 	var emulating:Float = 0;
 	var drawing:Float = 0;
 
-	public function new() {
-		super();
+	var due:Float = -1;
+
+	public function new() {}
+
+	static function main():Void {
+		final console = new Console();
+		console.run();
 	}
 
-	override function onWindowCreate():Void {
+	function run():Void {
+		Native.init();
+
+		if (Sdl.init() == 0) {
+			Sys.println("SDL failed to start");
+			Sys.exit(1);
+		}
+
+		Clock.fine();
+
 		final rom = romPath();
 
-		since = haxe.Timer.stamp();
+		window = Sdl.createWindow("hx68k", width, height);
+		if (window == null) {
+			Sys.println("the window failed to open");
+			Sys.exit(1);
+		}
+		windowID = Sdl.windowID(window);
+
+		renderer = Sdl.createRenderer(window, 0);
+		if (renderer == null) {
+			Sys.println("the renderer failed to create");
+			Sys.exit(1);
+		}
+
+		final refresh:Float = Sdl.displayRefresh(window);
+		final interval = Sdl.rendererVsync(renderer);
+		Sys.println("drawing through " + Std.string(Sdl.rendererName(renderer))
+			+ ", swap interval " + interval + ", display " + Math.round(refresh * 100) / 100 + " Hz");
+		Sys.println("the machine runs at " + Math.round(NATIVE * 100) / 100
+			+ " Hz on its own clock, which is neither the display's nor the sound device's");
+
+		final font = Font.on(renderer);
+		screen = Screen.on(renderer);
+		paint = Paint.on(renderer, font);
+		ui = new Ui(paint);
+		since = Clock.stamp();
 
 		debugger = new Debugger(machine, map());
 		views = Views.of(debugger);
 		insert(rom);
+		arrange();
 
-		window.onRender.add(drawMain);
-		window.title = "hx68k  " + haxe.io.Path.withoutDirectory(rom);
+		setTitle(rom);
 		Sys.println("escape quits, space pauses, tab runs it flat out, f10 and f11 step");
 		Sys.println(debugger.map == null
 			? "no source map given, so the panels name addresses rather than Haxe"
 			: "source map loaded, so the panels name the Haxe behind an address");
+
+		while (running) {
+			pollEvents();
+			update();
+			draw();
+			forDetached();
+			idle();
+		}
+
+		if (speaker != null) speaker.stop();
+		Sdl.destroyRenderer(renderer);
+		Sdl.destroyWindow(window);
+		Sdl.quit();
+	}
+
+	function setTitle(rom:Null<String>):Void {
+		Sdl.setWindowTitle(window, "hx68k  " + (rom == null ? "no ROM" : haxe.io.Path.withoutDirectory(rom)));
 	}
 
 	function popOut(title:String):Void {
@@ -112,14 +186,14 @@ class Console extends Application {
 
 		for (view in views) {
 			if (view.title() != title) continue;
-			apart.set(title, new Detached(this, view, monospace()));
+			apart.set(title, new Detached(view));
 			return;
 		}
 	}
 
 	function insert(rom:Null<String>):Void {
 		if (rom == null || !sys.FileSystem.exists(rom)) {
-			window.title = "hx68k  no ROM";
+			setTitle(null);
 			return;
 		}
 
@@ -128,18 +202,17 @@ class Console extends Application {
 
 		if (speaker == null) speaker = new Speaker();
 		loaded = true;
-		owed = 0;
+		due = -1;
 		frames = 0;
 		rebuilt = 0;
 
-		window.title = "hx68k  " + haxe.io.Path.withoutDirectory(rom);
+		setTitle(rom);
 		Sys.println("running " + rom);
 	}
 
 	function choose():Void {
-		final dialog = new FileDialog();
-		dialog.onSelect.add(path -> insert(path));
-		dialog.browse(FileDialogType.OPEN, "bin,md,gen,smd", null, "Open a Mega Drive ROM");
+		final path = Sdl.openFileDialog(window, "Mega Drive ROM", "bin;md;gen;smd");
+		if (path != null) insert(path);
 	}
 
 	function map():Null<SourceMap> {
@@ -154,64 +227,52 @@ class Console extends Application {
 		}
 	}
 
-	override function update(deltaTime:Int):Void {
+	function update():Void {
 		if (!loaded) return;
 
-		final started = haxe.Timer.stamp();
+		final started = Clock.stamp();
 
-		final elapsed = last < 0 ? 0.0 : started - last;
 		last = started;
-
-		if (quiet && speaker != null && speaker.playing) speaker.silence();
 
 		if (!paused) {
 			final period = (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC) / Vdp.MASTER_HZ;
-			owed += elapsed;
-
-			final following = !unlimited && !quiet && speaker != null && speaker.playing;
+			if (due < 0) due = started;
 
 			var ran = 0;
-			while (ran < CATCH_UP) {
-				final owing = owed >= period;
-				final needed = following && owed > -period * LEAD && machine.sound.short();
-				if (!owing && !needed) break;
-
+			while (ran < CATCH_UP && started >= due) {
 				machine.runFrame();
-				owed -= period;
+				due += period;
 				frames++;
 				ran++;
 			}
 
-			if (owed > period * BACKLOG) {
-				gaveUp += owed - period * BACKLOG;
-				owed = period * BACKLOG;
+			if (started - due > period * BACKLOG) {
+				gaveUp += started - due - period * BACKLOG;
+				due = started - period * BACKLOG;
 			}
-
-			if (owed < -period * LEAD) owed = -period * LEAD;
 
 			if (unlimited) {
 				for (_ in 0...8) {
 					machine.runFrame();
 					frames++;
 				}
+				due = started;
 			}
 		}
 
 		if (speaker != null && !quiet) speaker.feed(machine.sound);
 
-		emulating = (haxe.Timer.stamp() - started) * 1000;
+		emulating = (Clock.stamp() - started) * 1000;
+		if (emulating > slowest) slowest = emulating;
 
-		final took = (haxe.Timer.stamp() - started) * 1000;
-		if (took > slowest) slowest = took;
-
-		final now = haxe.Timer.stamp();
+		final now = Clock.stamp();
 		if (now - since >= 1) {
-			frames = 0;
 			perSecond = machine.sound.made - madeLast;
 			madeLast = machine.sound.made;
 
 			final over = now - since;
 			exactly = frames / over;
+			frames = 0;
 			sixtyEight = share(machine.cycles - cyclesLast, Vdp.MASTER_HZ / 7, over);
 			eighty = share(machine.z80Bus.states - statesLast, Vdp.MASTER_HZ / 15, over);
 
@@ -229,43 +290,48 @@ class Console extends Application {
 		}
 	}
 
-	override function render(context:RenderContext):Void {}
+	function idle():Void {
+		if (!loaded || paused || unlimited || due < 0) return;
 
-	function drawMain(context:RenderContext):Void {
-		final gl = context.webgl;
-		if (gl == null) return;
+		final wait = due - Clock.stamp() - SPIN;
+		if (wait > 0) Sys.sleep(wait);
+		while (Clock.stamp() < due) {}
+	}
 
-		if (screen == null) {
-			screen = new Screen(gl);
-			paint = new Paint(gl, new Font(gl, monospace(), 14));
-			ui = new Ui(paint);
-			arrange();
-		}
-
-		final started = haxe.Timer.stamp();
+	function draw():Void {
 		if (loaded) rebuild();
 
-		gl.clearColor(0.04, 0.05, 0.06, 1);
-		gl.clear(gl.COLOR_BUFFER_BIT);
-		gl.viewport(0, 0, window.width, window.height);
+		Sdl.renderClear(renderer, 0.04, 0.05, 0.06, 1);
 
-		ui.begin(window.width, window.height);
+		ui.begin(width, height);
 		toolbar();
-		panels(gl);
+		panels();
 		ui.finish();
-		paint.flush(window.width, window.height);
 
-		drawing = (haxe.Timer.stamp() - started) * 1000;
+		final started = Clock.stamp();
+		Sdl.renderPresent(renderer);
+		drawing = (Clock.stamp() - started) * 1000;
+	}
+
+	function forDetached():Void {
+		for (title in apart.keys()) {
+			final window = apart.get(title);
+			if (window.closed) {
+				apart.remove(title);
+				continue;
+			}
+			window.draw();
+		}
 	}
 
 	function arrange():Void {
 		final top = ui.reserved + 8;
-		final column = Math.max(paint.font.advance * 46, window.width * 0.36);
-		final split = window.width - column - 12;
+		final column = Math.max(paint.font.advance * 46, width * 0.36);
+		final split = width - column - 12;
 
-		ui.offer(SCREEN, "screen", 8, top, split - 8, window.height - top - 8);
+		ui.offer(SCREEN, "screen", 8, top, split - 8, height - top - 8);
 
-		final each = (window.height - top - 8) / views.length;
+		final each = (height - top - 8) / views.length;
 		var y = top;
 
 		for (view in views) {
@@ -275,7 +341,7 @@ class Console extends Application {
 	}
 
 	function rebuild():Void {
-		final now = haxe.Timer.stamp();
+		final now = Clock.stamp();
 		if (now - rebuilt < REBUILD) return;
 		rebuilt = now;
 
@@ -331,10 +397,10 @@ class Console extends Application {
 			+ (machine.sound.lost > 0 ? ", " + machine.sound.lost + " lost" : "");
 	}
 
-	function panels(gl:lime.graphics.WebGLRenderContext):Void {
+	function panels():Void {
 		for (panel in ui.order()) {
 			if (panel.id == SCREEN) {
-				picture(gl, panel);
+				picture(panel);
 				continue;
 			}
 
@@ -350,7 +416,7 @@ class Console extends Application {
 		}
 	}
 
-	function picture(gl:lime.graphics.WebGLRenderContext, panel:Panel):Void {
+	function picture(panel:Panel):Void {
 		if (!ui.panel(panel.id)) return;
 
 		if (!loaded) {
@@ -364,43 +430,69 @@ class Console extends Application {
 
 		ui.done();
 
-		screen.draw(machine.vdp.renderer, Std.int(panel.x),
-			Std.int(window.height - panel.y - panel.height), Std.int(panel.width), Std.int(high));
-
-		gl.viewport(0, 0, window.width, window.height);
+		screen.draw(renderer, machine.vdp.renderer, Std.int(panel.x), Std.int(top),
+			Std.int(panel.width), Std.int(high));
 	}
 
 	static function round(value:Float):String {
 		return Std.string(Math.round(value * 100) / 100);
 	}
 
-	override function onMouseMove(x:Float, y:Float):Void {
-		if (ui != null) ui.moved(x, y);
+	function pollEvents():Void {
+		final event = new HostEvent();
+
+		while (Sdl.pollEvent(cpp.Pointer.addressOf(event).raw) != 0) {
+			if (event.windowID != windowID && event.windowID != 0) {
+				forwardToDetached(event);
+				continue;
+			}
+
+			switch (event.type) {
+				case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:
+					running = false;
+				case Sdl.EVENT_KEY_DOWN:
+					onKeyDown(event.code);
+				case Sdl.EVENT_KEY_UP:
+					press(event.code, false);
+				case Sdl.EVENT_MOUSE_MOVE:
+					if (ui != null) ui.moved(event.x, event.y);
+				case Sdl.EVENT_MOUSE_DOWN:
+					if (ui != null) {
+						ui.moved(event.x, event.y);
+						ui.button(true);
+					}
+				case Sdl.EVENT_MOUSE_UP:
+					if (ui != null) {
+						ui.moved(event.x, event.y);
+						ui.button(false);
+					}
+				case Sdl.EVENT_MOUSE_WHEEL:
+					if (ui != null) ui.turn(event.y);
+				case Sdl.EVENT_WINDOW_RESIZED:
+					width = event.code;
+					height = event.value;
+				case _:
+			}
+		}
 	}
 
-	override function onMouseWheel(deltaX:Float, deltaY:Float, mode:lime.ui.MouseWheelMode):Void {
-		if (ui != null) ui.turn(deltaY);
+	function forwardToDetached(event:HostEvent):Void {
+		for (title in apart.keys()) {
+			final window = apart.get(title);
+			if (window.id != event.windowID) continue;
+
+			if (event.type == Sdl.EVENT_QUIT || event.type == Sdl.EVENT_WINDOW_CLOSE) window.shut();
+			return;
+		}
 	}
 
-	override function onMouseDown(x:Float, y:Float, button:MouseButton):Void {
-		if (ui == null) return;
-		ui.moved(x, y);
-		ui.button(true);
-	}
-
-	override function onMouseUp(x:Float, y:Float, button:MouseButton):Void {
-		if (ui == null) return;
-		ui.moved(x, y);
-		ui.button(false);
-	}
-
-	override function onKeyDown(code:KeyCode, modifier:KeyModifier):Void {
+	function onKeyDown(code:Int):Void {
 		switch (code) {
-			case ESCAPE: window.close();
-			case SPACE: paused = !paused;
-			case TAB: unlimited = !unlimited;
-			case F10: step(false);
-			case F11: step(true);
+			case KEY_ESCAPE: running = false;
+			case KEY_SPACE: paused = !paused;
+			case KEY_TAB: unlimited = !unlimited;
+			case KEY_F10: step(false);
+			case KEY_F11: step(true);
 			case _: press(code, true);
 		}
 	}
@@ -414,37 +506,21 @@ class Console extends Application {
 		rebuilt = NOW;
 	}
 
-	override function onKeyUp(code:KeyCode, modifier:KeyModifier):Void {
-		press(code, false);
-	}
-
-	function press(code:KeyCode, held:Bool):Void {
+	function press(code:Int, held:Bool):Void {
 		final button = switch (code) {
-			case UP: PAD_UP;
-			case DOWN: PAD_DOWN;
-			case LEFT: PAD_LEFT;
-			case RIGHT: PAD_RIGHT;
-			case Z: PAD_A;
-			case X: PAD_B;
-			case C: PAD_C;
-			case RETURN: PAD_START;
+			case KEY_UP: PAD_UP;
+			case KEY_DOWN: PAD_DOWN;
+			case KEY_LEFT: PAD_LEFT;
+			case KEY_RIGHT: PAD_RIGHT;
+			case KEY_Z: PAD_A;
+			case KEY_X: PAD_B;
+			case KEY_C: PAD_C;
+			case KEY_RETURN: PAD_START;
 			case _: 0;
 		}
 
 		if (button == 0) return;
 		machine.buttons[0] = held ? machine.buttons[0] | button : machine.buttons[0] & ~button;
-	}
-
-	static function monospace():String {
-		final candidates = [
-			"C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/lucon.ttf", "C:/Windows/Fonts/cour.ttf",
-			"/System/Library/Fonts/Menlo.ttc", "/Library/Fonts/Courier New.ttf",
-			"/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-			"/usr/share/fonts/TTF/DejaVuSansMono.ttf"
-		];
-
-		for (path in candidates) if (sys.FileSystem.exists(path)) return path;
-		throw "no monospace font found in any of: " + candidates.join(", ");
 	}
 
 	function romPath():Null<String> {

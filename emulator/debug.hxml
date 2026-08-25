@@ -3,8 +3,7 @@
 #
 #     haxe debug.hxml
 #
-# Nothing reachable from here imports lime, and there is no display library on this classpath to
-# import. If anything under hx68k.debug, hx68k.md, hx68k.cpu or hx68k.map ever grows a dependency
+# Nothing reachable from here imports SDL, and this build links no native code at all. If anything under hx68k.debug, hx68k.md, hx68k.cpu or hx68k.map ever grows a dependency
 # on one, this build stops compiling, which is what makes the separation checkable rather than
 # aspirational. hx68k.host is the only package allowed to know what a window is.
 
