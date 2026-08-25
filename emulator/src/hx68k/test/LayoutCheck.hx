@@ -172,8 +172,17 @@ class LayoutCheck {
 
 		final written = layout.save();
 
-		final again = board();
-		seed(again, FLOOR_WIDE, FLOOR_HIGH, metrics);
+		final again = new Array<Group>();
+		for (group in groups) {
+			final copy = new Group(group.id);
+			for (member in group.members) copy.add(member);
+			copy.x = group.x;
+			copy.y = group.y;
+			copy.width = group.width;
+			copy.height = group.height;
+			again.push(copy);
+		}
+
 		layout.load(written, again);
 		layout.place(again, FLOOR_WIDE, FLOOR_HIGH, metrics);
 

@@ -255,6 +255,15 @@ class Ui {
 		return panel == null ? 0 : roomDown(panel);
 	}
 
+	public function columnGapOf():Float {
+		return columnGap;
+	}
+
+	public function reachOf(id:String):Float {
+		final panel = panels.get(id);
+		return panel == null ? 0 : panel.reach;
+	}
+
 	public function scrollsDown(id:String):Bool {
 		final panel = panels.get(id);
 		return panel != null && panel.open && downwards(panel);
@@ -293,6 +302,18 @@ class Ui {
 			nests.push(group);
 		}
 		return group;
+	}
+
+	public function regroup():Void {
+		nests = [];
+		byNest = [];
+
+		for (panel in arrangement) {
+			if (!panel.open && nestOf(panel.id) == null && panel.width == 0) continue;
+			nest(panel.id).add(panel.id);
+		}
+
+		if (layout != null) layout.adopt(nests);
 	}
 
 	public function seat(id:String, x:Float, y:Float, wide:Float, tall:Float):Void {
@@ -397,10 +418,76 @@ class Ui {
 	}
 
 	public function overlay():Void {
-		if (!zone.landing()) return;
+		if (dragging == null) return;
 
-		paint.rectangle(zone.x, zone.y, zone.width, zone.height, ACTIVE, 0.3);
-		paint.outline(zone.x, zone.y, zone.width, zone.height, ACTIVE);
+		final moving = nestOf(dragging.id);
+		if (moving == null) return;
+
+		paint.release(tall);
+		current = null;
+
+		if (zone.landing()) {
+			final onto = byNest.get(zone.onto);
+
+			if (onto != null) {
+				paint.rectangle(onto.x, onto.y, onto.width, onto.height, BACKGROUND, 0.55);
+				hint(onto);
+				frame(onto.x, onto.y, onto.width, onto.height);
+			}
+
+			paint.rectangle(zone.x, zone.y, zone.width, zone.height, ACTIVE, 0.55);
+			frame(zone.x, zone.y, zone.width, zone.height);
+
+			final name = sideName(zone.side);
+			final wide = paint.font.measure(name);
+			final atX = zone.x + (zone.width - wide) * 0.5;
+			final atY = zone.y + zone.height * 0.5;
+
+			paint.rectangle(atX - margin, atY - bar * 0.5, wide + margin * 2, bar, BACKGROUND, 0.9);
+			paint.text(name, atX, atY + paint.font.ascent * 0.5 - paint.font.height * 0.25, INK);
+		}
+
+		final wide = Math.min(Math.max(moving.width, paint.font.advance * 10),
+			paint.font.advance * 24);
+		final ghostX = pointerX - wide * 0.5;
+		final ghostY = pointerY - bar * 0.5;
+
+		paint.rectangle(ghostX, ghostY, wide, bar, ACTIVE, 0.95);
+		frame(ghostX, ghostY, wide, bar);
+		paint.text(shorten(dragging.title, wide - margin * 2), ghostX + margin,
+			ghostY + barText, INK);
+	}
+
+	function frame(x:Float, y:Float, wide:Float, high:Float):Void {
+		paint.outline(x, y, wide, high, INK);
+		paint.outline(x + 1, y + 1, wide - 2, high - 2, INK, 0.6);
+	}
+
+	function hint(onto:Group):Void {
+		final third = 0.3;
+
+		band(onto.x, onto.y, onto.width * third, onto.height);
+		band(onto.x + onto.width * (1 - third), onto.y, onto.width * third, onto.height);
+		band(onto.x, onto.y, onto.width, onto.height * third);
+		band(onto.x, onto.y + onto.height * (1 - third), onto.width, onto.height * third);
+		band(onto.x + onto.width * third, onto.y + onto.height * third,
+			onto.width * (1 - third * 2), onto.height * (1 - third * 2));
+	}
+
+	inline function band(x:Float, y:Float, wide:Float, high:Float):Void {
+		paint.rectangle(x, y, wide, high, ACTIVE, 0.22);
+		paint.outline(x, y, wide, high, ACTIVE, 0.95);
+	}
+
+	static function sideName(side:Zone.Side):String {
+		return switch (side) {
+			case Left: "left";
+			case Right: "right";
+			case Above: "above";
+			case Below: "below";
+			case Middle: "as a tab";
+			case _: "";
+		}
 	}
 
 	public function panel(id:String):Bool {
@@ -598,31 +685,79 @@ class Ui {
 		final panel = current;
 		if (panel == null || rows.length == 0) return;
 
-		final widths = measure(rows);
-
-		var wanted = 0.0;
-		for (width in widths) wanted += width + columnGap;
-		wanted = Math.max(0, wanted - columnGap);
-
-		panel.reach = wanted;
-		if (wanted > panel.widest) panel.widest = wanted;
-
+		final room = panel.width - margin * 2 - (downwards(panel) ? scrollThick : 0);
 		final left = panel.x + margin - panel.scrollAcross;
 
-		for (row in rows) {
-			if (row.apart) {
-				if (row.parts.length > 0) write(row.parts[0], left, wanted);
-				advance(panel);
+		var at = 0;
+
+		while (at < rows.length) {
+			if (rows[at].apart) {
+				if (rows[at].parts.length == 0) advance(panel);
+				else spill(panel, rows[at].parts[0], left, room);
+				at++;
 				continue;
 			}
 
-			var at = left;
-			for (column in 0...row.parts.length) {
-				write(row.parts[column], at, widths[column]);
-				at += widths[column] + columnGap;
+			final shape = rows[at].parts.length;
+			var end = at;
+			while (end < rows.length && !rows[end].apart && rows[end].parts.length == shape) end++;
+
+			final widths = measure(rows, at, end);
+
+			var wanted = 0.0;
+			for (width in widths) wanted += width + columnGap;
+			wanted = Math.max(0, wanted - columnGap);
+
+			if (wanted > panel.reach) panel.reach = wanted;
+			if (wanted > panel.widest) panel.widest = wanted;
+
+			for (index in at...end) {
+				final parts = rows[index].parts;
+				var across = left;
+
+				for (column in 0...parts.length) {
+					write(parts[column], across, widths[column]);
+					across += widths[column] + columnGap;
+				}
+
+				advance(panel);
 			}
 
+			at = end;
+		}
+	}
+
+	function spill(panel:Panel, part:hx68k.debug.Row.Part, left:Float, room:Float):Void {
+		if (part.text == "") {
 			advance(panel);
+			return;
+		}
+
+		final each = Std.int(Math.max(1, room / paint.font.advance));
+		final colour = colourOf(part.kind);
+		var text = part.text;
+
+		while (true) {
+			if (text.length <= each) {
+				final wide = paint.font.measure(text);
+				if (wide > panel.reach) panel.reach = wide;
+				if (wide > panel.widest) panel.widest = wide;
+				paint.text(text, left, pen, colour);
+				advance(panel);
+				return;
+			}
+
+			var cut = each;
+			var back = cut;
+			while (back > 0 && text.charAt(back) != " ") back--;
+			if (back > each >> 1) cut = back;
+			if (cut <= 0) cut = 1;
+
+			paint.text(text.substr(0, cut), left, pen, colour);
+			advance(panel);
+
+			text = StringTools.ltrim(text.substr(cut));
+			if (text.length == 0) return;
 		}
 	}
 
@@ -636,11 +771,11 @@ class Ui {
 		paint.text(shorten(part.text, room), x, pen, colourOf(part.kind));
 	}
 
-	function measure(rows:Array<Row>):Array<Float> {
+	function measure(rows:Array<Row>, from:Int, to:Int):Array<Float> {
 		final widths = new Array<Float>();
 
-		for (row in rows) {
-			if (row.apart) continue;
+		for (index in from...to) {
+			final row = rows[index];
 			for (column in 0...row.parts.length) {
 				final wide = paint.font.measure(row.parts[column].text);
 				if (column >= widths.length) widths.push(wide);

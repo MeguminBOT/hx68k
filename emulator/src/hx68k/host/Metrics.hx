@@ -19,7 +19,7 @@ class Metrics {
 		this.bar = height + Math.max(4, advance * 0.5);
 		this.reserved = bar * toolRows + Math.max(3, advance * 0.375);
 
-		this.leastWide = advance * 12;
+		this.leastWide = advance * 24;
 		this.leastHigh = bar + height * 2;
 	}
 

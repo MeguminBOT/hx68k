@@ -40,13 +40,15 @@ class Grid implements Layout {
 	var anchored:Null<String> = null;
 	var anchorLeast:Float = 0;
 	var anchorFirst:Bool = true;
+	var anchorTall:Float = 0;
 
 	public function new() {}
 
-	public function anchor(id:String, least:Float, first:Bool = true):Void {
+	public function anchor(id:String, least:Float, first:Bool = true, tall:Float = 0):Void {
 		anchored = id;
 		anchorLeast = least;
 		anchorFirst = first;
+		anchorTall = tall;
 	}
 
 	public function name():String {
@@ -59,8 +61,72 @@ class Grid implements Layout {
 
 	public function adopt(groups:Array<Group>):Void {
 		root = null;
+
+		if (anchored != null) {
+			final others = new Array<String>();
+			var hasAnchor = false;
+
+			for (group in groups) {
+				if (group.empty()) continue;
+				if (group.id == anchored) hasAnchor = true else others.push(group.id);
+			}
+
+			if (hasAnchor && others.length >= 2) {
+				var rest:Null<Split> = null;
+				for (i in 1...others.length) {
+					if (rest == null) rest = Split.leaf(others[i]) else grow(rest, others[i]);
+				}
+
+				final column = Split.of(true, 0.75, Split.leaf(anchored), Split.leaf(others[0]));
+				root = anchorFirst ? Split.of(false, anchorLeast, column, rest)
+					: Split.of(false, 1 - anchorLeast, rest, column);
+
+				prune(groups);
+				return;
+			}
+		}
+
 		for (group in groups) if (!group.empty()) attach(group.id);
 		prune(groups);
+	}
+
+	function alone(column:Split):Void {
+		final below = column.second;
+
+		column.group = anchored;
+		column.down = false;
+		column.first = null;
+		column.second = null;
+
+		if (below == null) return;
+
+		final rest = restOf();
+		final moving = new Array<String>();
+		gather(below, moving);
+
+		for (id in moving) {
+			if (rest != null) grow(rest, id) else attach(id);
+		}
+	}
+
+	function gather(node:Null<Split>, into:Array<String>):Void {
+		if (node == null) return;
+		if (node.isLeaf()) {
+			into.push(node.group);
+			return;
+		}
+		gather(node.first, into);
+		gather(node.second, into);
+	}
+
+	function columnOf():Null<Split> {
+		if (anchored == null || root == null || root.isLeaf()) return null;
+
+		final held = anchorFirst ? root.first : root.second;
+		if (held == null || held.isLeaf() || !held.down) return null;
+		if (held.first == null || !held.first.isLeaf() || held.first.group != anchored) return null;
+
+		return held;
 	}
 
 	function attach(id:String):Void {
@@ -94,7 +160,9 @@ class Grid implements Layout {
 		if (anchored == null || root == null || root.isLeaf()) return null;
 
 		final held = anchorFirst ? root.first : root.second;
-		if (held == null || !held.isLeaf() || held.group != anchored) return null;
+		final holds = held != null
+			&& ((held.isLeaf() && held.group == anchored) || columnOf() != null);
+		if (!holds) return null;
 
 		return anchorFirst ? root.second : root.first;
 	}
@@ -105,7 +173,7 @@ class Grid implements Layout {
 		final was = Split.leaf(widest.group);
 
 		widest.group = null;
-		widest.down = depthOf(root, widest, 0) % 2 == 0;
+		widest.down = true;
 		widest.ratio = 0.5;
 		widest.first = was;
 		widest.second = leaf;
@@ -116,15 +184,6 @@ class Grid implements Layout {
 		return deepest(node.second);
 	}
 
-	function depthOf(node:Null<Split>, wanted:Split, depth:Int):Int {
-		if (node == null) return -1;
-		if (node == wanted) return depth;
-		if (node.isLeaf()) return -1;
-
-		final left = depthOf(node.first, wanted, depth + 1);
-		if (left >= 0) return left;
-		return depthOf(node.second, wanted, depth + 1);
-	}
 
 	public function place(groups:Array<Group>, width:Float, height:Float, metrics:Metrics):Void {
 		prune(groups);
@@ -133,12 +192,25 @@ class Grid implements Layout {
 		final pad = metrics.margin;
 		final across = width - pad * 2;
 
+		final down = height - metrics.reserved - pad * 2;
+
 		if (restOf() != null) {
 			final wanted = anchorLeast * width / Math.max(1, across - metrics.margin);
 			if (anchorFirst) {
 				if (root.ratio < wanted) root.ratio = wanted;
 			} else if (root.ratio > 1 - wanted) root.ratio = 1 - wanted;
 			root.down = false;
+
+			final column = columnOf();
+			if (column != null && anchorTall > 0) {
+				final room = Math.max(1, across - metrics.margin);
+				final wide = room * (anchorFirst ? held(root.ratio) : 1 - held(root.ratio));
+				final needs = wide * anchorTall + metrics.bar;
+				final column_room = Math.max(1, down - metrics.margin);
+
+				if (needs > column_room - metrics.leastHigh) alone(column);
+				else column.ratio = needs / column_room;
+			}
 		}
 
 		spread(root, pad, metrics.reserved + pad, across, height - metrics.reserved - pad * 2,

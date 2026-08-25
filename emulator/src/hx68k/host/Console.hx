@@ -60,6 +60,10 @@ class Console {
 
 	static inline final SPIN = 0.0015;
 
+	static final VALUED = ["--scale", "--measure"];
+
+	static inline final SETTLE = 240;
+
 	final machine:Machine = new Machine();
 
 	var views:Array<View> = [];
@@ -78,7 +82,7 @@ class Console {
 	var paint:Null<Paint> = null;
 	var ui:Null<Ui> = null;
 
-	var scale:Int = 2;
+	var scale:Int = 1;
 	var viewportSide:Int = Left;
 
 	var grid:Grid = new Grid();
@@ -115,6 +119,12 @@ class Console {
 
 	var emulating:Float = 0;
 	var drawing:Float = 0;
+
+	var emulatingShown:Float = 0;
+	var drawingShown:Float = 0;
+	var emulatingSum:Float = 0;
+	var drawingSum:Float = 0;
+	var measured:Int = 0;
 
 	var due:Float = -1;
 
@@ -175,6 +185,7 @@ class Console {
 
 		final measuring = flag("--measure");
 		if (measuring != null) {
+			if (loaded) for (_ in 0...SETTLE) machine.runFrame();
 			for (spec in measuring.split(",")) report(spec);
 			Sdl.destroyRenderer(renderer);
 			Sdl.destroyWindow(window);
@@ -251,8 +262,8 @@ class Console {
 
 		try {
 			return new SourceMap(new Elf(given[1]), given[2]);
-		} catch (e:String) {
-			Sys.println("no source map for " + given[1] + ": " + e);
+		} catch (e:haxe.Exception) {
+			Sys.println("no source map for " + given[1] + ": " + e.message);
 			return null;
 		}
 	}
@@ -295,6 +306,10 @@ class Console {
 		emulating = (Clock.stamp() - started) * 1000;
 		if (emulating > slowest) slowest = emulating;
 
+		emulatingSum += emulating;
+		drawingSum += drawing;
+		measured++;
+
 		final now = Clock.stamp();
 		if (now - since >= 1) {
 			perSecond = machine.sound.made - madeLast;
@@ -311,6 +326,12 @@ class Console {
 			cyclesLast = machine.cycles;
 			statesLast = machine.z80Bus.states;
 			requestedLast = machine.requestedFor;
+
+			emulatingShown = measured == 0 ? 0 : emulatingSum / measured;
+			drawingShown = measured == 0 ? 0 : drawingSum / measured;
+			emulatingSum = 0;
+			drawingSum = 0;
+			measured = 0;
 
 			worst = slowest;
 			slowest = 0;
@@ -366,7 +387,7 @@ class Console {
 	}
 
 	function useLayout():Void {
-		grid.anchor(SCREEN, 0.5, viewportSide == Left);
+		grid.anchor(SCREEN, 0.5, viewportSide == Left, 3 / 4);
 		ui.arrangeBy(tiled ? cast grid : cast floating);
 	}
 
@@ -438,12 +459,27 @@ class Console {
 		return out;
 	}
 
+	static function fixed(value:Float, wide:Int, places:Int):String {
+		final scaled = Math.pow(10, places);
+		var text = Std.string(Math.round(value * scaled) / scaled);
+
+		if (places > 0) {
+			final dot = text.indexOf(".");
+			if (dot < 0) text += ".";
+			while (text.length - text.indexOf(".") <= places) text += "0";
+		}
+
+		while (text.length < wide) text = " " + text;
+		return text;
+	}
+
 	function status():String {
-		return round(exactly) + " fps   68k " + sixtyEight + "%   z80 " + eighty + "%"
-			+ (taken > 0 ? " + " + taken + "% bus" : "") + "   "
-			+ round(emulating) + " + " + round(drawing) + " ms, worst " + round(worst)
-			+ (behind >= 1 ? ", gave up " + round(behind) : "") + "   "
-			+ sound() + (paused ? "   f10 f11 step" : "");
+		return fixed(exactly, 6, 2) + " fps   68k " + fixed(sixtyEight, 3, 0)
+			+ "%   z80 " + fixed(eighty, 3, 0) + "% + " + fixed(taken, 2, 0) + "% bus   "
+			+ fixed(emulatingShown, 5, 2) + " + " + fixed(drawingShown, 5, 2)
+			+ " ms, worst " + fixed(worst, 5, 2)
+			+ "   sound " + fixed(perSecond * 100.0 / hx68k.md.Sound.RATE, 3, 0) + "%"
+			+ (paused ? "   f10 f11 step" : "");
 	}
 
 	function keeping():Float {
@@ -697,6 +733,23 @@ class Console {
 		}
 	}
 
+	function shared(rows:Array<hx68k.debug.Row>):Float {
+		final widths = new Array<Float>();
+
+		for (row in rows) {
+			if (row.apart) continue;
+			for (column in 0...row.parts.length) {
+				final wide = paint.font.measure(row.parts[column].text);
+				if (column >= widths.length) widths.push(wide);
+				else if (wide > widths[column]) widths[column] = wide;
+			}
+		}
+
+		var total = 0.0;
+		for (wide in widths) total += wide + ui.columnGapOf();
+		return Math.max(0, total - ui.columnGapOf());
+	}
+
 	function report(spec:String):Void {
 		final at = spec.indexOf("x");
 		final wide = Std.parseInt(spec.substr(0, at));
@@ -706,6 +759,7 @@ class Console {
 		width = wide;
 		height = high;
 
+		ui.regroup();
 		ui.rows(toolRows());
 		ui.begin(width, height);
 		place(false);
@@ -730,16 +784,31 @@ class Console {
 			+ ", toolbar " + toolRows() + " row(s)"
 			+ (ui.overflowing() ? ", CONTROLS DROPPED" : ", every control drawn"));
 
+		final body = viewport.height - ui.bar;
+		final fit = Math.min(viewport.width * 3, body * 4);
+		final shownWide = fit / 3;
+		final shownTall = fit / 4;
+
+		Sys.println("    screen: panel " + Math.round(viewport.width) + "x" + Math.round(body)
+			+ ", picture " + Math.round(shownWide) + "x" + Math.round(shownTall)
+			+ ", letterbox " + Math.round(body - shownTall) + " px tall, "
+			+ Math.round(100 - 100 * shownWide * shownTall / (viewport.width * body)) + "% of it dark");
+
 		for (view in views) {
 			final title = view.title();
 			final rowsGiven = said.exists(title) ? said.get(title).length : 0;
 
-			Sys.println("    " + title + ": " + rowsGiven + " rows given, content "
-				+ Math.round(ui.contentOf(title)) + " px in " + Math.round(ui.roomOf(title)) + " px, "
-				+ (ui.scrollsDown(title)
-					? "thumb " + Math.round(100 * ui.thumbShare(title)) + "% of track"
-					: "no vertical bar")
-				+ (ui.scrollsAcross(title) ? ", horizontal bar" : ""));
+			final panel = ui.offer(title, title, 0, 0, 0, 0);
+			final across = ui.reachOf(title);
+			final fits = panel.width - ui.margin * 2;
+
+			final was = said.exists(title) ? shared(said.get(title)) : 0;
+
+
+			Sys.println("    " + title + ": " + rowsGiven + " rows, widest line "
+				+ Math.round(across) + " px (one shared column set gave " + Math.round(was) + ")"
+				+ " in " + Math.round(fits) + " px"
+				+ (across > fits + 1 ? "  CUT BY " + Math.round(across - fits) : "  fits"));
 		}
 
 		scrollCheck();
@@ -752,7 +821,7 @@ class Console {
 			final value = Std.parseInt(args[i + 1]);
 			if (value != null) return value;
 		}
-		return 2;
+		return 1;
 	}
 
 	function rescale(wanted:Int):Void {
@@ -773,7 +842,18 @@ class Console {
 
 	static function positional():Array<String> {
 		final out = [];
-		for (argument in Sys.args()) if (argument.charAt(0) != "-") out.push(argument);
+		final args = Sys.args();
+		var i = 0;
+
+		while (i < args.length) {
+			if (args[i].charAt(0) == "-") {
+				i += VALUED.indexOf(args[i]) >= 0 ? 2 : 1;
+				continue;
+			}
+			out.push(args[i]);
+			i++;
+		}
+
 		return out;
 	}
 }
