@@ -61,20 +61,56 @@ class FifoCheck {
 
 		var green = 0;
 		var red = 0;
+		var bandGreen = 0;
+		var bandRed = 0;
+		var band = 0;
 
 		for (y in 0...renderer.height) {
+			var rowGreen = 0;
+			var rowRed = 0;
+
 			for (x in 0...renderer.width) {
 				switch (renderer.pixels[y * Renderer.MAX_WIDTH + x]) {
-					case PASSED: green++;
-					case FAILED: red++;
+					case PASSED: rowGreen++;
+					case FAILED: rowRed++;
 					case _:
 				}
 			}
+
+			if (rowGreen + rowRed > 0) {
+				bandGreen += rowGreen;
+				bandRed += rowRed;
+				continue;
+			}
+
+			if (bandGreen + bandRed > 0) {
+				band++;
+				Sys.println("    " + StringTools.lpad(Std.string(band), " ", 2) + "  "
+					+ share(bandGreen, bandRed));
+				green += bandGreen;
+				red += bandRed;
+			}
+
+			bandGreen = 0;
+			bandRed = 0;
 		}
 
+		if (bandGreen + bandRed > 0) {
+			band++;
+			Sys.println("    " + StringTools.lpad(Std.string(band), " ", 2) + "  "
+				+ share(bandGreen, bandRed));
+			green += bandGreen;
+			red += bandRed;
+		}
+
+		Sys.println("  page " + page + ": " + share(green, red) + " over " + band + " suites");
+	}
+
+	static function share(green:Int, red:Int):String {
 		final total = green + red;
-		Sys.println("  page " + page + ": " + green + " of " + total
-			+ " pixels of the result rows are drawn in the passing colour ("
-			+ (total == 0 ? 0 : Math.round(1000.0 * green / total) / 10) + "%)");
+		return StringTools.lpad(Std.string(green), " ", 5) + " of "
+			+ StringTools.lpad(Std.string(total), " ", 5) + " pixels pass, "
+			+ StringTools.lpad(Std.string(total == 0 ? 0 : Math.round(1000.0 * green / total) / 10),
+				" ", 5) + "%";
 	}
 }

@@ -79,3 +79,41 @@ motion. Nothing else in the emulator changed and every other check reads exactly
 
 **What is still not modelled.** Interlace mode 1, register 12 bit 1 alone, which doubles nothing and
 only interlaces the two fields. No ROM here uses it.
+
+## The port, as Nemesis' test ROM has it
+
+`vendor/VDPFIFOTesting/VDPFIFOTesting.bin` is fifteen suites of VDP port access, and
+`emulator/fifo.hxml` reports each one's result row. Everything below was arrived at the same way:
+take the rule from Charles MacDonald's `genvdp.txt`, put it in, and keep it only where the ROM's
+number went up. Where the document and the ROM disagree the ROM wins, and the disagreements are
+written out here because the document is the one most people will read.
+
+**A VRAM write byteswaps when the address is odd.** The high half of the word goes to the odd byte
+and the low half to the even one. `genvdp.txt` says this plainly and the ROM agrees: suite 7 went
+from 42.5% of its row to 73.3%, and the pages went 42.5% to 44.9% and 72.9% to 74.1%.
+
+**A VRAM read does not byteswap.** The mirror of the write rule looks obvious and is wrong: applying
+it to a read took suite 7 back down from 73.3% to 50%.
+
+**The 8-bit VRAM read target, code 1100, returns the byte at the address in the high half and the
+adjacent byte in the low half.** So it is the write rule read back. Reading it as an ordinary word
+gives 43.9%, duplicating the byte into both halves gives 2.6%, and this gives 53.4%, from 0% when
+the code was not decoded at all. `genvdp.txt` predates this target and does not mention it.
+
+**Writing a register clears only the low two bits of the code register.** `genvdp.txt` says a
+register write "will clear the code register", and Golden Axe II and Sonic 3D are named as games
+that depend on it. Clearing all six bits takes suite 13 from 67.5% down to 58.7%; clearing CD1 and
+CD0 and leaving CD5 to CD2 takes it up to 84.1%. Latching bits 15 and 14 of the word into CD1-CD0
+as well, or latching the address with them, changes nothing this ROM can see, so the narrower claim
+is the one made.
+
+**A VRAM fill writes the initial word and then as many bytes as the length register says, not one
+fewer.** Suite 4 went from 90% to 93.3%. `genvdp.txt`'s pseudocode writes only the low byte of the
+initial word rather than a whole word through the normal write path, which scores 87.3%, so the
+first write is an ordinary FIFO write and the fill engine follows it.
+
+**Where this stands.** Page one is 51.3% of its result rows and page two 76.2%, from 42.5% and
+72.9%. By the ROM's own count page one still passes 0 of its 9 suites, since a suite passes only
+when every test in it does. What is left is mostly the FIFO itself: suites 1, 2, 3 and 5 are the
+buffer's size, its separate read and write paths, DMA through it, and what a write to an invalid
+target does, and none of those can be right before the VDP costs the 68000 anything.

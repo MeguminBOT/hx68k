@@ -129,6 +129,7 @@ final class Vdp {
 	public function writeControl(value:Int):Void {
 		if (!pending && (value & 0xC000) == 0x8000) {
 			registers[(value >> 8) & 0x1F] = value & 0xFF;
+			code = code & 0x3C;
 			return;
 		}
 
@@ -156,6 +157,7 @@ final class Vdp {
 		pending = false;
 		final value = switch (code & 0x0F) {
 			case 0x00: readVram(address);
+			case 0x0C: (vram.get(address & 0xFFFF) << 8) | vram.get((address ^ 1) & 0xFFFF);
 			case 0x08: cram[(address >> 1) & 63];
 			case 0x04: vsram[(address >> 1) % vsram.length];
 			case _: 0;
@@ -207,8 +209,9 @@ final class Vdp {
 
 	inline function writeVram(at:Int, value:Int):Void {
 		final even = at & 0xFFFE;
-		vram.set(even, (value >> 8) & 0xFF);
-		vram.set(even | 1, value & 0xFF);
+		final swap = (at & 1) != 0;
+		vram.set(even, (swap ? value : value >> 8) & 0xFF);
+		vram.set(even | 1, (swap ? value >> 8 : value) & 0xFF);
 	}
 
 	function store(value:Int):Void {
@@ -272,7 +275,7 @@ final class Vdp {
 		store(value);
 
 		final byte = (value >> 8) & 0xFF;
-		for (i in 1...length) {
+		for (i in 0...length) {
 			vram.set((address ^ 1) & 0xFFFF, byte);
 			address = (address + registers[15]) & 0xFFFF;
 		}
