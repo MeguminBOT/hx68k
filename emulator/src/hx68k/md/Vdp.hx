@@ -112,6 +112,10 @@ final class Vdp {
 		}
 	}
 
+	public inline function interlaced():Bool {
+		return (registers[12] & 0x06) == 0x06;
+	}
+
 	public function irqLevel():Int {
 		if (vint && (registers[1] & 0x20) != 0) return VINT_LEVEL;
 		if (hint && (registers[0] & 0x10) != 0) return HINT_LEVEL;
@@ -168,6 +172,7 @@ final class Vdp {
 		if (line >= ACTIVE_LINES) value |= 0x0008;
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;
+		if (interlaced() && (frame & 1) != 0) value |= 0x0010;
 		return value;
 	}
 

@@ -642,6 +642,13 @@ if [ -f "$GAME" ]; then
 		exit 1
 	fi
 	neko "$ROOT/emulator/bin/game.n" "$GAME" 120 --digest E902E100
+
+	# the title screen is the narrowest thing this ROM does. Its attract mode reaches a two-player
+	# Emerald Hill about 1,200 frames in, which is the only place here that draws interlaced planes
+	# and interlaced sprites, and the only one that draws a level at all. Four minutes on neko, and
+	# it is the widest check in this file.
+	echo ""
+	neko "$ROOT/emulator/bin/game.n" "$GAME" 1300 --digest E8E80E0E
 fi
 
 echo ""
