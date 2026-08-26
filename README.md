@@ -67,7 +67,8 @@ nothing here is ticked on intent.
 - [x] SGDK bindings that stand alone, and the resource pipeline behind them
 - [x] SGDK bindings that need something running first: the sprite engine, vertical-interrupt
       callbacks, and the XGM driver playing on the Z80 uploaded into the machine
-- [ ] Native Haxe replacements for the SGDK subsystems, gated on beating them. Nothing started
+- [ ] Native Haxe replacements for the SGDK subsystems, held to a frame budget rather than to
+      beating SGDK. Nothing started
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not
 
