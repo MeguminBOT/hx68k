@@ -202,9 +202,6 @@ class Console {
 		final interval = Sdl.rendererVsync(renderer);
 		Sys.println("drawing through " + Std.string(Sdl.rendererName(renderer))
 			+ ", swap interval " + interval + ", display " + Math.round(refresh * 100) / 100 + " Hz");
-		Sys.println("the machine runs at " + Math.round(native() * 100) / 100
-			+ " Hz on its own clock, which is neither the display's nor the sound device's");
-
 		Sdl.setWindowMinimumSize(window, MINIMUM_WIDTH, MINIMUM_HEIGHT);
 		Sys.println("display scale " + Sdl.windowDisplayScale(window)
 			+ ", so the window is measured in logical pixels");
@@ -220,6 +217,11 @@ class Console {
 		debugger = new Debugger(machine, map());
 		views = Views.of(debugger);
 		insert(rom);
+
+		Sys.println("the machine is " + (machine.vdp.pal ? "PAL" : "NTSC") + " and runs at "
+			+ Math.round(native() * 100) / 100
+			+ " Hz on its own clock, which is neither the display's nor the sound device's");
+
 		arrange();
 		rearranged();
 
