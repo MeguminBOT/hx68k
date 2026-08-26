@@ -29,7 +29,6 @@ extern class Vdp {
 		y:UInt16):Bool;
 	@:native("VDP_drawImageEx") static function drawImageOn(plane:Plane, image:md.res.Image,
 		baseTile:UInt16, x:UInt16, y:UInt16, loadPalette:Bool, dma:Bool):Bool;
-	@:native("VDP_getSpriteListAddress") static function spriteListAddress():UInt16;
 
 	@:native("VDP_drawText") static function drawText(text:String, x:UInt16, y:UInt16):Void;
 	@:native("VDP_drawTextBG") static function drawTextOn(plane:Plane, text:String, x:UInt16, y:UInt16):Void;

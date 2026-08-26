@@ -11,9 +11,11 @@ import md.Vdp;
 import md.Transfer;
 import md.UInt16;
 import md.Vector;
+import md.SpriteTable;
 import md.Tilemap;
 import md.UInt32;
 import md.sgdk.Palette as SgdkPalette;
+import md.sgdk.SpriteTable as SgdkSpriteTable;
 import md.sgdk.Tilemap as SgdkTilemap;
 
 class Main {
@@ -35,6 +37,10 @@ class Main {
 	static inline final PATTERNS = 16;
 
 	static inline final PATTERN_BASE = 600;
+
+	static inline final SPRITE_FRAMES = 8;
+
+	static inline final SPRITES = 40;
 
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
@@ -79,6 +85,14 @@ class Main {
 		patternsInHaxe();
 		Probe.mark();
 		patternsInSgdk();
+		Probe.mark();
+		spritesInHaxe();
+		Probe.mark();
+		spritesInSgdk();
+		Probe.mark();
+		spriteTransferInHaxe();
+		Probe.mark();
+		spriteTransferInSgdk();
 		Probe.mark();
 
 		Vdp.setEnable(true);
@@ -192,6 +206,48 @@ class Main {
 		while (n < PATTERN_LOADS) {
 			SgdkTilemap.setPatterns(patternWords, PATTERN_BASE, PATTERNS, Transfer.Cpu);
 			n++;
+		}
+	}
+
+	static function spritesInHaxe():Void {
+		var frame = 0;
+		while (frame < SPRITE_FRAMES) {
+			var n = 0;
+			while (n < SPRITES) {
+				SpriteTable.setPosition(n, n * 5, frame * 3);
+				n++;
+			}
+			SpriteTable.update(SPRITES);
+			frame++;
+		}
+	}
+
+	static function spritesInSgdk():Void {
+		var frame = 0;
+		while (frame < SPRITE_FRAMES) {
+			var n = 0;
+			while (n < SPRITES) {
+				SgdkSpriteTable.setPosition(n, n * 5, frame * 3);
+				n++;
+			}
+			SgdkSpriteTable.update(SPRITES, Transfer.Cpu);
+			frame++;
+		}
+	}
+
+	static function spriteTransferInHaxe():Void {
+		var frame = 0;
+		while (frame < SPRITE_FRAMES) {
+			SpriteTable.update(SPRITES);
+			frame++;
+		}
+	}
+
+	static function spriteTransferInSgdk():Void {
+		var frame = 0;
+		while (frame < SPRITE_FRAMES) {
+			SgdkSpriteTable.update(SPRITES, Transfer.Cpu);
+			frame++;
 		}
 	}
 

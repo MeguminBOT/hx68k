@@ -468,6 +468,17 @@ static const probe_t art_expected[] = {
 	{ "the plane is 64 cells wide", 64 },
 	{ "pattern 1 of the tileset landed", 0x1111 },
 	{ "and so did pattern 15",      0xFFFF },
+	/* the native sprite table, written after the engine's own transfer has landed, so the
+	   first entry's y moves from the engine's 80 to 96. A VDP sprite entry is four words:
+	   y + 0x80, then size in the high byte with the link in the low seven bits, then the
+	   same attribute word a tilemap cell uses, then x + 0x80. Size is
+	   ((width - 1) << 2) | (height - 1) */
+	{ "the native table replaced the engine's first entry", 96 + 0x80 },
+	{ "its size and the link chain put after it", (((2 - 1) << 2) | (2 - 1)) << 8 | 1 },
+	{ "its attribute names pattern and palette", 403 | (1 << 13) },
+	{ "and its x carries the same offset", 100 + 0x80 },
+	{ "a second entry sized three by two",  (((3 - 1) << 2) | (2 - 1)) << 8 },
+	{ "flipped, prioritised and on palette 2", 405 | (2 << 13) | 0x8000 | 0x0800 },
 };
 
 static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 5 + 105 },

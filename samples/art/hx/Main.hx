@@ -5,9 +5,10 @@ import md.Palette;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
-import md.Sprite;
+import md.SpriteTable;
 import md.System;
 import md.Tilemap;
+import md.sgdk.Sprite;
 import md.Vdp;
 import md.hw.Vdp as Ports;
 
@@ -40,7 +41,7 @@ class Main {
 		Probe.report(readCram(1));
 		Probe.report(readCram(2));
 		Probe.report(readVram(Tilemap.address(Plane.A, 0, 0)));
-		Probe.report(readVram(Vdp.spriteListAddress()));
+		Probe.report(readVram(SpriteTable.base()));
 		Probe.report((music & 0xFFFFFF) < 0x400000 ? 1 : 0);
 		Probe.report(Memory.readU16(music + 0x108));
 		Probe.report(Tilemap.cell(Plane.B, 3, 5));
@@ -51,6 +52,20 @@ class Main {
 		Probe.report(Tilemap.columns());
 		Probe.report(readVram(Patterns.address(NATIVE + 1)));
 		Probe.report(readVram(Patterns.address(NATIVE + 15)));
+
+		SpriteTable.set(0, 100, 96, SpriteTable.size(2, 2),
+			SpriteTable.attribute(NATIVE + 3, 1, false, false, false), 0);
+		SpriteTable.set(1, 140, 90, SpriteTable.size(3, 2),
+			SpriteTable.attribute(NATIVE + 5, 2, true, true, false), 0);
+		SpriteTable.chain(0, 2);
+		SpriteTable.update(2);
+
+		Probe.report(readVram(SpriteTable.base()));
+		Probe.report(readVram(SpriteTable.base() + 2));
+		Probe.report(readVram(SpriteTable.base() + 4));
+		Probe.report(readVram(SpriteTable.base() + 6));
+		Probe.report(readVram(SpriteTable.base() + 10));
+		Probe.report(readVram(SpriteTable.base() + 12));
 		Probe.done();
 
 		while (true) {

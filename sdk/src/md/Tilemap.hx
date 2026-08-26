@@ -158,7 +158,8 @@ class Tilemap {
 		Ports.autoIncrement(2);
 
 		final stride:Int = (plane == Plane.Window ? windowColumns : planeColumns) << 1;
-		final pair:Int = ((cell : Int) << 16) | cell;
+		final one:Int = cell;
+		final pair:Int = (one << 16) | one;
 		var at:Int = address(plane, x, y);
 		var row:Int = height;
 

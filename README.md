@@ -70,7 +70,8 @@ nothing here is ticked on intent.
 - [x] The palette, native Haxe over `md.hw`, at 327 cycles a sixteen colour load against SGDK's 684
 - [x] The tilemap and the patterns, native, at 164 cycles a cell against SGDK's 334, and faster on
       fills and pattern uploads as well
-- [ ] The other three subsystems: sprite engine, DMA queue, sound
+- [x] The sprite attribute table, native, transferred 11.9% faster than SGDK moves its own cache
+- [ ] The other two subsystems: DMA queue, sound
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not
 
