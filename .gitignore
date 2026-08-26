@@ -37,3 +37,7 @@ tests/opn2/.build/
 
 # the gdb session the remote protocol check drives, and what the stub said while it ran
 tests/.gdb/
+
+# the resource pipeline check, built on demand
+sdk/bin/
+tests/.resources/

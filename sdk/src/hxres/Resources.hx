@@ -3,6 +3,8 @@ package hxres;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
+import hxres.Patterns.Optimisation;
+import hxres.Patterns.Ordering;
 
 typedef Declared = {
 	final line:String;
@@ -13,25 +15,33 @@ typedef Declared = {
 class Resources {
 	static final KINDS = ["image", "palette", "sprite", "tileset", "music", "sound", "binary"];
 
-	public static function build(target:String):Array<Field> {
+	public static function build(name:String):Array<Field> {
 		final fields = Context.getBuildFields();
+		final emit = new Emit(name);
 		final lines = [];
 
 		for (field in fields) {
-			final declared = describe(field);
+			final declared = describe(field, emit);
 			if (declared == null) continue;
 
-			lines.push(declared.line);
+			if (declared.line != "") lines.push(declared.line);
 			field.kind = FVar(TPath({pack: ["md", "res"], name: declared.type}), null);
 			field.access = [AStatic, APublic];
 			field.meta.push({name: ":native", params: [macro $v{declared.symbol}], pos: field.pos});
 		}
 
-		if (lines.length > 0) write(target, lines);
+		final mixed = !emit.empty() && lines.length > 0;
+		final pending = name + "_pending";
+
+		if (mixed) emit.include(pending + ".h");
+		if (!emit.empty()) emit.write(generated());
+
+		write(resources() + "/" + (mixed ? pending : name) + ".res", lines);
+		write(resources() + "/" + (mixed ? name : pending) + ".res", []);
 		return fields;
 	}
 
-	static function describe(field:Field):Null<Declared> {
+	static function describe(field:Field, emit:Emit):Null<Declared> {
 		for (entry in field.meta) {
 			final kind = StringTools.startsWith(entry.name, ":") ? entry.name.substr(1) : entry.name;
 			if (KINDS.indexOf(kind) < 0) continue;
@@ -41,15 +51,25 @@ class Resources {
 
 			return switch (kind) {
 				case "image": {
-					line: 'IMAGE ${field.name} "$file" ' + option(arguments, 1, "NONE"),
-					type: "Image",
-					symbol: '(&${field.name})'
-				};
+					native(entry.pos, () -> {
+						final picture = read(file, true);
+						final patterns = Patterns.of(picture, Optimisation.Every, Ordering.Row, false);
+						emit.image(field.name, picture, patterns,
+							Cells.of(picture, patterns, 0, Optimisation.Every, Ordering.Row));
+					});
+					{line: "", type: "Image", symbol: '(&${field.name})'};
+				}
 				case "palette": {
-					line: 'PALETTE ${field.name} "$file"',
-					type: "Palette",
-					symbol: '(&${field.name})'
-				};
+					native(entry.pos, () -> emit.palette(field.name, read(file, false)));
+					{line: "", type: "Palette", symbol: '(&${field.name})'};
+				}
+				case "tileset": {
+					native(entry.pos, () -> {
+						final picture = read(file, true);
+						emit.tileset(field.name, Patterns.of(picture, Optimisation.Every, Ordering.Row, false));
+					});
+					{line: "", type: "TileSet", symbol: '(&${field.name})'};
+				}
 				case "sprite": {
 					if (arguments.length < 3)
 						Context.error("A sprite needs its frame size: @:sprite(file, width, height).", entry.pos);
@@ -60,11 +80,6 @@ class Resources {
 						symbol: '(&${field.name})'
 					};
 				}
-				case "tileset": {
-					line: 'TILESET ${field.name} "$file" ' + option(arguments, 1, "NONE"),
-					type: "TileSet",
-					symbol: '(&${field.name})'
-				};
 				case "music": {
 					line: 'XGM ${field.name} "$file"',
 					type: "Music",
@@ -76,14 +91,43 @@ class Resources {
 					symbol: field.name
 				};
 				case _: {
-					line: 'BIN ${field.name} "$file" ' + option(arguments, 1, "2"),
-					type: "Binary",
-					symbol: field.name
-				};
+					native(entry.pos, () -> emit.binary(field.name, sys.io.File.getBytes(file),
+						option(arguments, 2, "0") != "0"));
+					{line: "", type: "Binary", symbol: field.name};
+				}
 			}
 		}
 
 		return null;
+	}
+
+	static function native(pos:Position, work:Void->Void):Void {
+		try {
+			work();
+		} catch (e:haxe.Exception) {
+			Context.error(e.message, pos);
+		}
+	}
+
+	static function read(file:String, aligned:Bool):Picture {
+		final picture = Png.read(file);
+		if (aligned && ((picture.width & 7) != 0 || (picture.height & 7) != 0))
+			throw new haxe.Exception(file + " is " + picture.width + " by " + picture.height
+				+ ", and both have to be a multiple of eight.");
+		if (!picture.indexed())
+			throw new haxe.Exception(file + " is a colour image. Save it as an indexed PNG of "
+				+ "sixteen or sixty four colours.");
+		return picture;
+	}
+
+	static function generated():String {
+		if (!Context.defined("md-output"))
+			Context.error("Resources need -D md-output to say where the generated C goes.", Context.currentPos());
+		return Context.definedValue("md-output");
+	}
+
+	static function resources():String {
+		return haxe.io.Path.directory(haxe.io.Path.removeTrailingSlashes(generated())) + "/res";
 	}
 
 	static function constant(e:Expr):String {
@@ -106,12 +150,11 @@ class Resources {
 	}
 
 	static function write(target:String, lines:Array<String>):Void {
-		final content = lines.join("\n") + "\n";
-		if (sys.FileSystem.exists(target) && sys.io.File.getContent(target) == content) return;
-
-		final directory = haxe.io.Path.directory(target);
-		if (directory != "" && !sys.FileSystem.exists(directory)) sys.FileSystem.createDirectory(directory);
-		sys.io.File.saveContent(target, content);
+		if (lines.length == 0) {
+			if (sys.FileSystem.exists(target)) sys.FileSystem.deleteFile(target);
+			return;
+		}
+		Emit.put(target, lines.join("\n") + "\n");
 	}
 }
 #end

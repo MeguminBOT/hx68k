@@ -54,7 +54,7 @@ In the order they should go, with what each waits on.
 | `string.c` | 720 | nothing, and only the small part of it |
 | `mapper.c` | 280 | nothing |
 | `vdp_bg.c` | 534 | a font in VRAM and the image structures, so it follows B5 |
-| `tools.c`, `tools_a.s` | 1299, 979 | rescomp, whose output they unpack. Ported with it or not at all |
+| `tools.c`, `tools_a.s` | 1299, 979 | rescomp's compressors, whose output they unpack. The two unpackers are 862 lines of the 979: `aplib_unpack` at lines 118 to 251 and `lz4w_unpack` at 252 to 979, the second hand unrolled. Most of `tools.c` is `KLog` rather than unpacking |
 
 **`memory.c` and `memory_a.s`, 1066 lines between them, are deliberately not on that list.** They
 are a heap: `MEM_alloc`, `MEM_free`, a free list and a compactor. `CLAUDE.md` forbids exactly that
@@ -72,7 +72,7 @@ Measured against what `makefile.gen` and the sample builds actually open. Sizes 
 
 | path | size | what it is |
 | --- | --- | --- |
-| `bin/` | 96 MB | the m68k toolchain, and the jars rescomp calls |
+| `bin/` | 96 MB | the m68k toolchain, the jars rescomp calls, and `xgmtool.exe`, which is native C rather than Java and is reached only through rescomp |
 | `lib/libmd.a`, `lib/libgcc.a` | 4.6 MB | the prebuilt library every ROM still links |
 | `inc/` | 897 KB | 36 headers. `hx.h` includes `genesis.h`, so the generated C needs them |
 | `md.ld` | 4 KB | the linker script |
@@ -96,7 +96,7 @@ hardware claim in `docs/` that came from SGDK came from reading these.
 | `.git` | 68 MB | a shallow or sparse fetch never creates it |
 | `sample/` | 56 MB | SGDK's own demos. Nothing here builds them |
 | `doc/` | 7.6 MB | generated documentation |
-| `tools/` | 2.9 MB | the Java source of the jars already sitting in `bin/` |
+| `tools/` | 2.9 MB | the source of what sits in `bin/`: Java for rescomp, apj and lz4w, C for `xgmtool`. Read while porting each, never built here |
 | `.github/`, `.vscode/`, `project/`, `CMakeLists.txt`, `build_*.bat`, `makelib.gen` | | building SGDK itself, which this repository never does |
 
 That is **134 MB of 238 removable outright**, and a further 3 MB that could go if the reference

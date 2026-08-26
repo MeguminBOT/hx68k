@@ -1,0 +1,7 @@
+# the resource pipeline, held to rescomp where a JVM is present to compare against:
+#   ./sdk/run-resources.sh [repository-root]
+-cp src
+-main hxres.Check
+-D md_runtime
+-D analyzer-optimize
+-cpp bin/check

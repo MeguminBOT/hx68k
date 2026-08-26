@@ -151,6 +151,18 @@ else
 fi
 
 echo ""
+echo "--- the resource pipeline, against the tool it replaces ---"
+printf "building %-16s" "resource check"
+if ( cd "$ROOT/sdk" && haxe check.hxml ) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"
+	cat "$LOG"
+	exit 1
+fi
+"$ROOT/sdk/bin/check/Check" "$ROOT"
+
+echo ""
 "$HERE/harness/.build/mdtest" "$ROOT" "$@"
 
 echo ""

@@ -1,6 +1,6 @@
 package;
 
-@:build(hxres.Resources.build("rom/res/art.res"))
+@:build(hxres.Resources.build("art"))
 @:md.include("art.h")
 extern class Art {
 	@:image("gfx/blocks.png") static var blocks;

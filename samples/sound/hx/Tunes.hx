@@ -1,6 +1,6 @@
 package;
 
-@:build(hxres.Resources.build("rom/res/tunes.res"))
+@:build(hxres.Resources.build("tunes"))
 @:md.include("tunes.h")
 extern class Tunes {
 	@:music("audio/tune.vgm") static var song;
