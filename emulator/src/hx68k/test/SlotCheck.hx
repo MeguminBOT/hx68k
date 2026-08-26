@@ -392,6 +392,51 @@ class SlotCheck {
 		same("where NTSC V28 is 36", Vdp.LINES_NTSC - Vdp.LINES_V28 - 2, 36);
 	}
 
+	static function widestGap(wide:Bool, upTo:Int):Int {
+		var widest = 0;
+		var previous = -1;
+
+		for (at in 1...upTo + 1) {
+			if (!Vdp.externalSlot(at, wide, false)) continue;
+			if (previous > 0 && at - previous > widest) widest = at - previous;
+			previous = at;
+		}
+
+		return widest;
+	}
+
+	static function microseconds(slots:Int, total:Int):Int {
+		return Math.round(slots * (Vdp.MASTER_PER_LINE / total) * 100.0 / (Vdp.MASTER_HZ / 1000000.0));
+	}
+
+	static function waiting():Void {
+		same("an active H32 line has sixteen external slots in it", externalCount(false), 16);
+		same("and an active H40 line eighteen", externalCount(true), 18);
+
+		final narrow = widestGap(false, Vdp.SLOTS_H32);
+		same("the widest gap between two of them is sixteen slots in H32", narrow, 16);
+		same("which is the 5.96 microseconds the documentation gives, in hundredths",
+			microseconds(narrow, Vdp.SLOTS_H32), 596);
+
+		final body = widestGap(true, 173);
+		same("the widest gap in the body of an H40 line is sixteen slots too", body, 16);
+		same("which is the 4.77 the documentation gives, to within its own rounding",
+			microseconds(body, Vdp.SLOTS_H40), 485);
+
+		final whole = widestGap(true, Vdp.SLOTS_H40);
+		same("H40's tail leaves a gap the documented maximum does not cover, and it is 24 slots",
+			whole, 24);
+		same("which is 7.28 microseconds, and VDP-NOTES carries the disagreement",
+			microseconds(whole, Vdp.SLOTS_H40), 728);
+	}
+
+	static function externalCount(wide:Bool):Int {
+		final total = wide ? Vdp.SLOTS_H40 : Vdp.SLOTS_H32;
+		var open = 0;
+		for (at in 1...total + 1) if (Vdp.externalSlot(at, wide, false)) open++;
+		return open;
+	}
+
 	static function latching():Void {
 		final free = ready(H40, DISPLAY_ON);
 		final first = free.readCounter();
@@ -578,6 +623,8 @@ class SlotCheck {
 
 		Sys.println("which television standard the machine is on");
 		standards();
+
+		waiting();
 
 		Sys.println("what stops the HV counter and what the trigger raises");
 		latching();

@@ -366,6 +366,44 @@ other reading is that M3 gates both; nothing here can tell the two apart, since 
 repository enables IE2, and this is the reading that keeps the two register bits doing the one job
 each is named for.
 
+## What the 68000 waits when the FIFO fills, and one number that does not agree
+
+Sega's overview gives the longest a program can be held when it writes in a tight loop during
+active display: **5.96 microseconds in H32 and 4.77 in H40**, both marked approximate. Those are
+checkable against the slot table directly, without going near the stall path, by walking the table
+and taking the widest gap between two external slots.
+
+**H32 matches exactly.** An active H32 line has sixteen external slots and the widest gap between
+two of them is sixteen slot positions, which at 3420 master clocks over 171 positions is 320 clocks,
+which is 5.96 microseconds. Every part of that line, tail included, is inside the figure.
+
+**H40 matches in its body and not in its tail.** An active H40 line has eighteen external slots. In
+the body, below position 174, the widest gap is sixteen positions, which is 4.85 microseconds
+against the documented 4.77, inside the rounding of an approximate figure. In the tail there is a
+gap of **24 positions between slots 175 and 199**, which is 7.28 microseconds, half as long again as
+the documented maximum.
+
+One of the two is wrong and nothing here settles it. The tail positions come from Nemesis' timing
+diagrams, and the port access ROM passes all fifteen of its suites with them, so they are not
+changed on the strength of a figure the same document calls approximate. Both numbers are held by
+checks so neither can drift quietly, and this paragraph is the reason the 24 is written down as an
+expectation rather than as a target.
+
+**A real fault came out of looking.** `until()`, which works out how long a full FIFO holds the bus,
+wrapped its slot index with `index >= total` where slot indices run from 1 to total rather than from
+0. Slot 171 in H32, which is an external slot, therefore wrapped to slot 0, which is not, and the
+wait ran on into the next line. Measured on a tight write loop, the longest stall was 524 master
+clocks where the table allows 320; with the wrap fixed it is 264. No ROM here writes to the VDP
+during active display, so nothing the gate draws moved.
+
+**Still not right, and written down rather than left implied.** A full FIFO pops an entry inside
+`push` to make room, and the drain then serves the same slot again when the stall time is handed to
+the machine, so the queue can empty at twice the rate the slots allow. That is why the measured 264
+sits below the 320 the table permits rather than at it. Putting it right means the write waiting
+before it is queued rather than after, which is a reordering of `Machine.write` and the one thing in
+this area that could disturb what a CRAM or VSRAM read exposes of the FIFO, so it is not being done
+in passing.
+
 ## The two television standards, and how 313 was settled
 
 | | lines a frame | processor clock | master clock | frames a second |

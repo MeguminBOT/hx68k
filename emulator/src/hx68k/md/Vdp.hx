@@ -328,7 +328,7 @@ final class Vdp {
 		while (at < last) {
 			at++;
 			var index = at;
-			while (index >= total) index -= total;
+			while (index > total) index -= total;
 			if (slotIsExternal(index)) break;
 		}
 
