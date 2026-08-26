@@ -6,6 +6,7 @@
 #include "m68k.h"
 
 uint8_t  md_rom[0x400000];
+int      md_pal = 0;
 size_t   md_rom_size;
 uint8_t  md_ram[MD_RAM_SIZE];
 uint8_t  md_vram[MD_VRAM_SIZE];
@@ -216,7 +217,7 @@ static void vdp_write_data(uint16_t value)
 
 static uint16_t vdp_read_status(void)
 {
-	uint16_t s = 0x3400 | 0x0200; /* unused bits + FIFO empty */
+	uint16_t s = 0x3400 | 0x0200 | (md_pal ? 0x0001 : 0x0000); /* unused bits, FIFO empty, standard */
 
 	ctrl_pending = 0;
 
@@ -261,7 +262,7 @@ static uint32_t io_read(uint32_t addr)
 	uint32_t offset = addr & 0x1F;
 
 	if (offset <= 0x01)
-		return 0xA0; /* overseas, NTSC, no expansion */
+		return md_pal ? 0xE0 : 0xA0; /* overseas, the standard, no expansion */
 	if (offset >= 0x02 && offset <= 0x07)
 		return pad_read((int)((offset >> 1) - 1));
 	if (offset >= 0x08 && offset <= 0x0D)
@@ -460,6 +461,33 @@ static void instr_hook(unsigned int pc)
 	}
 }
 
+/* The region field is sixteen bytes at 1F0h. A cartridge naming Europe and nowhere else is PAL
+ * and everything else is NTSC, which is the same rule hx68k-emu applies, so the two agree on
+ * what a ROM asked for. Most commercial cartridges say JUE and are NTSC by it. */
+static int rom_wants_pal(void)
+{
+	int europe = 0, elsewhere = 0;
+	size_t i;
+
+	if (md_rom_size < 0x200)
+		return 0;
+
+	for (i = 0; i < 16; i++) {
+		switch (md_rom[0x1F0 + i]) {
+		case 'E': case 'e': case '8':
+			europe = 1;
+			break;
+		case 'J': case 'j': case 'U': case 'u': case '1': case '4':
+			elsewhere = 1;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return europe && !elsewhere;
+}
+
 int md_load_rom(const char *path)
 {
 	FILE *f = fopen(path, "rb");
@@ -473,6 +501,7 @@ int md_load_rom(const char *path)
 	fclose(f);
 
 	md_rom_size = n;
+	md_pal = rom_wants_pal();
 	return n > 0x200;
 }
 

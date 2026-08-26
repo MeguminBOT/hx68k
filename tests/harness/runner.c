@@ -439,6 +439,13 @@ static const probe_t hardware_expected[] = {
 	{ "the pad reports start and right", 0x88 },
 };
 
+/* Built with -D md-pal, so its header names Europe alone and both emulators read the standard
+ * off it the same way: the status register's bit 0 and bit 6 of the version register. */
+static const probe_t pal_expected[] = {
+	{ "the status register says PAL", 1 },
+	{ "and so does the version register", 1 },
+};
+
 static const probe_t art_expected[] = {
 	/* bit 4 in each is not the colour: it is what the FIFO slot the next write will use still
 	   holds, which a CRAM read exposes in the bits CRAM does not store */
@@ -511,6 +518,14 @@ int main(int argc, char **argv)
 	} else {
 		printf("\nhardware: skipped (rom not built)\n");
 	}
+
+	snprintf(rom, sizeof(rom), "%s/samples/pal/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/pal/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_probe_rom("pal: a cartridge built for the 50 Hz machine", "pal", "samples/pal",
+			rom, sym, pal_expected, COUNT(pal_expected), 0);
+	else
+		printf("\npal: skipped (rom not built)\n");
 
 	snprintf(rom, sizeof(rom), "%s/samples/art/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/art/rom/out/release/symbol.txt", root);

@@ -32,6 +32,7 @@ typedef struct {
 
 extern uint8_t  md_rom[0x400000];
 extern size_t   md_rom_size;
+extern int      md_pal;
 extern uint8_t  md_ram[MD_RAM_SIZE];
 extern uint8_t  md_vram[MD_VRAM_SIZE];
 extern uint16_t md_cram[MD_CRAM_SIZE];

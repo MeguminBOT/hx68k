@@ -63,6 +63,12 @@ absent() {
 build "spike rom"   "$ROOT/samples/spike/build.sh"
 build "conformance" "$ROOT/samples/conformance/build.sh"
 build "hardware rom" "$ROOT/samples/hardware/build.sh"
+build "pal rom" "$ROOT/samples/pal/build.sh"
+
+# the backend writes rom_header.c itself, which is how -D md-pal reaches the cartridge header:
+# SGDK's makefile only copies its own template when the file is not already there
+codegen "pal region" "$ROOT/samples/pal/rom/src/rom_header.c" '"E {15}"'
+codegen "ntsc region" "$ROOT/samples/spike/rom/src/rom_header.c" '"JUE {13}"' 
 build "art rom"     "$ROOT/samples/art/build.sh"
 build "events rom"  "$ROOT/samples/events/build.sh"
 build "sdk rom"     "$ROOT/samples/sdk/build.sh"

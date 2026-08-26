@@ -21,6 +21,7 @@ using reflaxe.helpers.TypedExprHelper;
 class Compiler extends DirectToStringCompiler {
 	public static inline final HEADER = "hx.h";
 	public static inline final ENTRY = "hx_entry.c";
+	public static inline final ROM_HEADER = "rom_header.c";
 	public static inline final IFACES = "hx_interfaces.c";
 
 	static inline final P_PROLOGUE = 0;
@@ -77,6 +78,43 @@ class Compiler extends DirectToStringCompiler {
 		}
 		setExtraFile(ENTRY, '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n'
 			+ 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();\n\treturn 0;\n}\n');
+
+		setExtraFile(ROM_HEADER, romHeader());
+	}
+
+	static function romHeader():String {
+		final pal = Context.defined("md-pal");
+		final region = pal ? "E" : "JUE";
+		final domestic = pal ? "OVERSEAS PROGRAM" : "SAMPLE PROGRAM";
+
+		return "#include <genesis.h>\n\n"
+			+ "__attribute__((externally_visible))\n"
+			+ "const ROMHeader rom_header = {\n"
+			+ padded("SEGA MEGA DRIVE ", 16)
+			+ padded("(C)SGDK 2026    ", 16)
+			+ padded(domestic, 48)
+			+ padded(domestic, 48)
+			+ padded("GM 00000000-00", 14)
+			+ "\t0x000,\n"
+			+ padded("JD              ", 16)
+			+ "\t0x00000000,\n"
+			+ "\t0x000FFFFF,\n"
+			+ "\t0xE0FF0000,\n"
+			+ "\t0xE0FFFFFF,\n"
+			+ padded("RA", 2)
+			+ "\t0xF820,\n"
+			+ "\t0x00200000,\n"
+			+ "\t0x0020FFFF,\n"
+			+ padded("            ", 12)
+			+ padded("DEMONSTRATION PROGRAM                   ", 40)
+			+ padded(region, 16, false)
+			+ "};\n";
+	}
+
+	static function padded(text:String, width:Int, comma:Bool = true):String {
+		var out = text;
+		while(out.length < width) out += " ";
+		return "\t\"" + out.substr(0, width) + "\"" + (comma ? "," : "") + "\n";
 	}
 
 	static function safe(s:String):String {
