@@ -10,6 +10,7 @@ import hxres.Patterns.Optimisation;
 import hxres.Patterns.Ordering;
 import hxres.Sprite.Aim;
 import hxres.Frames.Frame;
+import hxres.Aplib.Tally;
 
 typedef Fixture = {
 	final name:String;
@@ -66,6 +67,9 @@ class Check {
 
 		Sys.println("what rescomp makes of the same binary data");
 		binaries(root, scratch, jar);
+
+		Sys.println("what aplib makes of the same bytes");
+		packing(root, scratch);
 
 		Sys.println("");
 		Sys.println(checks + " resource checks, " + failures + " failures");
@@ -347,6 +351,121 @@ class Check {
 						+ priorities + " with priority");
 			case _:
 		}
+	}
+
+	static function payloads():Array<{name:String, data:Bytes}> {
+		final out = new Array<{name:String, data:Bytes}>();
+
+		function add(name:String, length:Int, make:Int->Int):Void {
+			final data = Bytes.alloc(length);
+			for (i in 0...length) data.set(i, make(i) & 0xFF);
+			out.push({name: name, data: data});
+		}
+
+		add("zeroes", 512, _ -> 0);
+		add("ones", 512, _ -> 1);
+		add("counting", 512, i -> i);
+		add("alternating", 512, i -> (i & 1) == 0 ? 0 : 0xFF);
+		add("shortruns", 512, i -> Std.int(i / 3));
+		add("longruns", 4096, i -> Std.int(i / 300));
+		add("nearrepeat", 1024, i -> i % 17);
+		add("farrepeat", 8192, i -> i % 2000);
+		add("random", 2048, i -> (i * 1103515245 + 12345) >> 16);
+		add("mostlyzero", 2048, i -> (i % 64) == 0 ? (i % 251) : 0);
+		add("tiny", 2, i -> i);
+		add("three", 3, i -> 0);
+		add("odd", 4095, i -> (i * 7) % 11);
+
+		final text = "the quick brown fox jumps over the lazy dog. ";
+		final many = Bytes.alloc(text.length * 40);
+		for (i in 0...many.length) many.set(i, text.charCodeAt(i % text.length));
+		out.push({name: "text", data: many});
+
+		return out;
+	}
+
+	static function packing(root:String, scratch:String):Void {
+		final tool = root + "/vendor/SGDK/bin/apj.jar";
+		if (!FileSystem.exists(tool)) {
+			ok("apj.jar is present to compare against", false, "no jar at " + tool);
+			return;
+		}
+
+		for (each in payloads()) {
+			final source = scratch + "/pack_" + each.name + ".dat";
+			final packed = scratch + "/pack_" + each.name + ".apj";
+			File.saveBytes(source, each.data);
+
+			final run = new sys.io.Process("java", ["-jar", tool, "p", source, packed, "-s"]);
+			run.stdout.readAll();
+			run.stderr.readAll();
+			final code = run.exitCode();
+			run.close();
+
+			if (code != 0 || !FileSystem.exists(packed)) {
+				ok(each.name + " packs with apj.jar", false, "it exited " + code);
+				continue;
+			}
+
+			final theirs = File.getBytes(packed);
+			final ours = Aplib.pack(each.data);
+
+			if (ours.length != theirs.length) {
+				ok(each.name + " packs to the same length as apj", false,
+					"apj gives " + theirs.length + " bytes, this gives " + ours.length
+						+ " for " + each.data.length + " in");
+				continue;
+			}
+
+			var first = -1;
+			for (i in 0...theirs.length) if (theirs.get(i) != ours.get(i)) {
+				first = i;
+				break;
+			}
+
+			ok(each.name + " packs byte for byte as apj does", first < 0,
+				"byte " + first + " is 0x" + StringTools.hex(ours.get(first), 2) + " where apj has 0x"
+					+ StringTools.hex(theirs.get(first), 2));
+
+			final tally = new Tally();
+			var back:Null<Bytes> = null;
+			try {
+				back = Aplib.unpack(ours, tally);
+			} catch (e:haxe.Exception) {
+				ok(each.name + " unpacks again", false, e.message);
+				continue;
+			}
+
+			ok(each.name + " round trips through the unpacker", same(back, each.data),
+				back.length == each.data.length
+					? "the same length but different bytes"
+					: "came back " + back.length + " bytes where it went in " + each.data.length);
+
+			reached.literals += tally.literals;
+			reached.zeroes += tally.zeroes;
+			reached.tinies += tally.tinies;
+			reached.shorts += tally.shorts;
+			reached.longs += tally.longs;
+			reached.repeats += tally.repeats;
+			packedSummary.push(each.name + " " + each.data.length + "->" + ours.length + " " + tally);
+		}
+
+		Sys.println("  " + packedSummary.join(", "));
+		ok("the corpus reaches a literal", reached.literals > 0, "none emitted");
+		ok("the corpus reaches a zero block", reached.zeroes > 0, "none emitted");
+		ok("the corpus reaches a tiny match", reached.tinies > 0, "none emitted");
+		ok("the corpus reaches a short match", reached.shorts > 0, "none emitted");
+		ok("the corpus reaches a long match", reached.longs > 0, "none emitted");
+		ok("the corpus reaches a repeated offset", reached.repeats > 0, "none emitted");
+	}
+
+	static var reached:Tally = new Tally();
+	static var packedSummary:Array<String> = [];
+
+	static function same(left:Bytes, right:Bytes):Bool {
+		if (left.length != right.length) return false;
+		for (i in 0...left.length) if (left.get(i) != right.get(i)) return false;
+		return true;
 	}
 
 	static function binaries(root:String, scratch:String, jar:String):Void {
