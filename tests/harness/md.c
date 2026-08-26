@@ -263,6 +263,48 @@ static uint32_t pad_read(int port)
 	                  | (pad_data[port] & control)) & 0x7F);
 }
 
+/* Backup RAM, as the cartridge header at 0x1B0 declares it: "RA", then the start and end
+   addresses as longs. The control register at 0xA130F1 enables it with bit 0 and write protects
+   it with bit 1, and while it is disabled the same addresses read the cartridge. */
+static uint8_t  md_save[0x10000];
+static uint32_t save_from   = 0;
+static uint32_t save_to     = 0;
+static int      save_on     = 0;
+static int      save_locked = 0;
+
+static void save_declared(const uint8_t *rom, size_t len)
+{
+	uint32_t from, to;
+
+	save_from = 0;
+	save_to = 0;
+	save_on = 0;
+	save_locked = 0;
+	memset(md_save, 0, sizeof(md_save));
+
+	if (len < 0x1BC || rom[0x1B0] != 'R' || rom[0x1B1] != 'A')
+		return;
+
+	from = ((uint32_t)rom[0x1B4] << 24) | ((uint32_t)rom[0x1B5] << 16) |
+	       ((uint32_t)rom[0x1B6] << 8)  |  (uint32_t)rom[0x1B7];
+	to   = ((uint32_t)rom[0x1B8] << 24) | ((uint32_t)rom[0x1B9] << 16) |
+	       ((uint32_t)rom[0x1BA] << 8)  |  (uint32_t)rom[0x1BB];
+
+	if (to < from || from < 0x200000 || to > 0x3FFFFF)
+		return;
+
+	if (to - from >= sizeof(md_save))
+		to = from + sizeof(md_save) - 1;
+
+	save_from = from & 0xFFFFFE;
+	save_to = to | 1;
+}
+
+static int saving(uint32_t addr)
+{
+	return save_on && save_to > save_from && addr >= save_from && addr < save_to;
+}
+
 static uint32_t io_read(uint32_t addr)
 {
 	uint32_t offset = addr & 0x1F;
@@ -291,8 +333,11 @@ static uint32_t read8_bus(uint32_t addr)
 {
 	addr &= 0xFFFFFF;
 
-	if (addr < 0x400000)
+	if (addr < 0x400000) {
+		if (saving(addr))
+			return md_save[addr - save_from];
 		return addr < md_rom_size ? md_rom[addr] : 0xFF;
+	}
 
 	if (addr >= 0xE00000)
 		return md_ram[addr & (MD_RAM_SIZE - 1)];
@@ -329,6 +374,8 @@ static uint32_t read16_bus(uint32_t addr)
 	addr &= 0xFFFFFE;
 
 	if (addr < 0x400000) {
+		if (saving(addr))
+			return (uint32_t)((md_save[addr - save_from] << 8) | md_save[addr - save_from + 1]);
 		if (addr + 1 < md_rom_size)
 			return (uint32_t)((md_rom[addr] << 8) | md_rom[addr + 1]);
 		return 0xFFFF;
@@ -373,6 +420,20 @@ static void write8_bus(uint32_t addr, uint32_t value)
 
 	if (addr >= 0xA11100 && addr < 0xA11102) {
 		z80_busreq = (value & 0x01) ? 1 : 0;
+		return;
+	}
+
+	if (addr == 0xA130F1) {
+		if (save_to > save_from) {
+			save_on = (value & 0x01) ? 1 : 0;
+			save_locked = (value & 0x02) ? 1 : 0;
+		}
+		return;
+	}
+
+	if (addr < 0x400000) {
+		if (saving(addr) && !save_locked)
+			md_save[addr - save_from] = (uint8_t)value;
 		return;
 	}
 
@@ -508,6 +569,7 @@ int md_load_rom(const char *path)
 
 	md_rom_size = n;
 	md_pal = rom_wants_pal();
+	save_declared(md_rom, n);
 	return n > 0x200;
 }
 

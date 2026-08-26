@@ -38,6 +38,12 @@ class Machine implements Bus implements Memory {
 	public var interrupts(default, null):Int = 0;
 	public var rom(default, null):Bytes = Bytes.alloc(0);
 
+	public var save(default, null):Bytes = Bytes.alloc(0);
+	public var saveFrom(default, null):Int = 0;
+	public var saveTo(default, null):Int = -1;
+	public var saveOn:Bool = false;
+	public var saveLocked:Bool = false;
+
 	public final buttons:Vector<Int> = new Vector<Int>(3);
 
 	final banks:Vector<Int> = new Vector<Int>(8);
@@ -65,14 +71,46 @@ class Machine implements Bus implements Memory {
 		for (i in 0...buttons.length) buttons[i] = 0;
 	}
 
+	public static inline final SAVE_AT = 0x1B0;
+
+	public static inline final SAVE_CONTROL = 0xA130F1;
+
 	public static inline final REGION_AT = 0x1F0;
 	public static inline final REGION_LENGTH = 16;
 
 	public function load(path:String):Void {
 		rom = sys.io.File.getBytes(path);
+		declaredSave();
 		vdp.standard(palByHeader(rom));
 		sound.standard(vdp.masterHz);
 		reset();
+	}
+
+	function declaredSave():Void {
+		saveFrom = 0;
+		saveTo = -1;
+		saveOn = false;
+		saveLocked = false;
+		save = Bytes.alloc(0);
+
+		if (rom.length < SAVE_AT + 12) return;
+		if (rom.get(SAVE_AT) != "R".code || rom.get(SAVE_AT + 1) != "A".code) return;
+
+		final from = long(SAVE_AT + 4);
+		final to = long(SAVE_AT + 8);
+		if (to < from || from < 0x200000 || to > 0x3FFFFF) return;
+
+		saveFrom = from & 0xFFFFFE;
+		saveTo = to | 1;
+		save = Bytes.alloc(saveTo - saveFrom + 1);
+	}
+
+	inline function long(at:Int):Int {
+		return (rom.get(at) << 24) | (rom.get(at + 1) << 16) | (rom.get(at + 2) << 8) | rom.get(at + 3);
+	}
+
+	inline function saving(at:Int):Bool {
+		return saveOn && at >= saveFrom && at < saveTo;
 	}
 
 	public static function palByHeader(rom:Bytes):Bool {
@@ -100,6 +138,9 @@ class Machine implements Bus implements Memory {
 		ram.fill(0, ram.length, 0);
 		z80Ram.fill(0, z80Ram.length, 0);
 		for (i in 0...banks.length) banks[i] = i;
+
+		saveOn = false;
+		saveLocked = false;
 
 		z80BusRequest = false;
 		z80Running = false;
@@ -268,7 +309,13 @@ class Machine implements Bus implements Memory {
 	public function readWord(address:Int):Int {
 		final at = address & 0xFFFFFE;
 
-		if (at < 0x400000) return cartridge(at);
+		if (at < 0x400000) {
+			if (saving(at)) {
+				final base = at - saveFrom;
+				return (save.get(base) << 8) | save.get(base + 1);
+			}
+			return cartridge(at);
+		}
 		if (at >= 0xE00000) return ramWord(at);
 		if (at >= 0xC00000) return vdpRead(at);
 
@@ -315,6 +362,24 @@ class Machine implements Bus implements Memory {
 
 		if (at >= 0xA11100 && at < 0xA11200) {
 			z80BusRequest = (both(value, uds, lds) & 0x0100) != 0;
+			return 0;
+		}
+
+		if (at >= 0xA13000 && at < 0xA13100) {
+			if ((at | 1) == SAVE_CONTROL && lds && save.length > 0) {
+				final control = value & 0xFF;
+				saveOn = (control & 1) != 0;
+				saveLocked = (control & 2) != 0;
+			}
+			return 0;
+		}
+
+		if (at < 0x400000) {
+			if (saving(at) && !saveLocked) {
+				final base = at - saveFrom;
+				if (uds) save.set(base, (value >> 8) & 0xFF);
+				if (lds) save.set(base + 1, value & 0xFF);
+			}
 			return 0;
 		}
 

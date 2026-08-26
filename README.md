@@ -115,7 +115,8 @@ nothing here is ticked on intent.
 - [x] The colour the VDP actually puts on the pin: fifteen levels rather than sixteen, spaced on a
       curve rather than evenly, with normal, shadow and highlight three readings of the one ramp
 - [ ] A Z80 write through its window into 68000 space, which currently goes nowhere
-- [ ] SRAM and EEPROM
+- [x] SRAM, as the cartridge header declares it, with the write protect bit
+- [ ] EEPROM
 
 ### Debugger
 

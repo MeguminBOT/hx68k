@@ -473,6 +473,16 @@ static const probe_t bare_expected[] = {
 	{ "a generated sine at thirty",  32 },
 	{ "and past half a turn, negated", -32 },
 	{ "a cosine is a quarter turn on", 64 },
+	/* backup RAM, which the cartridge header declares at 0x200000 through 0x20FFFF on odd bytes.
+	   md.Sram addresses it by offset, so offset n is the byte at 0x200001 + n * 2. The read only
+	   mode has to refuse a write, and disabling it has to hand the addresses back to the
+	   cartridge, which is past the end of a 128 KB ROM and reads as 0xFF */
+	{ "a word written to backup RAM",   0x1234 },
+	{ "and the word after it",          0xABCD },
+	{ "a byte further in",              0x5A },
+	{ "which read only mode would not let go", 0x5A },
+	{ "the whole long, read back",      0x1234ABCD },
+	{ "and with it disabled, the cartridge again", 0xFF },
 };
 
 static const probe_t art_expected[] = {

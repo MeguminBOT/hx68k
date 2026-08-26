@@ -3,6 +3,7 @@ package;
 import md.Boot;
 import md.Fix16;
 import md.Maths;
+import md.Memory;
 import md.Palette;
 import md.Patterns;
 import md.Plane;
@@ -63,8 +64,20 @@ class Main {
 		Probe.report(Trig.cos(0));
 
 		Sram.enable();
-		Sram.writeLong(0, 0xCAFEF00D);
+		Sram.writeLong(0, 0x1234ABCD);
+		Sram.writeByte(8, 0x5A);
+		Probe.report(Sram.readWord(0));
+		Probe.report(Sram.readWord(2));
+		Probe.report(Sram.readByte(8));
+
+		Sram.enableReadOnly();
+		Sram.writeByte(8, 0xFF);
+		Probe.report(Sram.readByte(8));
+
+		Sram.enable();
+		Probe.report(Sram.readLong(0));
 		Sram.disable();
+		Probe.report(Memory.readU8(Sram.BASE));
 		Probe.done();
 
 		while (true) {}
