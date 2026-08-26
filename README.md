@@ -67,8 +67,8 @@ nothing here is ticked on intent.
 - [x] SGDK bindings that stand alone, and the resource pipeline behind them
 - [x] SGDK bindings that need something running first: the sprite engine, vertical-interrupt
       callbacks, and the XGM driver playing on the Z80 uploaded into the machine
-- [ ] Native Haxe replacements for the SGDK subsystems, held to a frame budget rather than to
-      beating SGDK. Nothing started
+- [x] The palette, native Haxe over `md.hw`, at 362 cycles a sixteen colour load against SGDK's 707
+- [ ] The other four subsystems: tilemap, sprite engine, DMA queue, sound
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not
 
@@ -79,6 +79,8 @@ nothing here is ticked on intent.
 - [x] YM2612, 1032 of 1032 fixtures bit identical to Nuked-OPN2
 - [x] SN76489 including the noise LFSR, held to 38 checks from its documentation
 - [x] Bus, memory map, Z80 arbitration, the SSF2 mapper, pads
+- [x] All three interrupts: vertical, horizontal, and the external one the HL trigger raises,
+      with the HV counter stopping on it when register 0 asks
 - [x] NTSC and PAL, chosen by the cartridge header when the ROM loads: 262 lines at 59.92 frames
       a second, or 313 at 49.70
 - [x] VDP renderer: planes, window, sprites, priority, shadow and highlight, H40/H32, V28/V30,
