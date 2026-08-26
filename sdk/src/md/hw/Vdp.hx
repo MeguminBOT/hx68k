@@ -14,6 +14,13 @@ class Vdp {
 	public static inline final CRAM_READ = 8;
 	public static inline final CRAM_WRITE = 3;
 
+	public static inline final VRAM_DMA = 0x21;
+	public static inline final CRAM_DMA = 0x23;
+	public static inline final VSRAM_DMA = 0x25;
+	public static inline final VRAM_COPY = 0x31;
+
+	public static inline final DMA_BUSY = 0x0002;
+
 	public static inline function register(index:Int, value:Int):Void {
 		Memory.writeU16(CONTROL, 0x8000 | ((index & 0x1F) << 8) | (value & 0xFF));
 	}

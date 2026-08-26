@@ -2,6 +2,8 @@ package;
 
 import md.Int16;
 import md.Native;
+import md.Dma;
+import md.DmaTarget;
 import md.Palette;
 import md.Patterns;
 import md.Plane;
@@ -14,6 +16,7 @@ import md.Vector;
 import md.SpriteTable;
 import md.Tilemap;
 import md.UInt32;
+import md.sgdk.Dma as SgdkDma;
 import md.sgdk.Palette as SgdkPalette;
 import md.sgdk.SpriteTable as SgdkSpriteTable;
 import md.sgdk.Tilemap as SgdkTilemap;
@@ -41,6 +44,8 @@ class Main {
 	static inline final SPRITE_FRAMES = 8;
 
 	static inline final SPRITES = 40;
+
+	static inline final DMA_FRAMES = 8;
 
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
@@ -93,6 +98,10 @@ class Main {
 		spriteTransferInHaxe();
 		Probe.mark();
 		spriteTransferInSgdk();
+		Probe.mark();
+		dmaInHaxe();
+		Probe.mark();
+		dmaInSgdk();
 		Probe.mark();
 
 		Vdp.setEnable(true);
@@ -247,6 +256,32 @@ class Main {
 		var frame = 0;
 		while (frame < SPRITE_FRAMES) {
 			SgdkSpriteTable.update(SPRITES, Transfer.Cpu);
+			frame++;
+		}
+	}
+
+	static function dmaInHaxe():Void {
+		var frame = 0;
+		while (frame < DMA_FRAMES) {
+			Dma.queueFrom(DmaTarget.Vram, shades, 0x8000, 16, 2);
+			Dma.queueFrom(DmaTarget.Vram, shades, 0x8100, 16, 2);
+			Dma.queueFrom(DmaTarget.Vram, shades, 0x8200, 16, 2);
+			Dma.queueFrom(DmaTarget.Vram, shades, 0x8300, 16, 2);
+			Dma.flush();
+			Dma.wait();
+			frame++;
+		}
+	}
+
+	static function dmaInSgdk():Void {
+		var frame = 0;
+		while (frame < DMA_FRAMES) {
+			SgdkDma.queue(DmaTarget.Vram, shades, 0x8000, 16, 2);
+			SgdkDma.queue(DmaTarget.Vram, shades, 0x8100, 16, 2);
+			SgdkDma.queue(DmaTarget.Vram, shades, 0x8200, 16, 2);
+			SgdkDma.queue(DmaTarget.Vram, shades, 0x8300, 16, 2);
+			SgdkDma.flush();
+			SgdkDma.wait();
 			frame++;
 		}
 	}

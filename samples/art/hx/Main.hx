@@ -1,5 +1,7 @@
 package;
 
+import md.Dma;
+import md.DmaTarget;
 import md.Memory;
 import md.Palette;
 import md.Patterns;
@@ -8,12 +10,16 @@ import md.Probe;
 import md.SpriteTable;
 import md.System;
 import md.Tilemap;
+import md.UInt16;
+import md.Vector;
 import md.sgdk.Sprite;
 import md.Vdp;
 import md.hw.Vdp as Ports;
 
 class Main {
 	static inline final NATIVE = 400;
+
+	@:md.size(4) static var words:Vector<UInt16>;
 
 	@:md.main
 	static function main():Void {
@@ -66,6 +72,27 @@ class Main {
 		Probe.report(readVram(SpriteTable.base() + 6));
 		Probe.report(readVram(SpriteTable.base() + 10));
 		Probe.report(readVram(SpriteTable.base() + 12));
+
+		words[0] = 0xA0A1;
+		words[1] = 0xA2A3;
+		words[2] = 0xA4A5;
+		words[3] = 0xA6A7;
+
+		Dma.fillVram(0x8000, 8, 0x5A, 1);
+		Dma.wait();
+		Dma.transferFrom(DmaTarget.Vram, words, 0x8100, 4, 2);
+		Dma.wait();
+		Dma.copyVram(0x8000, 0x8200, 4, 1);
+		Dma.wait();
+		Dma.queueFrom(DmaTarget.Vram, words, 0x8300, 4, 2);
+		Dma.flush();
+		Dma.wait();
+
+		Probe.report(readVram(0x8000));
+		Probe.report(readVram(0x8100));
+		Probe.report(readVram(0x8106));
+		Probe.report(readVram(0x8200));
+		Probe.report(readVram(0x8300));
 		Probe.done();
 
 		while (true) {

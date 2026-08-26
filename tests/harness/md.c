@@ -149,6 +149,12 @@ static void vdp_dma(void)
 	                 ((md_vdp_reg[23] & 0x7F) << 16)) << 1;
 
 	if (mode == 3) {
+		/* a VRAM copy reads registers 21 and 22 as a byte address in VRAM and uses them as
+		   they are. Only a transfer off the 68000's bus holds a word address there, so the
+		   shift above belongs to that branch alone; applying it here reads from twice the
+		   address the caller asked for */
+		src = (uint32_t)(md_vdp_reg[21] | (md_vdp_reg[22] << 8));
+
 		for (i = 0; i < len; i++) {
 			uint32_t s = (src + i) & 0xFFFF;
 			uint32_t d = (ctrl_addr + i * md_vdp_reg[15]) & 0xFFFF;

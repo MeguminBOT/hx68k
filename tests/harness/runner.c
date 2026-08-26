@@ -479,6 +479,15 @@ static const probe_t art_expected[] = {
 	{ "and its x carries the same offset", 100 + 0x80 },
 	{ "a second entry sized three by two",  (((3 - 1) << 2) | (2 - 1)) << 8 },
 	{ "flipped, prioritised and on palette 2", 405 | (2 << 13) | 0x8000 | 0x0800 },
+	/* the native DMA. A fill of eight bytes of 0x5A leaves the first word 0x5A5A, a transfer
+	   of four words puts the first and last where they were asked for, a copy of four bytes
+	   carries the fill's own bytes across, and the queue does the same transfer a frame
+	   later than the immediate one would have */
+	{ "a VRAM fill wrote its byte in both halves", 0x5A5A },
+	{ "a transfer put its first word down", 0xA0A1 },
+	{ "and its last",               0xA6A7 },
+	{ "a VRAM copy carried the fill across", 0x5A5A },
+	{ "and the queue ran the same transfer", 0xA0A1 },
 };
 
 static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 5 + 105 },
