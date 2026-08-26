@@ -517,6 +517,14 @@ static const probe_t art_expected[] = {
 	{ "lz4w fourth byte",           (3 * 7) & 0xFF },
 	{ "lz4w last real byte",        (99 * 7) & 0xFF },
 	{ "lz4w last byte of the fill", 0xAA },
+	/* data/crunch.dat, whose aplib parse takes all eleven of the unpacker's paths: literals,
+	   both short match lengths, both four bit literal forms, a code pair that repeats the last
+	   offset, and a code pair in each of the four offset bands the format's length correction
+	   splits at 128, 1280 and 32000. Reaching past 32000 is what sets the file's size. */
+	{ "every aplib path gives the size back", 33379 },
+	{ "every aplib path reproduces the file", 0x7513 },
+	{ "its odd trailing byte",      33 },
+	{ "a word from the middle of it", 28017 },
 	/* data/spread.dat, whose lz4w parse reaches all 256 entries of the unpacker's dispatch
 	   table, every entry point of both literal chains, long matches from 17 words to the 257
 	   the format allows, and the ending block that carries a trailing byte. The digest is a

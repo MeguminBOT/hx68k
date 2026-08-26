@@ -26,7 +26,7 @@ class Main {
 
 	@:md.size(32) static var scratch:Vector<UInt32>;
 
-	@:md.size(2870) static var sweepRoom:Vector<UInt32>;
+	@:md.size(8360) static var sweepRoom:Vector<UInt32>;
 
 	@:md.main
 	static function main():Void {
@@ -83,6 +83,12 @@ class Main {
 		Probe.report(Memory.readU8(room + 99));
 		Probe.report(Memory.readU8(room + 111));
 		final wide = Memory.addressOf(sweepRoom);
+		final restored = Unpack.aplib(Memory.addressOf(Art.crunched), wide);
+		Probe.report(restored);
+		Probe.report(rolled(wide, 16689));
+		Probe.report(Memory.readU8(wide + 33378));
+		Probe.report(Memory.readU16(wide + 20000));
+
 		final swept = Unpack.lz4w(Memory.addressOf(Art.sweep), wide);
 		Probe.report(swept);
 		Probe.report(rolled(wide, 5715));
