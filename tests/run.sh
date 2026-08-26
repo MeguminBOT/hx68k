@@ -201,6 +201,30 @@ echo "  $STATICS"
 # 68000 core conformance is a tracked progress metric, not yet a gate:
 # coverage is partial, so a low overall number is expected and honest.
 echo ""
+echo "--- the project a new user gets ---"
+
+TEMPLATE="$ROOT/tests/.template"
+rm -rf "$TEMPLATE"
+mkdir -p "$TEMPLATE"
+
+printf "template %-16s" "generated"
+if (cd "$TEMPLATE" && haxelib run hx68k new demo) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"; cat "$LOG"; exit 1
+fi
+
+build "template rom" "$TEMPLATE/demo/build.sh"
+
+printf "template %-16s" "boots"
+BOOTED="$("$GATE" game "$TEMPLATE/demo/rom/out/rom.bin" 90)"
+case "$BOOTED" in
+	*"display=on"*) echo "ok" ;;
+	*) echo "FAILED"; echo "$BOOTED"; exit 1 ;;
+esac
+echo "$BOOTED" | grep -E "screen |digest "
+
+echo ""
 echo "--- a planted bug, found by stepping Haxe ---"
 build "bug rom" "$ROOT/samples/bug/build.sh" debug
 

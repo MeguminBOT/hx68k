@@ -32,7 +32,6 @@ extern class Vdp {
 
 	@:native("VDP_drawText") static function drawText(text:String, x:UInt16, y:UInt16):Void;
 	@:native("VDP_drawTextBG") static function drawTextOn(plane:Plane, text:String, x:UInt16, y:UInt16):Void;
-	@:native("VDP_drawNum") static function drawNumber(value:Int, x:UInt16, y:UInt16):Void;
 	@:native("VDP_clearText") static function clearText(x:UInt16, y:UInt16, w:UInt16):Void;
 	@:native("VDP_clearTextLine") static function clearTextLine(y:UInt16):Void;
 	@:native("VDP_setTextPalette") static function setTextPalette(palette:UInt16):Void;

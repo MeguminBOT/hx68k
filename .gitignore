@@ -17,6 +17,7 @@ emulator/bin/
 tests/harness/.build/
 tests/.build.log
 tests/.observables.txt
+tests/.template/
 
 *.o
 *.bin

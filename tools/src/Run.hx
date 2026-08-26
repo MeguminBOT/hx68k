@@ -96,7 +96,8 @@ class Run {
 			&& FileSystem.exists(last) && FileSystem.isDirectory(last);
 		final called = handed ? args.pop() : Sys.getCwd();
 
-		final root = findRoot(called);
+		var root = findRoot(called);
+		if (root == null) root = findRoot(Sys.getCwd());
 		if (root == null) {
 			Sys.println("hx68k: run this from inside the repository");
 			Sys.exit(1);
@@ -112,6 +113,7 @@ class Run {
 			case "build": build(root, chosen(root, flags), flags.indexOf("--debug") >= 0);
 			case "run": play(root, flags);
 			case "pad": padRom(called, flags);
+			case "new": scaffold(root, called, flags);
 			case _: help();
 		}
 	}
@@ -129,9 +131,102 @@ class Run {
 		Sys.println("  haxelib run hx68k list               every target and where it is put");
 		Sys.println("  haxelib run hx68k run <rom>          build the window and run it");
 		Sys.println("");
+		Sys.println("  haxelib run hx68k new <name>         a project that builds and boots, ready to edit");
+		Sys.println("");
 		Sys.println("  haxelib run hx68k pad <rom.bin> -sizealign 131072 -checksum");
 		Sys.println("                                       pad a ROM and write its header checksum");
 		Sys.println("");
+	}
+
+	static function scaffold(root:String, where:String, flags:Array<String>):Void {
+		final name = flags.length > 0 && !StringTools.startsWith(flags[0], "-") ? flags[0] : "";
+
+		if (name == "") {
+			Sys.println("hx68k: new needs a name, as in haxelib run hx68k new mygame");
+			Sys.exit(1);
+		}
+
+		final at = haxe.io.Path.join([where, name]);
+
+		if (FileSystem.exists(at)) {
+			Sys.println("hx68k: " + at + " is already there");
+			Sys.exit(1);
+		}
+
+		final posix = StringTools.replace(root, "\\", "/");
+
+		FileSystem.createDirectory(at + "/hx");
+		FileSystem.createDirectory(at + "/rom/src");
+
+		File.saveContent(at + "/build.hxml", buildFile(posix));
+		File.saveContent(at + "/build.sh", buildScript(posix));
+		File.saveContent(at + "/hx/Main.hx", firstProgram(name));
+		File.saveContent(at + "/.gitignore", "rom/out/\nrom/src/\n");
+
+		Sys.println("");
+		Sys.println("  " + at);
+		Sys.println("");
+		Sys.println("  cd " + name + " && ./build.sh          builds rom/out/rom.bin");
+		Sys.println("  haxelib run hx68k run rom/out/rom.bin   runs it in the window");
+		Sys.println("");
+	}
+
+	static function buildFile(root:String):String {
+		return "-cp " + root + "/compiler/src\n"
+			+ "-cp " + root + "/compiler/std\n"
+			+ "-cp " + root + "/compiler/std/md/_std\n"
+			+ "-cp " + root + "/sdk/src\n"
+			+ "-lib reflaxe\n"
+			+ "-D md\n"
+			+ "-D MegaDrive\n"
+			+ "-D md-output=rom/src\n"
+			+ "--macro mdcompiler.CompilerInit.Start()\n"
+			+ "-cp hx\n"
+			+ "-dce full\n"
+			+ "-main Main\n";
+	}
+
+	static function buildScript(root:String):String {
+		return "#!/usr/bin/env bash\n"
+			+ "# builds hx/Main.hx into rom/out/rom.bin. Pass -D md-pal in build.hxml for a PAL ROM.\n"
+			+ "set -e\n"
+			+ "HERE=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
+			+ "GDK_POSIX=$(cd '" + root + "/vendor/SGDK' && pwd)\n"
+			+ "export GDK=\"$(cygpath -m \"$GDK_POSIX\" 2>/dev/null || echo \"$GDK_POSIX\")\"\n"
+			+ "export PATH=\"$GDK_POSIX/bin:$PATH\"\n"
+			+ "SIZEBND=\"haxelib run hx68k pad\"\n"
+			+ "cd \"$HERE\"\n"
+			+ "echo \"[1/2] haxe -> c\"\n"
+			+ "haxe build.hxml\n"
+			+ "cd rom\n"
+			+ "echo \"[2/2] c -> rom\"\n"
+			+ "make.exe -f \"$GDK/makefile.gen\" SIZEBND=\"$SIZEBND\" \"$@\"\n"
+			+ "ls -la out/rom.bin\n";
+	}
+
+	static function firstProgram(name:String):String {
+		return "package;\n"
+			+ "\n"
+			+ "import md.Palette;\n"
+			+ "import md.System;\n"
+			+ "import md.Vdp;\n"
+			+ "\n"
+			+ "class Main {\n"
+			+ "\tstatic var frame:Int = 0;\n"
+			+ "\n"
+			+ "\t@:md.main\n"
+			+ "\tstatic function main():Void {\n"
+			+ "\t\tPalette.setColour(0, 0x0400);\n"
+			+ "\t\tPalette.setColour(15, 0x0EEE);\n"
+			+ "\t\tVdp.drawText(\"" + name.toUpperCase() + "\", 2, 2);\n"
+			+ "\n"
+			+ "\t\twhile (true) {\n"
+			+ "\t\t\tframe++;\n"
+			+ "\t\t\tPalette.setColour(0, ((frame >> 3) & 0x0E) << 8);\n"
+			+ "\t\t\tSystem.doVBlankProcess();\n"
+			+ "\t\t}\n"
+			+ "\t}\n"
+			+ "}\n";
 	}
 
 	static function findRoot(from:String):Null<String> {

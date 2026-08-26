@@ -74,6 +74,7 @@ nothing here is ticked on intent.
 - [x] The DMA queue, native, at 4018 cycles for four queued transfers and a flush against 4737,
       splitting a transfer that crosses a 128 KB boundary in its source
 - [x] The PSG and the YM2612, native, with the PSG's clock folded to a literal by the region define
+- [x] `haxelib run hx68k new <name>` writes a project that builds and boots, checked by the gate
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not
 
