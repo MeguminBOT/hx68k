@@ -51,6 +51,21 @@ class Patterns {
 		return out;
 	}
 
+	public static function covering(image:haxe.io.Bytes, width:Int, height:Int, sprites:Array<Sprite>):Patterns {
+		final out = new Patterns();
+
+		for (sprite in sprites) {
+			final across = Std.int(sprite.rect.width / 8);
+			final down = Std.int(sprite.rect.height / 8);
+
+			for (i in 0...across)
+				for (j in 0...down)
+					out.add(Pattern.at(image, width, height, sprite.rect.x + (i * 8), sprite.rect.y + (j * 8)));
+		}
+
+		return out;
+	}
+
 	public function add(pattern:Pattern):Int {
 		final index = all.length;
 		all.push(pattern);

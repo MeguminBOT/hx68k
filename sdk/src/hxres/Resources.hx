@@ -5,6 +5,7 @@ import haxe.macro.Context;
 import haxe.macro.Expr;
 import hxres.Patterns.Optimisation;
 import hxres.Patterns.Ordering;
+import hxres.Sprite.Aim;
 
 typedef Declared = {
 	final line:String;
@@ -18,10 +19,11 @@ class Resources {
 	public static function build(name:String):Array<Field> {
 		final fields = Context.getBuildFields();
 		final emit = new Emit(name);
+		final cuts = new Array<hxres.Frames.Cut>();
 		final lines = [];
 
 		for (field in fields) {
-			final declared = describe(field, emit);
+			final declared = describe(field, emit, cuts);
 			if (declared == null) continue;
 
 			if (declared.line != "") lines.push(declared.line);
@@ -41,7 +43,7 @@ class Resources {
 		return fields;
 	}
 
-	static function describe(field:Field, emit:Emit):Null<Declared> {
+	static function describe(field:Field, emit:Emit, cuts:Array<hxres.Frames.Cut>):Null<Declared> {
 		for (entry in field.meta) {
 			final kind = StringTools.startsWith(entry.name, ":") ? entry.name.substr(1) : entry.name;
 			if (KINDS.indexOf(kind) < 0) continue;
@@ -73,12 +75,10 @@ class Resources {
 				case "sprite": {
 					if (arguments.length < 3)
 						Context.error("A sprite needs its frame size: @:sprite(file, width, height).", entry.pos);
-					{
-						line: 'SPRITE ${field.name} "$file" ${arguments[1]} ${arguments[2]} '
-							+ option(arguments, 3, "NONE") + " " + option(arguments, 4, "0"),
-						type: "SpriteDefinition",
-						symbol: '(&${field.name})'
-					};
+					native(entry.pos, () -> emit.sprite(field.name, new Frames(read(file, true),
+						Std.parseInt(arguments[1]), Std.parseInt(arguments[2]),
+						Std.parseInt(option(arguments, 4, "0")), Aim.Balanced, cuts)));
+					{line: "", type: "SpriteDefinition", symbol: '(&${field.name})'};
 				}
 				case "music": {
 					line: 'XGM ${field.name} "$file"',

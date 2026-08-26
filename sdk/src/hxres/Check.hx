@@ -8,6 +8,8 @@ import sys.io.File;
 import hxres.Assembly.Item;
 import hxres.Patterns.Optimisation;
 import hxres.Patterns.Ordering;
+import hxres.Sprite.Aim;
+import hxres.Frames.Frame;
 
 typedef Fixture = {
 	final name:String;
@@ -58,6 +60,9 @@ class Check {
 
 		Sys.println("what rescomp makes of the same patterns and cells");
 		images(root, scratch, jar);
+
+		Sys.println("how rescomp cuts the same frames into hardware sprites");
+		cuts(root, scratch, jar);
 
 		Sys.println("");
 		Sys.println(checks + " resource checks, " + failures + " failures");
@@ -341,6 +346,175 @@ class Check {
 		}
 	}
 
+	static function cuts(root:String, scratch:String, jar:String):Void {
+		final made = new Array<{name:String, path:String, across:Int, down:Int}>();
+		made.push({name: "diamond", path: full(root + "/samples/art/gfx/diamond.png"), across: 2, down: 2});
+
+		for (shape in ["blob", "ring", "cross", "corners", "sparse", "tall", "wideframes", "twoanims",
+				"bigblob", "bigring", "bigcross", "diagonal", "scatter", "hook", "samemask"]) {
+			final path = scratch + "/" + shape + ".png";
+			final made2 = frame(shape);
+			File.saveBytes(path, made2.bytes);
+			made.push({name: shape, path: full(path), across: made2.across, down: made2.down});
+		}
+
+		final lines = new Array<String>();
+		for (each in made) lines.push('SPRITE s${each.name} "${each.path}" ${each.across} ${each.down} NONE 0');
+		File.saveContent(scratch + "/sprites.res", lines.join("\n") + "\n");
+
+		final run = new sys.io.Process("java", ["-jar", jar, scratch + "/sprites.res", scratch + "/sprites.s"]);
+		final said = run.stdout.readAll().toString() + run.stderr.readAll().toString();
+		final code = run.exitCode();
+		run.close();
+
+		if (code != 0) {
+			ok("rescomp runs on the fixture sprites", false, "it exited " + code + "\n" + said);
+			return;
+		}
+
+		final symbols = Assembly.read(File.getContent(scratch + "/sprites.s"));
+		final cuts = new Array<hxres.Frames.Cut>();
+
+		for (each in made) {
+			final picture = Png.read(each.path);
+			var frames:Null<Frames> = null;
+			try {
+				frames = new Frames(picture, each.across, each.down, 0, Aim.Balanced, cuts);
+			} catch (e:haxe.Exception) {
+				ok(each.name + " can be cut", false, e.message);
+				continue;
+			}
+
+			final head = numbers(symbols, "s" + each.name);
+			final refs = references(symbols, "s" + each.name);
+
+			if (head.length < 5 || refs.length < 2) {
+				ok(each.name + " is a sprite in rescomp's output", false, "its structure does not read");
+				continue;
+			}
+
+			ok(each.name + " is the size rescomp gives it",
+				head[0] == frames.across * 8 && head[1] == frames.down * 8,
+				"rescomp says " + head[0] + " by " + head[1] + ", this says "
+					+ (frames.across * 8) + " by " + (frames.down * 8));
+
+			ok(each.name + " has as many animations as rescomp finds", head[2] == frames.animations.length,
+				"rescomp finds " + head[2] + ", this finds " + frames.animations.length);
+
+			ok(each.name + " needs as many patterns as rescomp at most", head[3] == frames.mostPatterns(),
+				"rescomp needs " + head[3] + ", this needs " + frames.mostPatterns());
+
+			ok(each.name + " needs as many hardware sprites as rescomp at most", head[4] == frames.mostPieces(),
+				"rescomp needs " + head[4] + ", this needs " + frames.mostPieces());
+
+			animations(each.name, symbols, refs[1], frames);
+
+			cutSummary.push(each.name + " " + frames.animations.length + "a " + countFrames(frames) + "f "
+				+ frames.mostPieces() + "s " + frames.mostPatterns() + "p");
+			if (frames.mostPieces() > 1) manySprites++;
+			if (countFrames(frames) > 1) manyFrames++;
+			if (frames.animations.length > 1) manyAnimations++;
+		}
+
+		Sys.println("  " + cutSummary.join(", "));
+		ok("a fixture frame needs more than one hardware sprite", manySprites > 0,
+			"every fixture was cut into a single sprite, so no merge was ever tried");
+		ok("a fixture animation has more than one frame", manyFrames > 0, "every fixture is one frame");
+		ok("a fixture has more than one animation", manyAnimations > 0, "every fixture is one animation");
+	}
+
+	static var cutSummary:Array<String> = [];
+	static var manySprites:Int = 0;
+	static var manyFrames:Int = 0;
+	static var manyAnimations:Int = 0;
+
+	static function countFrames(frames:Frames):Int {
+		var total = 0;
+		for (animation in frames.animations) total += animation.frames.length;
+		return total;
+	}
+
+	static function animations(name:String, symbols:Map<String, Array<Item>>, list:String, frames:Frames):Void {
+		final named = references(symbols, list);
+		if (named.length != frames.animations.length) {
+			ok(name + " lists as many animations as rescomp", false,
+				"rescomp lists " + named.length + ", this lists " + frames.animations.length);
+			return;
+		}
+
+		for (index in 0...named.length) {
+			final animation = frames.animations[index];
+			final head = numbers(symbols, named[index]);
+			final refs = references(symbols, named[index]);
+			if (head.length < 1 || refs.length < 1) {
+				ok(name + " animation " + index + " reads", false, "its structure does not read");
+				continue;
+			}
+
+			ok(name + " animation " + index + " has as many frames as rescomp",
+				head[0] == (animation.frames.length << 8) | animation.loop,
+				"rescomp says " + head[0] + ", this says " + ((animation.frames.length << 8) | animation.loop));
+
+			final held = references(symbols, refs[0]);
+			if (held.length != animation.frames.length) {
+				ok(name + " animation " + index + " lists as many frames as rescomp", false,
+					"rescomp lists " + held.length + ", this lists " + animation.frames.length);
+				continue;
+			}
+
+			for (at in 0...held.length) {
+				final frame = animation.frames[at];
+				final theirs = symbols.get(held[at]);
+				if (theirs == null) {
+					ok(name + " frame " + index + "." + at + " reads", false, "no label named " + held[at]);
+					continue;
+				}
+
+				final ours = frameWords(frame);
+				final wanted = frameWordsOf(theirs);
+
+				ok(name + " frame " + index + "." + at + " is cut as rescomp cuts it",
+					sameWords(ours, wanted),
+					"rescomp gives " + wanted.map(v -> "" + v).join(" ") + ", this gives "
+						+ ours.map(v -> "" + v).join(" "));
+
+				final data = references(symbols, held[at]);
+				if (data.length > 0) {
+					final tiles = references(symbols, data[0]);
+					if (tiles.length > 0)
+						compare(name + " frame " + index + "." + at + " patterns", symbols, tiles[0],
+							longs(frame.patterns.data()));
+				}
+			}
+		}
+	}
+
+	static function frameWords(frame:Frame):Array<Int> {
+		final out = [((frame.leading() << 8) & 0xFF00) | (frame.timer & 0xFF)];
+		for (piece in frame.pieces) {
+			final bytes = piece.bytes();
+			out.push((bytes[0] << 8) | bytes[1]);
+			out.push((bytes[2] << 8) | bytes[3]);
+			out.push((bytes[4] << 8) | (bytes[5] & 0xFF));
+		}
+		return out;
+	}
+
+	static function frameWordsOf(items:Array<Item>):Array<Int> {
+		final out = new Array<Int>();
+		for (item in items) switch (item) {
+			case Number(value, 2): out.push(value & 0xFFFF);
+			case _:
+		}
+		return out;
+	}
+
+	static function sameWords(left:Array<Int>, right:Array<Int>):Bool {
+		if (left.length != right.length) return false;
+		for (i in 0...left.length) if (left[i] != right[i]) return false;
+		return true;
+	}
+
 	static function compare(what:String, symbols:Map<String, Array<Item>>, label:Null<String>, ours:Bytes):Void {
 		final theirs = label == null ? null : symbols.get(label);
 		if (theirs == null) {
@@ -453,6 +627,96 @@ class Check {
 		chunk(out, "IDAT", haxe.zip.Compress.run(rows.getBytes(), 9));
 		chunk(out, "IEND", Bytes.alloc(0));
 		return out.getBytes();
+	}
+
+	static function frame(shape:String):{bytes:Bytes, across:Int, down:Int} {
+		final big = StringTools.startsWith(shape, "big") || shape == "diagonal" || shape == "scatter"
+			|| shape == "hook" || shape == "samemask";
+		final across = switch (shape) {
+			case "tall": 2;
+			case _: big ? 8 : 4;
+		}
+		final down = switch (shape) {
+			case "tall": 4;
+			case _: big ? 8 : 3;
+		}
+		final columns = switch (shape) {
+			case "wideframes": 3;
+			case "twoanims": 2;
+			case "samemask": 4;
+			case _: 1;
+		}
+		final rows = shape == "twoanims" ? 2 : 1;
+
+		final width = across * columns * 8;
+		final height = down * rows * 8;
+		final pixels = Bytes.alloc(width * height);
+
+		for (y in 0...height) {
+			for (x in 0...width) {
+				final inX = x % (across * 8);
+				final inY = y % (down * 8);
+				final frameX = Std.int(x / (across * 8));
+				final frameY = Std.int(y / (down * 8));
+				pixels.set((y * width) + x, ink(shape, inX, inY, across * 8, down * 8, frameX + frameY));
+			}
+		}
+
+		final palette = Bytes.alloc(16 * 3);
+		for (i in 0...16) {
+			palette.set(i * 3, (i * 17) & 0xFF);
+			palette.set(i * 3 + 1, (0x40 + i * 11) & 0xFF);
+			palette.set(i * 3 + 2, (0xC0 - i * 7) & 0xFF);
+		}
+
+		final rowBytes = new BytesBuffer();
+		for (y in 0...height) {
+			rowBytes.addByte(0);
+			rowBytes.addBytes(pixels, y * width, width);
+		}
+
+		final header = Bytes.alloc(13);
+		writeInt(header, 0, width);
+		writeInt(header, 4, height);
+		header.set(8, 8);
+		header.set(9, 3);
+
+		final out = new BytesBuffer();
+		for (b in [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) out.addByte(b);
+		chunk(out, "IHDR", header);
+		chunk(out, "PLTE", palette);
+		chunk(out, "IDAT", haxe.zip.Compress.run(rowBytes.getBytes(), 9));
+		chunk(out, "IEND", Bytes.alloc(0));
+		return {bytes: out.getBytes(), across: across, down: down};
+	}
+
+	static function ink(shape:String, x:Int, y:Int, width:Int, height:Int, index:Int):Int {
+		final midX = width / 2;
+		final midY = height / 2;
+		final dx = x - midX;
+		final dy = y - midY;
+		final radius = Math.sqrt((dx * dx) + (dy * dy));
+
+		return switch (shape) {
+			case "blob": radius < midX * 0.8 ? 1 + (index % 14) : 0;
+			case "ring": (radius < midX * 0.9 && radius > midX * 0.5) ? 2 + (index % 13) : 0;
+			case "cross":
+				((x >= midX - 4 && x < midX + 4) || (y >= midY - 4 && y < midY + 4)) ? 3 + (index % 12) : 0;
+			case "corners":
+				((x < 8 || x >= width - 8) && (y < 8 || y >= height - 8)) ? 4 + (index % 11) : 0;
+			case "sparse": ((x >> 3) + (y >> 3) + index) % 3 == 0 ? 5 + (index % 10) : 0;
+			case "tall": (x >= 4 && x < width - 4 && y >= 2) ? 6 + (index % 9) : 0;
+			case "wideframes": radius < midY * (0.5 + (index * 0.2)) ? 1 + (index % 14) : 0;
+			case "bigblob": radius < midX * 0.95 ? 1 + (index % 14) : 0;
+			case "bigring": (radius < midX * 0.95 && radius > midX * 0.45) ? 2 + (index % 13) : 0;
+			case "bigcross":
+				((x >= midX - 12 && x < midX + 12) || (y >= midY - 12 && y < midY + 12)) ? 3 + (index % 12) : 0;
+			case "diagonal": (x - y < 10 && y - x < 10) ? 4 + (index % 11) : 0;
+			case "scatter": (((x >> 3) * 5 + (y >> 3) * 3 + index) % 4) == 0 ? 5 + (index % 10) : 0;
+			case "hook": ((x < 16) || (y >= height - 16 && x < width - 8)) ? 6 + (index % 9) : 0;
+			case "samemask": (radius < midX * 0.85 && radius > midX * 0.3) ? 1 + ((x + y + index) % 14) : 0;
+			case _: (radius < midY * 0.9 && ((x + y + index) & 7) != 0) ? 2 + (index % 13) : 0;
+		}
 	}
 
 	static function glyph(source:Int, x:Int, y:Int):Int {

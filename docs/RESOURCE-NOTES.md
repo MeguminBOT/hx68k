@@ -106,6 +106,58 @@ Established by reading `HashSet.map.table.length` back through reflection at eac
 model built on the load factor alone disagreed with Java at eleven and twelve rectangles and agreed
 everywhere below.
 
+It is load bearing rather than theoretical. Returning the grid's cells in scan order instead cuts
+`bigcross`, `diagonal` and `scatter` differently from rescomp, in the hardware sprites and in the
+pattern bytes both.
+
+### The cut is decided in floating point, so the arithmetic has to match
+
+A sprite's score is `8 + tiles * 2.5 + width / 32` for the balanced aim, and a covering's score adds
+its own overdraw divided by 3000 and doubles the total above sixteen sprites. Those are doubles,
+compared with `<`, and the result is rounded to five decimal places with `Math.round(x * 100000) /
+100000`. Haxe's `Float` is the same IEEE 754 double, so the arithmetic carries over unchanged, but
+two details do not carry themselves:
+
+- **The rounding is a floor of `x + 0.5`, not a round to even.** `Math.ffloor((x * 100000) + 0.5)`
+  reproduces it; `Math.round` would overflow `Int` on a covering with a thousand cells before it
+  was optimised down.
+- **Ordering ties have to stay stable.** Cells are sorted by tile count descending, and `Cover`
+  reorders the same list repeatedly, so equal sized cells keeping their arrival order is what makes
+  the arrival order matter at all. `haxe.ds.ArraySort` is a stable merge sort and `Array.sort` is
+  not, so the choice is not a preference.
+
+### `removeAll` matches by rectangle, not by identity
+
+`SpriteCell` extends `java.awt.Rectangle`, so its `equals` is value equality, and
+`cells.removeAll(covered)` in the merge pass drops **every** cell whose rectangle equals a covered
+one rather than the instances it was handed. Removing by identity leaves duplicates behind and the
+covering diverges.
+
+### The order the passes run in, and what a solution is compared against
+
+`fastOptimize` alternates two rounds, one measured against the coverage image and one against the
+original, and stops after three rounds with no improvement. Each round is merge, reposition, trim,
+spread to avoid overdraw, then pull back inside the frame. The best solution seen is kept and
+restored at the end rather than the last one produced.
+
+Held by sixteen generated frames in `hxres.Check`, seven of them 64 by 64 so that no single hardware
+sprite can cover a frame and the merge actually runs: the cuts come out at four to eight sprites and
+26 to 64 patterns, matching rescomp in the frame words and the pattern bytes both.
+
+### Reusing a cut across frames with the same mask is a speedup and nothing else
+
+rescomp scans every sprite frame compiled so far and, where one has the same opaque mask and the
+same dimensions, reuses its cut rather than computing a new one. `hxres` does the same.
+
+It was worth checking whether that changes an answer, because a cut carried over from another
+resource would be one this could not reproduce by computing. It does not: every step of the cut
+reads the image only through "is this pixel non zero", so the result is a function of the mask, the
+frame size and the aim, and `hxres` always uses the balanced aim. Disabling the reuse leaves all 220
+checks passing with the same cut on every fixture, `samemask`'s four frames included. So it is worth
+having for the time it saves on a sheet whose frames repeat a silhouette, and for nothing else.
+
+Established by running the whole check with the reuse branch forced off and comparing.
+
 ---
 
 ## What is deliberately not reproduced

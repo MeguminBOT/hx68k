@@ -16,6 +16,7 @@ class Emit {
 	final structures:Array<String> = [];
 	final declarations:Array<String> = [];
 	final includes:Array<String> = [];
+	final shapes:Array<String> = [];
 	final shared:Map<String, String> = new Map<String, String>();
 
 	public function new(name:String) {
@@ -58,6 +59,71 @@ class Emit {
 		structures.push("const Image " + symbol + " = { (Palette*)&" + symbol + "_palette, (TileSet*)&" + symbol
 			+ "_tileset, (TileMap*)&" + symbol + "_tilemap };");
 		declarations.push("extern const Image " + symbol + ";");
+	}
+
+	public function sprite(symbol:String, frames:Frames):Void {
+		final palette = block(symbol + "_palette_data", "u16", words(frames.palette), false);
+		structures.push("static const Palette " + symbol + "_palette = { " + frames.palette.length
+			+ ", (u16*)" + palette + " };");
+
+		final named = new Array<String>();
+
+		for (index in 0...frames.animations.length) {
+			final animation = frames.animations[index];
+			final stem = symbol + "_animation" + index;
+			final held = new Array<String>();
+
+			for (at in 0...animation.frames.length) {
+				final frame = animation.frames[at];
+				final own = stem + "_frame" + at;
+				final tiles = block(own + "_tileset_data", "u32", longs(frame.patterns.data()), false);
+
+				structures.push("static const TileSet " + own + "_tileset = { 0, " + frame.patterns.count()
+					+ ", (u32*)" + tiles + " };");
+
+				shape(frame.pieces.length);
+
+				final pieces = frame.pieces.map(piece -> "{ " + piece.bytes().join(", ") + " }");
+				structures.push("static const " + shapeName(frame.pieces.length) + " " + own + " = { "
+					+ frame.leading() + ", " + frame.timer + ", (TileSet*)&" + own + "_tileset, NULL, {"
+					+ NEWLINE + "\t" + pieces.join("," + NEWLINE + "\t") + NEWLINE + "} };");
+
+				held.push("(AnimationFrame*)&" + own);
+			}
+
+			structures.push("static AnimationFrame* const " + stem + "_frames[] = {" + NEWLINE
+				+ held.map(one -> "\t" + one).join("," + NEWLINE) + NEWLINE + "};");
+			structures.push("static const Animation " + stem + " = { " + animation.frames.length + ", "
+				+ animation.loop + ", (AnimationFrame**)" + stem + "_frames };");
+			named.push(stem);
+		}
+
+		structures.push("static Animation* const " + symbol + "_animations[] = {" + NEWLINE
+			+ named.map(one -> "\t(Animation*)&" + one).join("," + NEWLINE) + NEWLINE + "};");
+
+		structures.push("const SpriteDefinition " + symbol + " = { " + (frames.across * 8) + ", "
+			+ (frames.down * 8) + ", (Palette*)&" + symbol + "_palette, " + frames.animations.length
+			+ ", (Animation**)" + symbol + "_animations, " + frames.mostPatterns() + ", "
+			+ frames.mostPieces() + " };");
+
+		declarations.push("extern const SpriteDefinition " + symbol + ";");
+	}
+
+	function shape(pieces:Int):Void {
+		final name = shapeName(pieces);
+		if (shapes.indexOf(name) >= 0) return;
+		shapes.push(name);
+		declarations.push("typedef struct {" + NEWLINE
+			+ "\ts8 numSprite;" + NEWLINE
+			+ "\tu8 timer;" + NEWLINE
+			+ "\tTileSet* tileset;" + NEWLINE
+			+ "\tvoid* collision;" + NEWLINE
+			+ "\tFrameVDPSprite pieces[" + pieces + "];" + NEWLINE
+			+ "} " + name + ";");
+	}
+
+	static inline function shapeName(pieces:Int):String {
+		return "hxres_frame" + pieces;
 	}
 
 	public function binary(symbol:String, data:Bytes, far:Bool):Void {
