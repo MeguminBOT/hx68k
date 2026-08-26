@@ -335,10 +335,67 @@ in the whole conversion path.
 
 ---
 
+## WAV
+
+rescomp reads a WAV through `javax.sound.sampled` and asks it for 8 bit signed mono at the driver's
+rate, then packs to DPCM for the `DPCM2` driver and wraps the result as a `Bin`: alignment and size
+alignment 256 with fill 0, or 128 with fill 136 for DPCM2.
+
+### Everything but the rate change is reproducible, and was established exhaustively
+
+A sample becomes a level, channels are averaged as levels, and the level becomes a byte:
+
+- **8 bit is unsigned in a WAV.** `level = (byte ^ 0x80)` read as signed, over 128 if negative and
+  over 127 if not. Held over all 256 values.
+- **16 bit is signed.** `level = v / 32768` if negative, `v / 32767` if not. Held over all 65536.
+- **Channels are averaged as levels**, not as samples and not as bytes. Held over 3328 pairs; the
+  other three readings each fail somewhere.
+- **The byte is `trunc(level * 128)` when the level is negative and `trunc(level * 127)` when it is
+  not.** Truncation toward zero, not rounding and not a shift.
+
+The two halves of that asymmetry are not equally load bearing. Changing 128 to 127 on the negative
+half changes 16448 of the 65536 values. Changing the divisor from 32768 to 32767 on the negative
+half changes **one**: -32767, which comes out -127 one way and -128 the other. A mutation of that
+divisor passed the whole check until -32767 was put in a fixture.
+
+DPCM is a plain sixteen entry delta table with a search for the nearest step and a correction at
+either end of the 8 bit range, and it is reproduced exactly.
+
+### The rate change is ours
+
+The JDK's resampler is filtered and has about four samples of latency, and reproducing it would
+mean porting a JDK internal and binding this pipeline to it. hxres resamples its own way: linear
+interpolation upward, a weighted average over the source window downward, and an output length of
+`floor(frames * wanted / rate)`. Where the rates already match nothing is resampled at all, and
+that path is held to rescomp byte for byte.
+
+What is recorded rather than gated is how far the two land apart, on a 400 Hz tone that both can
+represent and on one signal that neither can:
+
+| | worst | mean |
+| --- | --- | --- |
+| 32000 down to 16000 | 21 | 7.9 |
+| 8000 up to 16000 | 66 | 33 |
+| 44100 down to 16000 | 79 | 7.5 |
+| a sawtooth at the Nyquist limit, 32000 down to 16000 | 215 | 37.6 |
+
+Those numbers are dominated by the JDK's filter latency rather than by resampling quality: four
+samples of delay on a 400 Hz tone at 16000 is most of a tenth of a period, which on an amplitude of
+109 is about 66. They are a tracked figure, not a gate. What gates the resampler is its own
+arithmetic: a constant resamples to that constant, doubling leaves every source frame where it was,
+halving averages each pair exactly, and the frame count is right for a factor that is not whole.
+
+---
+
 ## What is deliberately not reproduced
 
-Nothing yet. Where a rescomp behaviour is judged wrong rather than merely surprising, the
-divergence goes here with the reason and the check is changed to match, in that order.
+**The WAV resampler.** rescomp resamples through `javax.sound.sampled`, so matching it byte for
+byte would mean porting a JDK internal and depending on it. hxres resamples its own way and the
+divergence is measured and recorded above. Every other part of the WAV path, including the case
+where no resampling is needed at all, is held to rescomp exactly.
+
+Where a rescomp behaviour is judged wrong rather than merely surprising, the divergence goes here
+with the reason and the check is changed to match, in that order.
 
 ---
 
