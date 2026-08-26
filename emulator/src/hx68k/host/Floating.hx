@@ -3,7 +3,7 @@ package hx68k.host;
 import hx68k.host.Zone.Side;
 
 class Floating implements Layout {
-	var held:Map<String, Bool> = [];
+	var held:Array<String> = [];
 
 	public function new() {}
 
@@ -16,7 +16,7 @@ class Floating implements Layout {
 	}
 
 	public function adopt(groups:Array<Group>):Void {
-		for (group in groups) if (!held.exists(group.id)) held.set(group.id, true);
+		for (group in groups) if (held.indexOf(group.id) < 0) held.push(group.id);
 	}
 
 	public function place(groups:Array<Group>, width:Float, height:Float, metrics:Metrics):Void {
@@ -145,14 +145,12 @@ class Floating implements Layout {
 	}
 
 	public function save():String {
-		final out = new Array<String>();
-		for (id in held.keys()) out.push(id);
-		return out.join(",");
+		return held.join(",");
 	}
 
 	public function load(state:String, groups:Array<Group>):Void {
 		held = [];
-		for (id in state.split(",")) if (id != "") held.set(id, true);
+		for (id in state.split(",")) if (id != "") held.push(id);
 		adopt(groups);
 	}
 }
