@@ -65,7 +65,10 @@ class Debugger {
 		}
 
 		final entry = map.functionNamed(name);
-		return entry == null ? null : map.addressOf(entry.symbol);
+		if (entry != null) return map.addressOf(entry.symbol);
+
+		final symbol = map.addressOf(name);
+		return symbol == null ? null : symbol & 0xFFFFFF;
 	}
 
 	public function valueOf(name:String):Null<Int> {

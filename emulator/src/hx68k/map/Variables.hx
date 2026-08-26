@@ -44,6 +44,7 @@ typedef Subprogram = {
 	final low:Int;
 	final high:Int;
 	final base:Int;
+	final version:Int;
 	final frameBase:Location;
 	final variables:Array<Variable>;
 }
@@ -119,6 +120,7 @@ class Variables {
 
 	public function placeOf(subprogram:Subprogram, variable:Variable, address:Int):Location {
 		if (variable.location.where != InList) return variable.location;
+		if (subprogram.version >= 5) return listed(subprogram, variable.location.value, address);
 
 		final section = elf.section(".debug_loc");
 		if (section == null) return nowhere();
@@ -146,6 +148,57 @@ class Variables {
 		return nowhere();
 	}
 
+	function listed(subprogram:Subprogram, at:Int, address:Int):Location {
+		final section = elf.section(".debug_loclists");
+		if (section == null) return nowhere();
+
+		final reader = new Reader(elf.bytes, section.offset + at);
+		final end = section.offset + section.size;
+		var base = subprogram.base;
+		var otherwise:Location = nowhere();
+
+		while (reader.position < end) {
+			final kind = reader.u8();
+
+			if (kind == 0x00) return otherwise;
+
+			if (kind == 0x06) {
+				base = reader.u32();
+				continue;
+			}
+
+			if (kind == 0x05) {
+				final length = reader.uleb();
+				otherwise = expression(reader, length);
+				reader.position += length;
+				continue;
+			}
+
+			var from = 0;
+			var to = 0;
+
+			switch (kind) {
+				case 0x04:
+					from = base + reader.uleb();
+					to = base + reader.uleb();
+				case 0x07:
+					from = reader.u32();
+					to = reader.u32();
+				case 0x08:
+					from = reader.u32();
+					to = from + reader.uleb();
+				case _:
+					return otherwise;
+			}
+
+			final length = reader.uleb();
+			if (address >= from && address < to) return expression(reader, length);
+			reader.position += length;
+		}
+
+		return otherwise;
+	}
+
 	public function at(address:Int):Null<Subprogram> {
 		for (subprogram in subprograms) {
 			if (address >= subprogram.low && address < subprogram.high) return subprogram;
@@ -159,13 +212,15 @@ class Variables {
 		final unitEnd = reader.position + length;
 		final version = reader.u16();
 
-		if (version < 2 || version > 4) {
+		if (version < 2 || version > 5) {
 			reader.position = unitEnd;
 			return;
 		}
 
+		if (version >= 5) reader.u8();
+		final addressSize = version >= 5 ? reader.u8() : 0;
 		final abbreviationOffset = reader.u32();
-		final addressSize = reader.u8();
+		if (version < 5) reader.u8();
 		final table = abbreviationsAt(abbreviationOffset);
 
 		final owners:Array<Null<Subprogram>> = [null];
@@ -205,6 +260,7 @@ class Variables {
 							low: die.low,
 							high: die.highIsAddress ? die.high : die.low + die.high,
 							base: unitBase,
+							version: version,
 							frameBase: die.frameBase == null ? nowhere() : die.frameBase,
 							variables: []
 						};
@@ -335,15 +391,27 @@ class Variables {
 			final value = operation == 0x10 ? operand.uleb() : operand.sleb();
 			if (operand.position - start == length - 1 && elf.bytes.get(operand.position) == 0x9F)
 				return {where: Constant, register: -1, value: value};
+			return nowhere();
 		}
 
 		if (operation == 0x03 && length == 5) return {where: AtAddress, register: -1, value: operand.u32()};
-		if (operation == 0x91) return {where: AtFrameOffset, register: -1, value: operand.sleb()};
+
+		if (operation == 0x91) {
+			final offset = operand.sleb();
+			if (operand.position - start != length) return nowhere();
+			return {where: AtFrameOffset, register: -1, value: offset};
+		}
+
 		if (operation >= 0x50 && operation <= 0x6F && length == 1)
 			return {where: InRegister, register: operation - 0x50, value: 0};
-		if (operation >= 0x70 && operation <= 0x8F)
-			return {where: AtRegisterOffset, register: operation - 0x70, value: operand.sleb()};
-		if (operation == 0x9C) return {where: TheCallFrameAddress, register: -1, value: 0};
+
+		if (operation >= 0x70 && operation <= 0x8F) {
+			final offset = operand.sleb();
+			if (operand.position - start != length) return nowhere();
+			return {where: AtRegisterOffset, register: operation - 0x70, value: offset};
+		}
+
+		if (operation == 0x9C && length == 1) return {where: TheCallFrameAddress, register: -1, value: 0};
 
 		return nowhere();
 	}

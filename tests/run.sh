@@ -309,6 +309,150 @@ case "$PASSES" in
 	*) echo "FAILED"; echo "  the line was reached a $STOP th time"; exit 1 ;;
 esac
 
+# the samples are DWARF 4 and the SGDK units linked beside them are DWARF 5, so this is the only
+# place a version 5 unit header and .debug_loclists are read. VDP_waitVBlank is on the path of
+# every sample that waits for a frame and SGDK calls it with TRUE, which is what forceNext holds.
+# vcnt is kept in a location list rather than at a frame offset, and what it holds is the vertical
+# counter the machine reports for itself, so the two have to say the same line.
+# the samples are DWARF 4 and the SGDK units linked beside them are DWARF 5, so this is the only
+# place a version 5 unit header and .debug_loclists are read at all. VDP_waitVBlank is on the path
+# of every sample that waits for a frame and SGDK calls it with TRUE, which is what forceNext
+# holds. Its vcnt and blank are kept in location lists rather than at frame offsets, and what they
+# read is held to what gdb reads for the same variables at the same address, since gdb brings its
+# own DWARF reader and reaches the machine only through the stub.
+echo ""
+echo "--- the same, out of the DWARF 5 the library beside it was built with ---"
+
+LIBRARY="$("$GATE" map "$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --locals VDP_waitVBlank)"
+echo "$LIBRARY" | sed 's/^/  /'
+
+printf "dwarf5 %-19s" "reads the unit"
+case "$LIBRARY" in
+	*forceNext*parameter*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no parameter came out of a version 5 unit"; exit 1 ;;
+esac
+
+printf "dwarf5 %-19s" "finds a list"
+case "$LIBRARY" in
+	*"in a location list at"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no local of it was held in a location list"; exit 1 ;;
+esac
+
+FORCED="$("$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --break VDP_waitVBlank --read forceNext | tail -1)"
+echo "  $FORCED"
+
+printf "dwarf5 %-19s" "reads a parameter"
+if [ "${FORCED##*= }" = "1" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  SGDK waits for the next frame, so forceNext should read 1"
+	exit 1
+fi
+
+# the entry comes out of the symbol table, so relinking moves the sweep with it, and the first
+# address where the list resolves is where gdb is pointed rather than an offset written down here
+ENTRY="$("$ROOT/vendor/SGDK/bin/nm.exe" "$ROOT/samples/bug/rom/out/debug/rom.out" \
+	| sed -n 's/^0*\([0-9a-fA-F][0-9a-fA-F]*\) [Tt] VDP_waitVBlank$/\1/p')"
+
+if [ -z "$ENTRY" ]; then
+	echo "FAILED"
+	echo "  the symbol table has no VDP_waitVBlank"
+	exit 1
+fi
+
+LIVE_AT=""
+for STRIDE in 16 32 48 54 64 80 96 112 128; do
+	WHERE="$(printf '0x%X' $(( 0x$ENTRY + STRIDE )))"
+	SEEN="$("$GATE" debug \
+		"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+		"$ROOT/samples/bug/rom/out/debug/rom.out" \
+		"$ROOT/samples/bug/rom/src" --break "$WHERE" --read vcnt,blank 2>/dev/null || true)"
+	OURS_VCNT="$(echo "$SEEN" | sed -n 's/^vcnt .*= \([0-9][0-9]*\)$/\1/p')"
+	OURS_BLANK="$(echo "$SEEN" | sed -n 's/^blank .*= \([0-9][0-9]*\)$/\1/p')"
+	if [ -z "$OURS_VCNT" ]; then continue; fi
+	LIVE_AT="$WHERE"
+	break
+done
+
+printf "dwarf5 %-19s" "a list resolves"
+if [ -n "$LIVE_AT" ]; then
+	echo "ok"
+	echo "  at $LIVE_AT the lists read vcnt $OURS_VCNT and blank $OURS_BLANK"
+else
+	echo "FAILED"
+	echo "  nothing in VDP_waitVBlank resolved through .debug_loclists"
+	exit 1
+fi
+
+GDB_WORK="$HERE/.gdb"
+rm -rf "$GDB_WORK"
+mkdir -p "$GDB_WORK"
+
+"$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/library.txt" 2>&1 &
+STUB=$!
+
+WAITED=0
+while [ "$WAITED" -lt 300 ]; do
+	if grep -q "waiting for a connection" "$GDB_WORK/library.txt" 2>/dev/null; then break; fi
+	sleep 0.1
+	WAITED=$((WAITED + 1))
+done
+
+GDB_PORT="$(sed -n 's/.*127\.0\.0\.1:\([0-9]*\),.*/\1/p' "$GDB_WORK/library.txt")"
+{
+	echo "set confirm off"
+	echo "set pagination off"
+	echo "target remote 127.0.0.1:${GDB_PORT:-2159}"
+	echo "break *$LIVE_AT"
+	echo "continue"
+	echo "print vcnt"
+	echo "print blank"
+	echo "detach"
+} > "$GDB_WORK/library.gdb"
+
+THEIRS="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/library.gdb" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
+	| grep -v "host encoding" | grep -v "please file a bug report")"
+wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
+
+GDB_VCNT="$(echo "$THEIRS" | sed -n 's/^\$1 = \([0-9][0-9]*\).*/\1/p')"
+GDB_BLANK="$(echo "$THEIRS" | sed -n 's/^\$2 = \([0-9][0-9]*\).*/\1/p')"
+echo "  gdb reads vcnt ${GDB_VCNT:-nothing} and blank ${GDB_BLANK:-nothing} at the same address"
+
+printf "dwarf5 %-19s" "gdb reads the same"
+if [ -n "$GDB_VCNT" ] && [ "$GDB_VCNT" = "$OURS_VCNT" ] && [ "$GDB_BLANK" = "$OURS_BLANK" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  gdb read $GDB_VCNT and $GDB_BLANK where this read $OURS_VCNT and $OURS_BLANK"
+	exit 1
+fi
+
+# enabled is kept as an expression rather than a place: gcc writes it as a register masked with
+# 0x40 and left on the stack, which gdb evaluates and this does not. What this must not do is
+# take the first operation for a place and read memory that has nothing to do with it.
+COMPUTED="$("$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --break "$LIVE_AT" --read enabled 2>/dev/null || true)"
+echo "  $(echo "$COMPUTED" | tail -1)"
+
+printf "dwarf5 %-19s" "and an expression"
+case "$COMPUTED" in
+	*"= "[0-9]*) echo "FAILED"
+		echo "  an expression this cannot evaluate came back as a number anyway"
+		exit 1 ;;
+	*) echo "ok" ;;
+esac
+
 echo ""
 echo "--- the gdb remote serial protocol, spoken to itself ---"
 "$GATE" gdb
