@@ -337,6 +337,59 @@ floor(205 / 2) because it reads before it writes.
 All twelve rates are now held exactly rather than to five either way, and the fill's first line is
 held to 204 with the run of lines after it held to 205 each.
 
+## The two television standards, and how 313 was settled
+
+| | lines a frame | processor clock | master clock | frames a second |
+| --- | --- | --- | --- | --- |
+| NTSC | 262 | 7.67 MHz | 53693175 | 59.92 |
+| PAL | 313 | 7.60 MHz | 53203424 | 49.70 |
+
+Both rates are 3420 master clocks a line divided into the master clock, and `SlotCheck` holds each
+to the hundredth.
+
+**313 rather than 312, which is what SGDK's `VDP_getScanlineNumber` returns.** Sega's own overview
+tallies the vertical blanking, in a table it uses for working out how much a DMA can move:
+
+| display mode | lines of vertical blanking |
+| --- | --- |
+| V28 NTSC | 36 |
+| V28 PAL | 87 |
+| V30 PAL | 71 |
+
+Against 262 for NTSC and 313 for PAL, each of those is exactly two short of the whole frame less
+the active lines: 262 - 224 - 2, 313 - 224 - 2, 313 - 240 - 2. Three rows agreeing on one offset of
+two, which is the vertical sync where no transfer is possible. 312 fits none of the three. SGDK's
+number is used only for a frame load percentage, where a line either way does not show.
+
+The same document gives the PAL processor clock as 7.60 MHz against NTSC's 7.67, which is the
+53203424 above, and describes V30 as a PAL mode that software leaves off under NTSC. The bit is
+honoured whichever standard is running, because that is what the hardware does with it rather than
+what the documentation advises.
+
+## Which standard a cartridge asks for
+
+The machine reads the region field, sixteen bytes at 1F0h, once when the ROM loads, and never looks
+again. **A header naming Europe and nowhere else is PAL; everything else is NTSC.** `E`, or `8` in
+the numeric form, means Europe; `J`, `U`, `1` and `4` mean somewhere that is not. Most commercial
+cartridges say `JUE` and are therefore NTSC here, which is what keeps Sonic 2 drawing the frames it
+always drew.
+
+This is a rule rather than a detection, and it is written down because the header cannot answer the
+question properly: it says which market the cartridge was sold into, not which console it is
+plugged into. A PAL cartridge in an NTSC machine runs a fifth too fast on real hardware, and
+nothing in the header would say so.
+
+## The active display ends where the height register says
+
+V28 is 224 lines and V30 is 240, and Sega's overview gives the active counter ranges as 0 to DFh
+and 0 to EFh, which are those two numbers. The vertical blanking flag, the vertical interrupt, the
+render gate and the horizontal interrupt counter all turn at that line.
+
+They did not, once. The renderer read the height register and drew 240 lines in V30 while the rest
+of the VDP kept turning at 224, so a program setting V30 got its vertical interrupt sixteen lines
+early and a blanking flag that disagreed with its own picture. Four checks in `SlotCheck` walk to
+the line where the flag first sets and where the interrupt first fires, in both heights.
+
 ## The horizontal counter has a range for each width
 
 The counter is not a pixel count: it counts once every two pixels and it skips a stretch in the
