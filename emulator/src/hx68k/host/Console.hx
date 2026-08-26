@@ -1,5 +1,7 @@
 package hx68k.host;
 
+import hx68k.host.Zone.Side;
+
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
 import hx68k.host.sdl.Renderer;
@@ -64,9 +66,6 @@ class Console {
 	static inline final MINIMUM_WIDTH = 640;
 	static inline final MINIMUM_HEIGHT = 480;
 
-	static inline final Left = 0;
-	static inline final Right = 1;
-
 	static inline final NATIVE = Vdp.MASTER_HZ / (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC);
 
 	static inline final SPIN = 0.0015;
@@ -99,7 +98,7 @@ class Console {
 	var handed:Int = -1;
 	var padSeen:Bool = false;
 	var keyLog:Bool = false;
-	var viewportSide:Int = Left;
+	var viewportSide:Side = Left;
 
 	var grid:Grid = new Grid();
 	var floating:Floating = new Floating();
@@ -440,8 +439,16 @@ class Console {
 		useLayout();
 	}
 
+	function sideName():String {
+		return switch (viewportSide) {
+			case Right: "right";
+			case Middle: "centre";
+			case _: "left";
+		}
+	}
+
 	function useLayout():Void {
-		grid.anchor(SCREEN, 0.5, viewportSide == Left, 3 / 4);
+		grid.anchor(SCREEN, 0.5, viewportSide, 3 / 4);
 		ui.arrangeBy(tiled ? cast grid : cast floating);
 	}
 
@@ -454,10 +461,30 @@ class Console {
 		final column = Math.max(0, Math.min(wanted, usable - width * 0.5));
 
 		final screenWide = usable - column;
+		final tall = height - top - pad;
+
+		if (viewportSide == Middle) {
+			final half = column * 0.5;
+			put(SCREEN, "screen", pad + half + pad, top, usable - column, tall, seed);
+
+			final each = tall / Math.max(1, Math.ceil(views.length * 0.5));
+			var leftY = top;
+			var rightY = top;
+
+			for (i in 0...views.length) {
+				final view = views[i];
+				final onLeft = (i & 1) == 0;
+				final y = onLeft ? leftY : rightY;
+				final x = onLeft ? pad : usable + pad - half;
+
+				put(view.title(), view.title(), x, y, half, each - pad * 0.75, seed);
+				if (onLeft) leftY += each else rightY += each;
+			}
+			return;
+		}
+
 		final screenAt = viewportSide == Right ? pad + column + pad : pad;
 		final columnAt = viewportSide == Right ? pad : pad + screenWide + pad;
-
-		final tall = height - top - pad;
 
 		put(SCREEN, "screen", screenAt, top, screenWide, tall, seed);
 
@@ -584,8 +611,8 @@ class Console {
 			useLayout();
 		}
 
-		if (ui.tool("side", viewportSide == Right)) {
-			viewportSide = viewportSide == Left ? Right : Left;
+		if (ui.tool(sideName(), viewportSide != Left)) {
+			viewportSide = viewportSide == Left ? Middle : (viewportSide == Middle ? Right : Left);
 			place(false);
 			useLayout();
 		}
@@ -615,7 +642,7 @@ class Console {
 
 		preferences.bindings = bindings;
 		preferences.scale = scale;
-		preferences.viewportRight = viewportSide == Right;
+		preferences.viewport = viewportSide;
 		preferences.tiled = tiled;
 		preferences.sound = !quiet;
 		preferences.rewind = winding;
@@ -636,9 +663,8 @@ class Console {
 
 		if (preferences.scale != scale) rescale(preferences.scale);
 
-		final wantedSide = preferences.viewportRight ? Right : Left;
-		if (wantedSide != viewportSide) {
-			viewportSide = wantedSide;
+		if (preferences.viewport != viewportSide) {
+			viewportSide = preferences.viewport;
 			place(false);
 			useLayout();
 		}
@@ -1270,7 +1296,8 @@ class Console {
 		}
 
 		Sys.println(spec + " scale " + scale
-			+ ": viewport " + Math.round(100 * viewport.width / width) + "% of width"
+			+ ": viewport " + sideName() + " at " + Math.round(viewport.x)
+			+ ", " + Math.round(100 * viewport.width / width) + "% of width"
 			+ ", " + rows + " rows of view content"
 			+ ", smallest body " + Math.round(least) + " px"
 			+ " (" + Std.int(least / paint.font.height) + " rows)"
@@ -1323,7 +1350,11 @@ class Console {
 		if (wide >= MINIMUM_WIDTH) width = wide;
 		if (high >= MINIMUM_HEIGHT) height = high;
 
-		viewportSide = settings.text("viewport", "left") == "right" ? Right : Left;
+		viewportSide = switch (settings.text("viewport", "left")) {
+			case "right": Right;
+			case "centre": Middle;
+			case _: Left;
+		}
 		tiled = settings.text("arrangement", "grid") != "floating";
 		quiet = !settings.flag("sound", true);
 		watching = settings.flag("watch", false);
@@ -1357,7 +1388,7 @@ class Console {
 		settings.setWhole("window.width", Std.int(width));
 		settings.setWhole("window.height", Std.int(height));
 		settings.setWhole("scale", scale);
-		settings.set("viewport", viewportSide == Right ? "right" : "left");
+		settings.set("viewport", sideName());
 		settings.set("arrangement", tiled ? "grid" : "floating");
 		settings.setFlag("sound", !quiet);
 		settings.setFlag("rewind", winding);

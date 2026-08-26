@@ -1,5 +1,7 @@
 package hx68k.host;
 
+import hx68k.host.Zone.Side;
+
 class Preferences {
 	public static final SECTIONS = ["display", "layout", "sound", "panels", "rom", "keys"];
 
@@ -9,7 +11,7 @@ class Preferences {
 	var cut:Int = 0;
 
 	public var scale:Int = 1;
-	public var viewportRight:Bool = false;
+	public var viewport:Side = Left;
 	public var tiled:Bool = true;
 	public var sound:Bool = true;
 	public var rewind:Bool = false;
@@ -84,7 +86,12 @@ class Preferences {
 		scale = widgets.choice(["1x", "2x", "3x"], scale - 1) + 1;
 
 		widgets.say("the viewport sits on the");
-		viewportRight = widgets.choice(["left", "right"], viewportRight ? 1 : 0) == 1;
+		viewport = switch (widgets.choice(["left", "centre", "right"],
+			viewport == Right ? 2 : (viewport == Middle ? 1 : 0))) {
+			case 2: Right;
+			case 1: Middle;
+			case _: Left;
+		}
 
 		widgets.rule();
 		widgets.say("a bigger scale reads better and fits fewer rows", Ui.DIM);

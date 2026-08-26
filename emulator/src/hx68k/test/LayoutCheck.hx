@@ -86,7 +86,75 @@ class LayoutCheck {
 		return total;
 	}
 
-	static function floorCheck(layout:Layout, scale:Int):Void {
+	static function flanking(scale:Int, both:Bool):Void {
+		final metrics = metricsFor(scale, 2);
+		final groups = board();
+		final grid = new Grid();
+
+		grid.anchor(SCREEN, 0.5, Middle);
+		seed(groups, FLOOR_WIDE, FLOOR_HIGH, metrics);
+		grid.adopt(groups);
+		grid.place(groups, FLOOR_WIDE, FLOOR_HIGH, metrics);
+
+		final screen = of(groups, SCREEN);
+		var before = 0;
+		var after = 0;
+
+		for (group in groups) {
+			if (group.empty() || group.id == SCREEN) continue;
+			if (group.x + group.width <= screen.x + 1) before++;
+			if (group.x >= screen.x + screen.width - 1) after++;
+		}
+
+		if (both) {
+			ok("centre " + scale + "x puts panels on both sides", before > 0 && after > 0,
+				before + " to its left and " + after + " to its right");
+			return;
+		}
+
+		ok("centre " + scale + "x falls back to one side rather than shrinking a column",
+			before == 0 || after == 0, before + " to its left and " + after + " to its right");
+	}
+
+	static function sided(side:Side):Void {
+		final metrics = metricsFor(1, 2);
+		final groups = board();
+		final grid = new Grid();
+
+		grid.anchor(SCREEN, 0.5, side);
+		seed(groups, FLOOR_WIDE, FLOOR_HIGH, metrics);
+		grid.adopt(groups);
+		grid.place(groups, FLOOR_WIDE, FLOOR_HIGH, metrics);
+
+		final screen = of(groups, SCREEN);
+		var before = 0;
+		var after = 0;
+
+		for (group in groups) {
+			if (group.empty() || group.id == SCREEN) continue;
+			if (group.x + group.width <= screen.x + 1) before++;
+			if (group.x >= screen.x + screen.width - 1) after++;
+		}
+
+		switch (side) {
+			case Left: ok("left puts the viewport leftmost", before == 0 && after > 0,
+				before + " to its left and " + after + " to its right");
+			case Right: ok("right puts the viewport rightmost", after == 0 && before > 0,
+				before + " to its left and " + after + " to its right");
+			case _: ok("centre puts the viewport between them", before > 0 && after > 0,
+				before + " to its left and " + after + " to its right");
+		}
+	}
+
+	static function named(side:Side):String {
+		return switch (side) {
+			case Right: " right";
+			case Middle: " centre";
+			case _: " left";
+		}
+	}
+
+	static function floorCheck(layout:Layout, scale:Int, where:String):Void {
 		final metrics = metricsFor(scale, 2);
 		final groups = board();
 
@@ -98,15 +166,15 @@ class LayoutCheck {
 		final least = smallest(groups, metrics);
 		final rows = rowsIn(groups, metrics);
 
-		Sys.println("  " + layout.name() + " " + scale + "x at " + FLOOR_WIDE + "x" + FLOOR_HIGH
+		Sys.println("  " + layout.name() + where + " " + scale + "x at " + FLOOR_WIDE + "x" + FLOOR_HIGH
 			+ ": viewport " + Math.round(100 * screen.width / FLOOR_WIDE) + "%"
 			+ ", smallest group " + Math.round(least) + " px"
 			+ ", " + rows + " rows");
 
-		ok(layout.name() + " " + scale + "x viewport", screen.width >= FLOOR_WIDE * 0.5 - 1,
-			"the viewport is " + Math.round(100 * screen.width / FLOOR_WIDE) + "% of the width");
+		ok(layout.name() + where + " " + scale + "x viewport", screen.width >= FLOOR_WIDE * 0.5 - 1,
+			"the viewport is " + Math.round(screen.width) + " px of " + FLOOR_WIDE);
 
-		ok(layout.name() + " " + scale + "x minimum group",
+		ok(layout.name() + where + " " + scale + "x minimum group",
 			least >= metrics.leastHigh - 1,
 			"the smallest group is " + Math.round(least) + " px against a floor of "
 				+ Math.round(metrics.leastHigh));
@@ -114,7 +182,7 @@ class LayoutCheck {
 		var panels = 0;
 		for (group in groups) panels += group.members.length;
 
-		ok(layout.name() + " " + scale + "x keeps every panel", panels == 6,
+		ok(layout.name() + where + " " + scale + "x keeps every panel", panels == 6,
 			"six panels went in and " + panels + " are placed");
 	}
 
@@ -231,11 +299,21 @@ class LayoutCheck {
 		Sys.println("--- the layout model, with no window anywhere near it ---");
 
 		for (scale in 1...4) {
-			final tiled = new Grid();
-			tiled.anchor(SCREEN, 0.5);
-			floorCheck(tiled, scale);
-			floorCheck(new Floating(), scale);
+			for (side in [Side.Left, Side.Middle, Side.Right]) {
+				final tiled = new Grid();
+				tiled.anchor(SCREEN, 0.5, side);
+				floorCheck(tiled, scale, named(side));
+			}
+			floorCheck(new Floating(), scale, "");
 		}
+
+		sided(Left);
+		sided(Middle);
+		sided(Right);
+
+		flanking(1, true);
+		flanking(2, false);
+		flanking(3, false);
 
 		everyZone(new Grid());
 		everyZone(new Floating());

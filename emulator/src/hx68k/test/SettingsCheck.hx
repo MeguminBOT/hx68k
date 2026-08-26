@@ -3,6 +3,7 @@ package hx68k.test;
 import hx68k.host.Settings;
 import hx68k.host.Group;
 import hx68k.host.Grid;
+import hx68k.host.Zone.Side;
 import hx68k.host.Floating;
 import hx68k.host.Metrics;
 import hx68k.host.Bindings;
@@ -157,7 +158,7 @@ class SettingsCheck {
 		final metrics = new Metrics(16, 32, 1);
 
 		final grid = new Grid();
-		grid.anchor("screen", 0.5, true, 3 / 4);
+		grid.anchor("screen", 0.5, Left, 3 / 4);
 		grid.adopt(groups);
 		grid.place(groups, 1280, 720, metrics);
 
@@ -188,7 +189,7 @@ class SettingsCheck {
 		ok("every group came back", restored == groups.length, restored + " of " + groups.length);
 
 		final rebuilt = new Grid();
-		rebuilt.anchor("screen", 0.5, true, 3 / 4);
+		rebuilt.anchor("screen", 0.5, Left, 3 / 4);
 		rebuilt.load(back.text("layout.grid", ""), second);
 
 		same("the split tree is the one that was saved", rebuilt.save(), tree);
