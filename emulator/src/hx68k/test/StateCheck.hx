@@ -101,6 +101,36 @@ class StateCheck {
 		check(pixels(machine) == ahead, "drawing the same picture it drew the first time");
 
 		check(rewind.back(30) == false, "the ten it replayed did not deepen the ring past what it holds");
+
+		scrubs(rewind, ahead, frame);
+	}
+
+	static function scrubs(rewind:Rewind, ahead:Int, frame:Int):Void {
+		final machine = rewind.machine;
+
+		check(rewind.at == 0, "the cursor sits on the newest state it kept");
+		check(rewind.behind() == rewind.depth - 1, "with everything else behind it");
+
+		check(rewind.back(15), "the cursor goes back fifteen frames");
+		check(machine.vdp.frame == frame - 15, "which is fifteen earlier on the counter");
+		check(rewind.depth == 20, "and the states ahead of it are still held");
+
+		final earlier = pixels(machine);
+
+		check(rewind.forward(15), "it comes forward again");
+		check(machine.vdp.frame == frame, "to the frame it was on");
+		check(pixels(machine) == ahead, "drawing what it drew before it went back");
+
+		check(rewind.seek(19), "and to the oldest state the ring holds");
+		check(!rewind.seek(20), "but no further");
+		check(rewind.forward(1), "and forward from the oldest it holds is allowed");
+
+		check(rewind.seek(15), "going back to the same place twice");
+		check(pixels(machine) == earlier, "reaches the same picture");
+
+		rewind.frame();
+		check(rewind.depth == 6, "running from a scrubbed position drops what was ahead of it");
+		check(rewind.at == 0, "and leaves the cursor on the newest again");
 	}
 
 	static function chips(rom:String):Void {

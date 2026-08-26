@@ -9,10 +9,11 @@ class Rewind {
 	public final capacity:Int;
 
 	public var depth(default, null):Int = 0;
+	public var at(default, null):Int = 0;
 
 	final ring:Array<Bytes>;
 
-	var next:Int = 0;
+	var head:Int = 0;
 
 	public function new(machine:Machine, capacity:Int = 60) {
 		this.machine = machine;
@@ -21,19 +22,48 @@ class Rewind {
 	}
 
 	public function frame():Void {
-		ring[next] = Savestate.of(machine);
-		next = (next + 1) % capacity;
-		if (depth < capacity) depth++;
+		if (at > 0) {
+			depth -= at;
+			at = 0;
+		}
+
 		machine.runFrame();
+		record();
 	}
 
 	public function back(frames:Int):Bool {
-		if (frames < 1 || frames > depth) return false;
+		return seek(at + frames);
+	}
 
-		final index = ((next - frames) % capacity + capacity) % capacity;
-		Savestate.into(machine, ring[index]);
-		next = index;
-		depth -= frames;
+	public function forward(frames:Int):Bool {
+		return seek(at - frames);
+	}
+
+	public function seek(position:Int):Bool {
+		if (position < 0 || position >= depth) return false;
+		if (position == at) return true;
+
+		Savestate.into(machine, ring[index(position)]);
+		at = position;
 		return true;
+	}
+
+	public function behind():Int {
+		return depth - 1 - at;
+	}
+
+	function record():Void {
+		if (depth < capacity) {
+			ring[(head + depth) % capacity] = Savestate.of(machine);
+			depth++;
+			return;
+		}
+
+		ring[head] = Savestate.of(machine);
+		head = (head + 1) % capacity;
+	}
+
+	inline function index(position:Int):Int {
+		return (head + depth - 1 - position) % capacity;
 	}
 }
