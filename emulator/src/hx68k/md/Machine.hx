@@ -21,7 +21,13 @@ class Machine implements Bus implements Memory {
 	public final ram:Bytes = Bytes.alloc(RAM_SIZE);
 	public final z80Ram:Bytes = Bytes.alloc(Z80_RAM_SIZE);
 
+	public static inline final EVERY = 128;
+	public static inline final STOLEN = 2;
+
 	public var cycles(default, null):Int = 0;
+
+	var counted:Int = 0;
+	var owed:Bool = false;
 	public var interrupts(default, null):Int = 0;
 	public var rom(default, null):Bytes = Bytes.alloc(0);
 
@@ -142,17 +148,18 @@ class Machine implements Bus implements Memory {
 	}
 
 	public function read(addr:Int, fc:Int, uds:Bool, lds:Bool):Int {
-		advance(4);
+		advance(4 + stolen());
 		final word = readWord(addr);
 		return uds && lds ? word : (uds ? word & 0xFF00 : word & 0x00FF);
 	}
 
 	public function write(addr:Int, fc:Int, data:Int, uds:Bool, lds:Bool):Void {
-		advance(4);
-
 		final at = addr & 0xFFFFFE;
+		final toVdp = at >= 0xC00000 && at < 0xE00000;
 
-		if (at >= 0xC00000 && at < 0xE00000 && (at & 0x1F) < 0x04) {
+		advance(4 + (toVdp ? 0 : stolen()));
+
+		if (toVdp && (at & 0x1F) < 0x04) {
 			final held = vdp.holdFor();
 			if (held > 0) advance(Std.int((held + MASTER_PER_68K - 1) / MASTER_PER_68K));
 		}
@@ -168,7 +175,19 @@ class Machine implements Bus implements Memory {
 
 	public var audible:Bool = true;
 
+	inline function stolen():Int {
+		if (!owed) return 0;
+		owed = false;
+		return STOLEN;
+	}
+
 	inline function advance(n:Int):Void {
+		counted += n;
+		while (counted >= EVERY) {
+			counted -= EVERY;
+			owed = true;
+		}
+
 		cycles += n;
 		final master = n * MASTER_PER_68K;
 		vdp.tick(master);

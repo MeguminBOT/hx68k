@@ -7,7 +7,7 @@ import haxe.ds.Vector;
 
 class Savestate {
 	static inline final MAGIC = 0x48583638;
-	static inline final VERSION = 5;
+	static inline final VERSION = 6;
 
 	public static function of(machine:Machine):Bytes {
 		final out = new BytesOutput();
@@ -458,7 +458,9 @@ class Savestate {
 		out.writeInt32(machine.cycles);
 		out.writeInt32(machine.z80Master);
 		out.writeInt32(machine.z80Bus.bank);
-		out.writeByte((machine.z80BusRequest ? 1 : 0) | (machine.z80Running ? 2 : 0));
+		out.writeInt32(machine.counted);
+		out.writeByte((machine.z80BusRequest ? 1 : 0) | (machine.z80Running ? 2 : 0)
+			| (machine.owed ? 4 : 0));
 	}
 
 	static function readMachine(input:BytesInput, machine:Machine):Void {
@@ -469,10 +471,12 @@ class Savestate {
 		machine.cycles = input.readInt32();
 		machine.z80Master = input.readInt32();
 		machine.z80Bus.bank = input.readInt32();
+		machine.counted = input.readInt32();
 
 		final bits = input.readByte();
 		machine.z80BusRequest = (bits & 1) != 0;
 		machine.z80Running = (bits & 2) != 0;
+		machine.owed = (bits & 4) != 0;
 	}
 
 	static function writeVector(out:BytesOutput, values:Vector<Int>):Void {
