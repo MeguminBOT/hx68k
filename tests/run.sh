@@ -593,7 +593,11 @@ if [ -f "$GAME" ]; then
 	# it reaches about 1,200 frames in, which is the only place here that draws interlaced planes
 	# and interlaced sprites, and the only one that draws a level at all. The widest check in this
 	# file, and three seconds of it.
-	"$GATE" game "$GAME" 1300 		--digest 120:E902E100,400:B8B01EAE,900:67BCC091,1300:E8E80E0E
+	#
+	# 1302 rather than 1300 because the fills the level load does now take the time a VDP takes over
+	# them, which the game spends waiting: frame 1302 came out bit identical to what frame 1300 drew
+	# before, so the two frames are the whole of the difference.
+	"$GATE" game "$GAME" 1302 		--digest 120:E902E100,400:B8B01EAE,900:67BCC091,1302:E8E80E0E
 fi
 
 echo ""

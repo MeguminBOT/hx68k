@@ -196,7 +196,7 @@ class ViewCheck {
 	}
 
 	static function settle(vdp:Vdp):Void {
-		while (vdp.queued > 0) vdp.tick(16);
+		while (vdp.queued > 0 || vdp.running()) vdp.tick(16);
 	}
 
 	static function colour(vdp:Vdp, index:Int, value:Int):Void {

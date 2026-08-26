@@ -18,6 +18,12 @@ final class Vdp {
 
 	public static inline final SLOTS_H32 = 171;
 
+	static inline final DMA_TRANSFER = 1;
+
+	static inline final DMA_FILL = 2;
+
+	static inline final DMA_COPY = 3;
+
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
 
@@ -56,9 +62,12 @@ final class Vdp {
 	public var queued(default, null):Int = 0;
 	public var stalledFor(default, null):Int = 0;
 
+	var dmaMode:Int = 0;
 	var dmaLeft:Int = 0;
 	var dmaWord:Int = 0;
 	var dmaBank:Int = 0;
+	var dmaByte:Int = 0;
+	var dmaFetched:Bool = false;
 
 	var fifoHead:Int = 0;
 	var served:Int = 0;
@@ -91,9 +100,12 @@ final class Vdp {
 		fifoHead = 0;
 		queued = 0;
 		stalledFor = 0;
+		dmaMode = 0;
 		dmaLeft = 0;
 		dmaWord = 0;
 		dmaBank = 0;
+		dmaByte = 0;
+		dmaFetched = false;
 		served = 0;
 		writes = 0;
 		reads = 0;
@@ -101,7 +113,7 @@ final class Vdp {
 
 	public inline function tick(master:Int):Void {
 		dot += master;
-		if (queued > 0 || dmaLeft > 0) drain();
+		if (queued > 0 || dmaMode != 0) drain();
 		if (dot >= next) events();
 	}
 
@@ -135,30 +147,70 @@ final class Vdp {
 		final total = slotsPerLine();
 		final now = Std.int(dot * total / MASTER_PER_LINE);
 
-		while (served < now && (queued > 0 || dmaLeft > 0)) {
+		while (served < now && (queued > 0 || dmaMode != 0)) {
 			served++;
 			if (!slotIsExternal(served)) continue;
-			if (queued > 0) pop() else carry();
+			if (queued > 0) pop() else step();
 		}
 
 		if (served < now) served = now;
 	}
 
 	public function transferring():Bool {
-		return dmaLeft > 0;
+		return dmaMode == DMA_TRANSFER;
 	}
 
-	function carry():Void {
+	public function running():Bool {
+		return dmaMode != 0;
+	}
+
+	function step():Void {
+		switch (dmaMode) {
+			case DMA_TRANSFER: carryWord();
+			case DMA_FILL: fillByte();
+			case DMA_COPY: copyByte();
+			case _:
+		}
+	}
+
+	function carryWord():Void {
 		commit(code, address, memory.readWord(dmaBank | ((dmaWord << 1) & 0x1FFFE)));
 		address = (address + registers[15]) & 0xFFFF;
+		advanceSource();
+		countDown();
+	}
 
+	function fillByte():Void {
+		vram.set((address ^ 1) & 0xFFFF, dmaByte);
+		address = (address + registers[15]) & 0xFFFF;
+		countDown();
+	}
+
+	function copyByte():Void {
+		if (!dmaFetched) {
+			dmaByte = vram.get(dmaWord & 0xFFFF);
+			dmaFetched = true;
+			return;
+		}
+
+		dmaFetched = false;
+		vram.set(address & 0xFFFF, dmaByte);
+		address = (address + registers[15]) & 0xFFFF;
+		advanceSource();
+		countDown();
+	}
+
+	inline function advanceSource():Void {
 		dmaWord = (dmaWord + 1) & 0xFFFF;
 		registers[21] = dmaWord & 0xFF;
 		registers[22] = (dmaWord >> 8) & 0xFF;
+	}
 
+	function countDown():Void {
 		dmaLeft--;
 		registers[19] = dmaLeft & 0xFF;
 		registers[20] = (dmaLeft >> 8) & 0xFF;
+		if (dmaLeft <= 0) dmaMode = 0;
 	}
 
 	function pop():Void {
@@ -279,10 +331,7 @@ final class Vdp {
 		writes++;
 		pending = false;
 
-		if (filling) {
-			fillVram(value);
-			return 0;
-		}
+		if (filling) return startFill(value);
 
 		return push(value);
 	}
@@ -310,6 +359,7 @@ final class Vdp {
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;
 		if (queued == FIFO_DEPTH) value |= 0x0100;
+		if (dmaMode != 0) value |= 0x0002;
 		if (interlaced() && (frame & 1) != 0) value |= 0x0010;
 		return value;
 	}
@@ -363,57 +413,45 @@ final class Vdp {
 		}
 	}
 
-	function store(value:Int):Void {
-		commit(code, address, value);
-		address = (address + registers[15]) & 0xFFFF;
-	}
-
 	function startDma():Void {
-		var length = registers[19] | (registers[20] << 8);
-		if (length == 0) length = 0x10000;
+		final length = requested();
 
 		if ((registers[23] & 0x80) != 0) {
-			if ((registers[23] & 0x40) == 0) filling = true else copyVram(length);
+			if ((registers[23] & 0x40) == 0) filling = true else startCopy(length);
 			return;
 		}
-		transfer(length);
+
+		startTransfer(length);
 	}
 
-	function transfer(length:Int):Void {
+	inline function requested():Int {
+		final length = registers[19] | (registers[20] << 8);
+		return length == 0 ? 0x10000 : length;
+	}
+
+	function startTransfer(length:Int):Void {
 		dmaBank = (registers[23] & 0x7F) << 17;
 		dmaWord = registers[21] | (registers[22] << 8);
 		dmaLeft = length;
+		dmaMode = DMA_TRANSFER;
 	}
 
-	function copyVram(length:Int):Void {
-		var source = registers[21] | (registers[22] << 8);
-
-		for (i in 0...length) {
-			vram.set(address & 0xFFFF, vram.get(source & 0xFFFF));
-			address = (address + registers[15]) & 0xFFFF;
-			source = (source + 1) & 0xFFFF;
-		}
-
-		registers[21] = source & 0xFF;
-		registers[22] = (source >> 8) & 0xFF;
-		registers[19] = 0;
-		registers[20] = 0;
+	function startCopy(length:Int):Void {
+		dmaWord = registers[21] | (registers[22] << 8);
+		dmaLeft = length;
+		dmaFetched = false;
+		dmaMode = DMA_COPY;
 	}
 
-	function fillVram(value:Int):Void {
-		var length = registers[19] | (registers[20] << 8);
-		if (length == 0) length = 0x10000;
-
+	function startFill(value:Int):Int {
 		filling = false;
-		store(value);
 
-		final byte = (value >> 8) & 0xFF;
-		for (i in 0...length) {
-			vram.set((address ^ 1) & 0xFFFF, byte);
-			address = (address + registers[15]) & 0xFFFF;
-		}
+		final length = requested();
+		final held = push(value);
 
-		registers[19] = 0;
-		registers[20] = 0;
+		dmaByte = (value >> 8) & 0xFF;
+		dmaLeft = length;
+		dmaMode = DMA_FILL;
+		return held;
 	}
 }

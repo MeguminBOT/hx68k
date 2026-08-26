@@ -120,28 +120,49 @@ class SlotCheck {
 		same("and so did the fourth", (vdp.vram.get(6) << 8) | vdp.vram.get(7), 0x4003);
 	}
 
+	static function asked(vdp:Vdp, length:Int, source:Int, mode:Int):Void {
+		set(vdp, 19, length & 0xFF);
+		set(vdp, 20, (length >> 8) & 0xFF);
+		set(vdp, 21, source & 0xFF);
+		set(vdp, 22, (source >> 8) & 0xFF);
+		set(vdp, 23, mode);
+	}
+
+	static function carried(vdp:Vdp, length:Int):Int {
+		for (_ in 0...Vdp.MASTER_PER_LINE) {
+			vdp.tick(1);
+			if (!vdp.running()) break;
+		}
+
+		return length - (vdp.registers[19] | (vdp.registers[20] << 8));
+	}
+
 	static function transferring(width:Int, display:Int, words:Int):Int {
 		final vdp = ready(width, display);
-
-		set(vdp, 19, words & 0xFF);
-		set(vdp, 20, (words >> 8) & 0xFF);
-		set(vdp, 21, 0);
-		set(vdp, 22, 0);
-		set(vdp, 23, 0);
+		asked(vdp, words, 0, 0);
 
 		vdp.writeControl(0x4000);
 		vdp.writeControl(0x0080);
+		return carried(vdp, words);
+	}
 
-		var carried = 0;
-		for (_ in 0...Vdp.MASTER_PER_LINE) {
-			vdp.tick(1);
-			if (!vdp.transferring()) break;
-			carried++;
-		}
+	static function filling(width:Int, display:Int, bytes:Int):Int {
+		final vdp = ready(width, display);
+		asked(vdp, bytes, 0, 0x80);
 
-		var landed = 0;
-		for (at in 0...0x8000) if (vdp.vram.get(at * 2) != 0 || vdp.vram.get(at * 2 + 1) != 0) landed++;
-		return landed;
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x0080);
+		vdp.writeData(0xAA55);
+		return carried(vdp, bytes);
+	}
+
+	static function copying(width:Int, display:Int, bytes:Int):Int {
+		final vdp = ready(width, display);
+		asked(vdp, bytes, 0x4000, 0xC0);
+
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x00C0);
+		return carried(vdp, bytes);
 	}
 
 	static function dma():Void {
@@ -161,6 +182,78 @@ class SlotCheck {
 		same("a transfer shorter than a line carries all of it", short, 40);
 	}
 
+	static function fill():Void {
+		final blank = filling(H40, DISPLAY_OFF, 1000);
+		ok("a blanked H40 line carries about 204 bytes of a fill, the first slot going to its word",
+			blank >= 199 && blank <= 209, "it carried " + blank);
+
+		final active = filling(H40, DISPLAY_ON, 1000);
+		ok("an active H40 line carries about 17",
+			active >= 14 && active <= 20, "it carried " + active);
+
+		final narrow = filling(H32, DISPLAY_OFF, 1000);
+		ok("a blanked H32 line carries about 166",
+			narrow >= 161 && narrow <= 171, "it carried " + narrow);
+	}
+
+	static function copy():Void {
+		final blank = copying(H40, DISPLAY_OFF, 1000);
+		ok("a blanked H40 line carries about 102 bytes of a copy, which reads before it writes",
+			blank >= 97 && blank <= 107, "it carried " + blank);
+
+		final active = copying(H40, DISPLAY_ON, 1000);
+		ok("an active H40 line carries about 9",
+			active >= 6 && active <= 12, "it carried " + active);
+
+		final narrow = copying(H32, DISPLAY_OFF, 1000);
+		ok("a blanked H32 line carries about 83",
+			narrow >= 78 && narrow <= 88, "it carried " + narrow);
+	}
+
+	static function landed():Void {
+		final vdp = ready(H40, DISPLAY_OFF);
+		asked(vdp, 8, 0, 0x80);
+
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x0080);
+		vdp.writeData(0xAA55);
+
+		ok("a fill leaves the DMA running", vdp.running(), "it did not");
+		ok("and says so in the status", (vdp.readStatus() & 0x0002) != 0, "the busy bit was clear");
+		ok("but does not freeze the 68000", !vdp.transferring(), "it froze");
+
+		for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+
+		ok("a line finishes eight bytes of it", !vdp.running(), "it is still running");
+		ok("and the status says so", (vdp.readStatus() & 0x0002) == 0, "the busy bit was set");
+
+		same("the word it started with landed", (vdp.vram.get(0) << 8) | vdp.vram.get(1), 0xAA55);
+		same("and the high byte followed it", vdp.vram.get(3), 0xAA);
+		same("at the address increment, not beside it", vdp.vram.get(2), 0);
+	}
+
+	static function copied():Void {
+		final vdp = ready(H40, DISPLAY_OFF);
+		for (at in 0...8) vdp.vram.set(0x4000 + at, 0x10 + at);
+
+		set(vdp, 15, 1);
+		asked(vdp, 8, 0x4000, 0xC0);
+
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x00C0);
+
+		ok("a copy leaves the DMA running", vdp.running(), "it did not");
+		ok("but does not freeze the 68000", !vdp.transferring(), "it froze");
+
+		for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+
+		ok("a line finishes eight bytes of it", !vdp.running(), "it is still running");
+
+		var wrong = 0;
+		for (at in 0...8) if (vdp.vram.get(at) != 0x10 + at) wrong++;
+		same("and every byte arrived where it was sent", wrong, 0);
+	}
+
 	static function main():Void {
 		run();
 	}
@@ -172,6 +265,14 @@ class SlotCheck {
 
 		Sys.println("what a transfer does with them");
 		dma();
+
+		Sys.println("what a VRAM fill does with them");
+		fill();
+		landed();
+
+		Sys.println("what a VRAM copy does with them");
+		copy();
+		copied();
 
 		Sys.println("what the write FIFO does with them");
 		holding();

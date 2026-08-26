@@ -249,6 +249,51 @@ experiences, and both pass with the expectations they already had. A VDP write t
 is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
 Mega Drive does.
 
+### A fill takes a slot a byte, a copy takes two, and neither freezes the 68000
+
+The VRAM fill and the VRAM copy were the last two things in this VDP that happened in no time at
+all. They now run on the same external access slot schedule the write FIFO and the 68000 to VDP
+transfer run on, and the twelve rates that come out are the twelve the Sega documentation gives,
+none of them written into the model:
+
+| | H32 active | H32 blanked | H40 active | H40 blanked |
+| --- | --- | --- | --- | --- |
+| 68000 to VDP | 16 | 167 | 18 | 205 |
+| VRAM fill | 15 | 166 | 17 | 204 |
+| VRAM copy | 8 | 83 | 9 | 102 |
+
+The three rows differ for reasons rather than by adjustment. A transfer is one word an external
+slot. A fill is one byte an external slot, and it is one behind the transfer on every line because
+the data port write that starts it is an ordinary FIFO write and takes the first slot itself. A
+copy is one byte every two slots, because it reads a byte from video memory and then writes it,
+and each of those is an access.
+
+**A transfer freezes the 68000 and a fill or a copy does not.** A transfer reads its source over
+the 68000's own bus, so the VDP takes that bus for the length of it. A fill and a copy read nothing
+outside the VDP, so the 68000 keeps running, and the way a program waits for one is
+**status bit 1**, which is set while any of the three is in flight. SGDK relies on exactly that:
+`VDP_waitDMACompletion` is `while (GET_VDP_STATUS(VDP_DMABUSY_FLAG));` and `VDP_init` calls it
+after clearing all 64 KB of video memory, which at 205 bytes a blanked line takes 320 lines.
+
+**What it did to Sonic 2, which is the only thing here that fills at all.** Fourteen fills over
+1300 frames, 176,306 bytes between them, and no copies. Four of those are large enough to cost a
+frame or more: 65,535 bytes twice during boot with the display off, and the three plane clears the
+two player Emerald Hill demo does at frames 1146 and 1147 with the display on, where 4,095 bytes
+into plane A alone runs from line 250 of one frame to line 94 of the next. The game polls the busy
+bit through all of them, 1,842 reads of the status register during that one, so the wait is real
+and the demo comes up two frames later than it did.
+
+**Nothing draws differently.** Frame 1302 of the new run came out bit identical to what frame 1300
+drew before, digest and all, so the two frames are the entire difference and the gate's checkpoint
+moved by two rather than its expected value changing.
+
+**What the port access ROM says about all of it: nothing.** Page one stays at 60.9% and page two at
+86.9%, and suite 4, the VRAM fill, stays at 82.3%. Two further guesses were tried against it and
+both left every suite where it was, so neither went in: incrementing the unused source address
+registers as a fill runs, which no program can observe because the VDP's registers cannot be read,
+and clearing the FIFO empty bit while a DMA is in flight. Whatever suites 1, 3 and 5 are measuring
+is not the rate a DMA runs at.
+
 ### A transfer takes one external access slot a word, and freezes the 68000
 
 A 68000 to VDP transfer used to happen in one go inside the control port write, at no cost to the
@@ -272,8 +317,8 @@ how the machine spends a frame: the z80 gets 57,894 states a frame where it got 
 68000 now stands still through every transfer instead of teleporting through it. Sonic 2 does its
 transfers in vblank, where 205 slots a line is more than it needs, so nothing it draws moves.
 
-**Still instant, and still wrong**: the VRAM fill and the VRAM copy. Both are DMA and both should
-run at the same rate. They are left as they were rather than half changed.
+Both the VRAM fill and the VRAM copy were still instant when this was written. The section above
+is what they became.
 
 ### Three attempts before that, and what they cost
 

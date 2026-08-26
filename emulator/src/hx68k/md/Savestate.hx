@@ -7,7 +7,7 @@ import haxe.ds.Vector;
 
 class Savestate {
 	static inline final MAGIC = 0x48583638;
-	static inline final VERSION = 4;
+	static inline final VERSION = 5;
 
 	public static function of(machine:Machine):Bytes {
 		final out = new BytesOutput();
@@ -148,7 +148,24 @@ class Savestate {
 		out.writeInt32(vdp.address);
 		out.writeInt32(vdp.code);
 		out.writeInt32(vdp.hintCounter);
-		out.writeByte((vdp.pending ? 1 : 0) | (vdp.filling ? 2 : 0) | (vdp.vint ? 4 : 0) | (vdp.hint ? 8 : 0));
+		out.writeInt32(vdp.latch);
+		out.writeByte((vdp.pending ? 1 : 0) | (vdp.filling ? 2 : 0) | (vdp.vint ? 4 : 0) | (vdp.hint ? 8 : 0)
+			| (vdp.dmaFetched ? 16 : 0));
+
+		out.writeInt32(vdp.served);
+		out.writeInt32(vdp.fifoHead);
+		out.writeInt32(vdp.queued);
+		for (i in 0...Vdp.FIFO_DEPTH) {
+			out.writeInt32(vdp.fifoCode[i]);
+			out.writeInt32(vdp.fifoAddress[i]);
+			out.writeInt32(vdp.fifoValue[i]);
+		}
+
+		out.writeInt32(vdp.dmaMode);
+		out.writeInt32(vdp.dmaLeft);
+		out.writeInt32(vdp.dmaWord);
+		out.writeInt32(vdp.dmaBank);
+		out.writeInt32(vdp.dmaByte);
 	}
 
 	static function readVdp(input:BytesInput, vdp:Vdp):Void {
@@ -164,12 +181,29 @@ class Savestate {
 		vdp.address = input.readInt32();
 		vdp.code = input.readInt32();
 		vdp.hintCounter = input.readInt32();
+		vdp.latch = input.readInt32();
 
 		final bits = input.readByte();
 		vdp.pending = (bits & 1) != 0;
 		vdp.filling = (bits & 2) != 0;
 		vdp.vint = (bits & 4) != 0;
 		vdp.hint = (bits & 8) != 0;
+		vdp.dmaFetched = (bits & 16) != 0;
+
+		vdp.served = input.readInt32();
+		vdp.fifoHead = input.readInt32();
+		vdp.queued = input.readInt32();
+		for (i in 0...Vdp.FIFO_DEPTH) {
+			vdp.fifoCode[i] = input.readInt32();
+			vdp.fifoAddress[i] = input.readInt32();
+			vdp.fifoValue[i] = input.readInt32();
+		}
+
+		vdp.dmaMode = input.readInt32();
+		vdp.dmaLeft = input.readInt32();
+		vdp.dmaWord = input.readInt32();
+		vdp.dmaBank = input.readInt32();
+		vdp.dmaByte = input.readInt32();
 	}
 
 	static function writeSound(out:BytesOutput, sound:Sound):Void {
