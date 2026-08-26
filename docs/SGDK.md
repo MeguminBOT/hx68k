@@ -72,7 +72,7 @@ Measured against what `makefile.gen` and the sample builds actually open. Sizes 
 
 | path | size | what it is |
 | --- | --- | --- |
-| `bin/` | 96 MB | the m68k toolchain, the jars rescomp calls, and `xgmtool.exe`, which is native C rather than Java and is reached only through rescomp |
+| `bin/` | 96 MB | the m68k toolchain, and the four tools hxres replaced: `rescomp.jar`, `apj.jar`, `lz4w.jar` and `xgmtool.exe`. No build here calls any of them, since every `build.sh` passes `RESCOMP=false`; they are kept because the resource checks compare against them where a JVM is present |
 | `lib/libmd.a`, `lib/libgcc.a` | 4.6 MB | the prebuilt library every ROM still links |
 | `inc/` | 897 KB | 36 headers. `hx.h` includes `genesis.h`, so the generated C needs them |
 | `md.ld` | 4 KB | the linker script |
@@ -96,7 +96,7 @@ hardware claim in `docs/` that came from SGDK came from reading these.
 | `.git` | 68 MB | a shallow or sparse fetch never creates it |
 | `sample/` | 56 MB | SGDK's own demos. Nothing here builds them |
 | `doc/` | 7.6 MB | generated documentation |
-| `tools/` | 2.9 MB | the source of what sits in `bin/`: Java for rescomp, apj and lz4w, C for `xgmtool`. Read while porting each, never built here |
+| `tools/` | 2.9 MB | the source of what sits in `bin/`: Java for rescomp, apj and lz4w, C for `xgmtool`. All four are ported into `sdk/src/hxres`, and this is what each was read from. Never built here |
 | `.github/`, `.vscode/`, `project/`, `CMakeLists.txt`, `build_*.bat`, `makelib.gen` | | building SGDK itself, which this repository never does |
 
 That is **134 MB of 238 removable outright**, and a further 3 MB that could go if the reference
