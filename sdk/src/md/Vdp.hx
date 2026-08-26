@@ -1,45 +1,152 @@
 package md;
 
-extern class Vdp {
-	@:native("VDP_init") static function init():Void;
-	@:native("VDP_resetScreen") static function resetScreen():Void;
-	@:native("VDP_setEnable") static function setEnable(on:Bool):Void;
-	@:native("VDP_isEnable") static function isEnabled():Bool;
+import md.hw.Vdp as Ports;
 
-	@:native("VDP_setReg") static function setRegister(index:UInt16, value:UInt8):Void;
-	@:native("VDP_getReg") static function register(index:UInt16):UInt8;
-	@:native("VDP_setAutoInc") static function setAutoIncrement(value:UInt8):Void;
-	@:native("VDP_getAutoInc") static function autoIncrement():UInt8;
+class Vdp {
+	public static inline final REGISTERS = 24;
 
-	@:native("VDP_setScreenWidth320") static function setWidth320():Void;
-	@:native("VDP_setScreenWidth256") static function setWidth256():Void;
-	@:native("VDP_getScreenWidth") static function width():UInt16;
-	@:native("VDP_getScreenHeight") static function height():UInt16;
+	public static inline final MODE = 0;
 
-	@:native("VDP_setBackgroundColor") static function setBackgroundColour(index:UInt8):Void;
-	@:native("VDP_getBackgroundColor") static function backgroundColour():UInt8;
+	public static inline final DISPLAY = 1;
 
-	@:native("VDP_setHorizontalScroll") static function setHorizontalScroll(plane:Plane, value:Int16):Void;
-	@:native("VDP_setVerticalScroll") static function setVerticalScroll(plane:Plane, value:Int16):Void;
-	@:native("VDP_setHIntCounter") static function setHorizontalInterruptCounter(value:UInt8):Void;
-	@:native("VDP_setHInterrupt") static function setHorizontalInterrupt(on:Bool):Void;
+	public static inline final BACKDROP = 7;
 
-	@:native("VDP_loadDefaultFont") static function loadDefaultFont(how:Transfer):Bool;
-	@:native("VDP_drawImage") static function drawImage(plane:Plane, image:md.res.Image, x:UInt16,
-		y:UInt16):Bool;
-	@:native("VDP_drawImageEx") static function drawImageOn(plane:Plane, image:md.res.Image,
-		baseTile:UInt16, x:UInt16, y:UInt16, loadPalette:Bool, dma:Bool):Bool;
+	public static inline final HORIZONTAL_COUNT = 10;
 
-	@:native("VDP_drawText") static function drawText(text:String, x:UInt16, y:UInt16):Void;
-	@:native("VDP_drawTextBG") static function drawTextOn(plane:Plane, text:String, x:UInt16, y:UInt16):Void;
-	@:native("VDP_clearText") static function clearText(x:UInt16, y:UInt16, w:UInt16):Void;
-	@:native("VDP_clearTextLine") static function clearTextLine(y:UInt16):Void;
-	@:native("VDP_setTextPalette") static function setTextPalette(palette:UInt16):Void;
-	@:native("VDP_setTextPlane") static function setTextPlane(plane:Plane):Void;
+	public static inline final SCROLLING = 11;
 
-	@:native("VDP_getScanlineNumber") static function scanline():UInt16;
-	@:native("VDP_waitVSync") static function waitVSync():Bool;
-	@:native("VDP_waitVBlank") static function waitVBlank(forceNext:Bool):Bool;
-	@:native("VDP_waitDMACompletion") static function waitDma():Void;
-	@:native("VDP_waitFIFOEmpty") static function waitFifo():Void;
+	public static inline final WIDTH = 12;
+
+	public static inline final INCREMENT = 15;
+
+	public static inline final SHOWING = 0x40;
+
+	public static inline final VERTICAL_INTERRUPT = 0x20;
+
+	public static inline final HORIZONTAL_INTERRUPT = 0x10;
+
+	public static inline final EXTERNAL_INTERRUPT = 0x08;
+
+	public static inline final TALL = 0x08;
+
+	public static inline final WIDE = 0x81;
+
+	@:md.size(24) static var shadow:Vector<UInt8>;
+
+	public static function setRegister(index:UInt16, value:UInt8):Void {
+		if (index < REGISTERS) shadow[index] = value;
+		Ports.register(index, value);
+	}
+
+	public static inline function register(index:UInt16):UInt8 {
+		return shadow[index];
+	}
+
+	static inline function change(index:UInt16, mask:UInt8, on:Bool):Void {
+		final was:Int = shadow[index];
+		setRegister(index, on ? was | mask : was & ~mask);
+	}
+
+	public static inline function setEnable(on:Bool):Void {
+		change(DISPLAY, SHOWING, on);
+	}
+
+	public static inline function isEnabled():Bool {
+		return (shadow[DISPLAY] & SHOWING) != 0;
+	}
+
+	public static inline function setVerticalInterrupt(on:Bool):Void {
+		change(DISPLAY, VERTICAL_INTERRUPT, on);
+	}
+
+	public static inline function setHorizontalInterrupt(on:Bool):Void {
+		change(MODE, HORIZONTAL_INTERRUPT, on);
+	}
+
+	public static inline function setExternalInterrupt(on:Bool):Void {
+		change(SCROLLING, EXTERNAL_INTERRUPT, on);
+	}
+
+	public static inline function setHorizontalInterruptCounter(lines:UInt8):Void {
+		setRegister(HORIZONTAL_COUNT, lines);
+	}
+
+	public static inline function setBackgroundColour(index:UInt8):Void {
+		setRegister(BACKDROP, index & 0x3F);
+	}
+
+	public static inline function backgroundColour():UInt8 {
+		return shadow[BACKDROP] & 0x3F;
+	}
+
+	public static inline function setAutoIncrement(step:UInt8):Void {
+		setRegister(INCREMENT, step);
+	}
+
+	public static inline function autoIncrement():UInt8 {
+		return shadow[INCREMENT];
+	}
+
+	public static function setWidth320():Void {
+		setRegister(WIDTH, shadow[WIDTH] | WIDE);
+		Tilemap.setWindowColumns(64);
+	}
+
+	public static function setWidth256():Void {
+		setRegister(WIDTH, shadow[WIDTH] & ~WIDE);
+		Tilemap.setWindowColumns(32);
+	}
+
+	public static inline function width():UInt16 {
+		return (shadow[WIDTH] & WIDE) == WIDE ? 320 : 256;
+	}
+
+	public static inline function setHeight240(tall:Bool):Void {
+		change(DISPLAY, TALL, tall);
+	}
+
+	public static inline function height():UInt16 {
+		return (shadow[DISPLAY] & TALL) != 0 ? 240 : 224;
+	}
+
+	public static inline function scanline():UInt16 {
+		return (Ports.counter() >> 8) & 0xFF;
+	}
+
+	public static function setHorizontalScroll(plane:Plane, value:Int16):Void {
+		Ports.autoIncrement(2);
+		Ports.address(Ports.VRAM_WRITE, scrollTable() + (plane == Plane.B ? 2 : 0));
+		Ports.write(value & 0x3FF);
+	}
+
+	public static function setVerticalScroll(plane:Plane, value:Int16):Void {
+		Ports.autoIncrement(2);
+		Ports.address(Ports.VSRAM_WRITE, plane == Plane.B ? 2 : 0);
+		Ports.write(value & 0x3FF);
+	}
+
+	public static inline function scrollTable():UInt16 {
+		return shadow[13] << 10;
+	}
+
+	public static inline function setScrollTable(at:UInt16):Void {
+		setRegister(13, at >> 10);
+	}
+
+	public static function waitDma():Void {
+		while ((Ports.status() & Ports.DMA_BUSY) != 0) {}
+	}
+
+	public static function waitFifo():Void {
+		while ((Ports.status() & 0x0200) == 0) {}
+	}
+
+	public static function waitVBlank():Void {
+		while (!Ports.inVblank()) {}
+	}
+
+	public static function waitVSync():Void {
+		while (Ports.inVblank()) {}
+		while (!Ports.inVblank()) {}
+	}
 }

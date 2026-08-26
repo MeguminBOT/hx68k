@@ -6,6 +6,25 @@ import reflaxe.ReflectCompiler;
 import reflaxe.preprocessors.ExpressionPreprocessor;
 
 class CompilerInit {
+	static function kept(types:Array<haxe.macro.Type.ModuleType>):Void {
+		for(type in types) {
+			switch(type) {
+				case TClassDecl(reference): {
+					for(field in reference.get().statics.get()) {
+						if(field.meta.has(":keep")) continue;
+
+						for(kind in Compiler.INTERRUPTS) {
+							if(!field.meta.has(":md." + kind)) continue;
+							field.meta.add(":keep", [], field.pos);
+							break;
+						}
+					}
+				}
+				case _:
+			}
+		}
+	}
+
 	public static function Start() {
 		#if !eval
 		Sys.println("CompilerInit.Start can only be called from a macro context.");
@@ -16,6 +35,8 @@ class CompilerInit {
 		Sys.println("Reflaxe/MegaDrive requires Haxe version 4.3.0 or greater.");
 		return;
 		#end
+
+		haxe.macro.Context.onAfterTyping(kept);
 
 		ReflectCompiler.AddCompiler(new Compiler(), {
 			expressionPreprocessors:[

@@ -13,7 +13,7 @@ import md.Probe;
 import md.System;
 import md.Transfer;
 import md.UInt16;
-import md.Vdp;
+import md.sgdk.Vdp;
 import md.Vector;
 import md.hw.Vdp as Ports;
 

@@ -3,7 +3,7 @@ package;
 import md.Palette;
 import md.Pool;
 import md.System;
-import md.Vdp;
+import md.sgdk.Vdp;
 
 class Main {
 	static var frame:Int = 0;

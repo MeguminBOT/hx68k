@@ -15,6 +15,8 @@ class Main {
 
 	static var carried:Int = 0x1234;
 
+	@:md.volatile static var ticks:Int = 0;
+
 	@:md.size(8) static var block:Vector<UInt32>;
 
 	@:md.size(4) static var cleared:Vector<UInt32>;
@@ -36,12 +38,9 @@ class Main {
 		Tilemap.fill(Plane.A, Tilemap.entry(PATTERN, 0, false, false, false), 2, 2, 8, 4);
 
 		Boot.show();
+		Boot.listen();
 
-		var frame = 0;
-		while (frame < 4) {
-			Boot.waitVertical();
-			frame++;
-		}
+		while (ticks < 4) {}
 
 		Probe.report(carried);
 		Probe.report(cleared[0]);
@@ -49,11 +48,15 @@ class Main {
 		Probe.report(readVram(Tilemap.address(Plane.A, 2, 2)));
 		Probe.report(readVram(Patterns.address(PATTERN)));
 		Probe.report(Tilemap.columns());
+		Probe.report(ticks >= 4 ? 1 : 0);
 		Probe.done();
 
-		while (true) {
-			Boot.waitVertical();
-		}
+		while (true) {}
+	}
+
+	@:md.vertical
+	static function onVertical():Void {
+		ticks++;
 	}
 
 	static function readVram(at:Int):Int {

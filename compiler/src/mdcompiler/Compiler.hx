@@ -48,6 +48,7 @@ class Compiler extends DirectToStringCompiler {
 	static inline final MARK_CLOSE = "\x02";
 
 	var entryPoint:Null<String> = null;
+	var handlers:Map<String, String> = new Map<String, String>();
 	var includes:Map<String, Bool> = [];
 	var interfaceTypes:Map<String, Bool> = [];
 	var interfaceTables:Map<String, Bool> = [];
@@ -63,6 +64,7 @@ class Compiler extends DirectToStringCompiler {
 
 	public override function onCompileStart() {
 		entryPoint = null;
+		handlers = new Map<String, String>();
 		includes = [];
 		interfaceTypes = [];
 		interfaceTables = [];
@@ -77,6 +79,12 @@ class Compiler extends DirectToStringCompiler {
 			appendToExtraFile(HEADER, "static inline s32 hx_bounds(s32 index, s32 capacity)\n{\n"
 				+ "\tif((u32)index >= (u32)capacity) { hx_bounds_hits++; return 0; }\n"
 				+ "\treturn index;\n}\n", P_PROTOS);
+		if(Context.defined("md-native-boot"))
+			appendToExtraFile(HEADER, "void md_interrupts_on(void);
+void md_interrupts_off(void);
+",
+				P_PROTOS);
+
 		appendToExtraFile(HEADER, "#endif", P_EPILOGUE);
 	}
 
@@ -91,18 +99,24 @@ class Compiler extends DirectToStringCompiler {
 		setExtraFile(ROM_HEADER, romHeader());
 	}
 
-	static function entryFile(entry:String):String {
+	public static final INTERRUPTS = ["vertical", "horizontal", "external"];
+
+	function entryFile(entry:String):String {
 		final head = '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n';
 
 		if(!Context.defined("md-native-boot"))
 			return head + 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();'
 				+ '\n\treturn 0;\n}\n';
 
-		return head
-			+ 'void md_vertical(void) {}\n\n'
-			+ 'void md_horizontal(void) {}\n\n'
-			+ 'void md_external(void) {}\n\n'
-			+ 'void md_start(void)\n{\n\t${entry}();\n\tfor(;;) { }\n}\n';
+		var out = head;
+
+		for(kind in INTERRUPTS) {
+			final called = handlers.get(kind);
+			out += 'void md_${kind}(void)\n{\n'
+				+ (called == null ? '' : '\t${called}();\n') + '}\n\n';
+		}
+
+		return out + 'void md_start(void)\n{\n\t${entry}();\n\tfor(;;) { }\n}\n';
 	}
 
 	static function romHeader():String {
@@ -840,6 +854,20 @@ class Compiler extends DirectToStringCompiler {
 			if(!f.isStatic) Context.error("@:md.main must mark a static function.", f.field.pos);
 			if(entryPoint != null) Context.error("Multiple @:md.main entry points declared.", f.field.pos);
 			entryPoint = name;
+		}
+
+		for(kind in INTERRUPTS) {
+			if(!f.field.meta.has(":md." + kind)) continue;
+
+			if(!f.isStatic)
+				Context.error("@:md." + kind + " must mark a static function.", f.field.pos);
+			if(!Context.defined("md-native-boot"))
+				Context.error("@:md." + kind + " needs -D md-native-boot. Without it SGDK owns "
+					+ "the vector table, so use its own callback instead.", f.field.pos);
+			if(handlers.exists(kind))
+				Context.error("Two functions are marked @:md." + kind + ".", f.field.pos);
+
+			handlers.set(kind, name);
 		}
 
 		final expr = f.expr;

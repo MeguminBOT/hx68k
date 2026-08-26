@@ -90,3 +90,13 @@ _Error:
 
 _Ignore:
     rte
+
+    .globl  md_interrupts_on
+md_interrupts_on:
+    move    #0x2000, %sr
+    rts
+
+    .globl  md_interrupts_off
+md_interrupts_off:
+    move    #0x2700, %sr
+    rts

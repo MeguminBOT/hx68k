@@ -209,7 +209,7 @@ class Run {
 			+ "\n"
 			+ "import md.Palette;\n"
 			+ "import md.System;\n"
-			+ "import md.Vdp;\n"
+			+ "import md.sgdk.Vdp;\n"
 			+ "\n"
 			+ "class Main {\n"
 			+ "\tstatic var frame:Int = 0;\n"

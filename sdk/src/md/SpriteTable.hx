@@ -44,7 +44,7 @@ class SpriteTable {
 
 	public static function setBase(where:UInt16):Void {
 		at = where;
-		Ports.register(5, where >> 9);
+		Vdp.setRegister(5, where >> 9);
 	}
 
 	public static inline function base():UInt16 {

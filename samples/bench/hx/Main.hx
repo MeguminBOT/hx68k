@@ -12,7 +12,7 @@ import md.Patterns;
 import md.Plane;
 import md.Probe;
 import md.System;
-import md.Vdp;
+import md.sgdk.Vdp;
 import md.Transfer;
 import md.UInt16;
 import md.Vector;

@@ -457,6 +457,7 @@ static const probe_t bare_expected[] = {
 	{ "a cell set through the native tilemap", 1 },
 	{ "a pattern uploaded without DMA", 0x1111 },
 	{ "the plane is 64 cells wide", 64 },
+	{ "and a vertical interrupt reached Haxe four times", 1 },
 };
 
 static const probe_t art_expected[] = {

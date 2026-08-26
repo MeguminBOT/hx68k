@@ -14,7 +14,7 @@ import md.Tilemap;
 import md.UInt16;
 import md.Vector;
 import md.sgdk.Sprite;
-import md.Vdp;
+import md.sgdk.Vdp;
 import md.hw.Vdp as Ports;
 
 class Main {

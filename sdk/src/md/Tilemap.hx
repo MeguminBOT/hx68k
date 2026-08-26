@@ -88,7 +88,7 @@ class Tilemap {
 			}
 		}
 
-		Ports.register(16, value);
+		Vdp.setRegister(16, value);
 	}
 
 	public static function setWindowColumns(count:UInt16):Void {
@@ -106,15 +106,15 @@ class Tilemap {
 		switch (plane) {
 			case Plane.A:
 				baseA = at;
-				Ports.register(2, at >> 10);
+				Vdp.setRegister(2, at >> 10);
 
 			case Plane.B:
 				baseB = at;
-				Ports.register(4, at >> 13);
+				Vdp.setRegister(4, at >> 13);
 
 			case Plane.Window:
 				baseWindow = at;
-				Ports.register(3, at >> 10);
+				Vdp.setRegister(3, at >> 10);
 		}
 	}
 

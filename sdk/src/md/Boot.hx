@@ -1,6 +1,7 @@
 package md;
 
 import md.hw.Vdp as Ports;
+import md.hw.Cpu;
 import md.hw.Z80;
 
 class Boot {
@@ -17,26 +18,21 @@ class Boot {
 	public static function begin():Void {
 		while ((Ports.status() & Ports.DMA_BUSY) != 0) {}
 
-		Ports.register(0, 0x04);
-		Ports.register(1, 0x04);
-		Ports.register(2, PLANE_A >> 10);
-		Ports.register(3, WINDOW >> 10);
-		Ports.register(4, PLANE_B >> 13);
-		Ports.register(5, SPRITES >> 9);
-		Ports.register(6, 0x00);
-		Ports.register(7, 0x00);
-		Ports.register(8, 0x00);
-		Ports.register(9, 0x00);
-		Ports.register(10, 0x01);
-		Ports.register(11, 0x00);
-		Ports.register(12, 0x81);
-		Ports.register(13, SCROLL >> 10);
-		Ports.register(14, 0x00);
-		Ports.register(15, 0x02);
-		Ports.register(16, 0x01);
-		Ports.register(17, 0x00);
-		Ports.register(18, 0x00);
+		Vdp.setRegister(0, 0x04);
+		Vdp.setRegister(1, 0x04);
+		Vdp.setRegister(6, 0x00);
+		Vdp.setRegister(7, 0x00);
+		Vdp.setRegister(8, 0x00);
+		Vdp.setRegister(9, 0x00);
+		Vdp.setRegister(10, 0x01);
+		Vdp.setRegister(11, 0x00);
+		Vdp.setRegister(12, 0x81);
+		Vdp.setRegister(14, 0x00);
+		Vdp.setRegister(15, 0x02);
+		Vdp.setRegister(17, 0x00);
+		Vdp.setRegister(18, 0x00);
 
+		Vdp.setScrollTable(SCROLL);
 		Tilemap.setBase(Plane.A, PLANE_A);
 		Tilemap.setBase(Plane.B, PLANE_B);
 		Tilemap.setBase(Plane.Window, WINDOW);
@@ -54,11 +50,21 @@ class Boot {
 	}
 
 	public static inline function show():Void {
-		Ports.register(1, 0x44);
+		Vdp.setEnable(true);
 	}
 
 	public static inline function hide():Void {
-		Ports.register(1, 0x04);
+		Vdp.setEnable(false);
+	}
+
+	public static function listen():Void {
+		Vdp.setVerticalInterrupt(true);
+		Cpu.enableInterrupts();
+	}
+
+	public static function deafen():Void {
+		Cpu.disableInterrupts();
+		Vdp.setVerticalInterrupt(false);
 	}
 
 	public static function waitVertical():Void {
