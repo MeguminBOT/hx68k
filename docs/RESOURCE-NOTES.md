@@ -160,6 +160,22 @@ Established by running the whole check with the reuse branch forced off and comp
 
 ---
 
+## Binary data
+
+### An odd length blob is padded to a word with zero, whatever the fill value is
+
+`BIN` takes a size alignment and a fill byte, and pads the data up to a multiple of that alignment
+with that byte. Then, separately, `Util.outS` appends a single `0x00` if the length is still odd,
+under its own comment saying it is better to pad data to a word. So the two paddings answer to
+different rules and the second one ignores the fill entirely.
+
+It only shows up where the size alignment is 0 or odd, which is why five of the forty five binary
+fixtures failed on it and the other forty did not.
+
+Established by `hxres.Check.binaries`, which compares nine blob sizes against five alignment shapes.
+
+---
+
 ## What is deliberately not reproduced
 
 Nothing yet. Where a rescomp behaviour is judged wrong rather than merely surprising, the
