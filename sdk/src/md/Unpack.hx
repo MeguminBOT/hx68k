@@ -1,78 +1,121 @@
 package md;
 
 class Unpack {
-	static var source:Int = 0;
-	static var tag:Int = 0;
-	static var left:Int = 0;
+	@:md.body("	register const u8* held __asm__(\"a0\") = (const u8*)from;
+	register u8* grown __asm__(\"a1\") = (u8*)into;
 
+	__asm__ __volatile__ (
+		\"	.macro	APLIB_BIT\\n\"
+		\"	add.b	%%d3,%%d3\\n\"
+		\"	bne.s	9f\\n\"
+		\"	move.b	(%%a0)+,%%d3\\n\"
+		\"	addx.b	%%d3,%%d3\\n\"
+		\"9:\\n\"
+		\"	.endm\\n\"
+		\"\\n\"
+		\"	.macro	APLIB_GAMMA\\n\"
+		\"	moveq	#1,%%d2\\n\"
+		\"8:\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	addx.l	%%d2,%%d2\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	bcs.s	8b\\n\"
+		\"	.endm\\n\"
+		\"\\n\"
+		\"	moveq	#-128,%%d3\\n\"
+		\"	moveq	#0,%%d4\\n\"
+		\"	lea	32000.w,%%a3\\n\"
+		\"	lea	1280.w,%%a4\\n\"
+		\"	lea	128.w,%%a5\\n\"
+		\"	move.b	(%%a0)+,(%%a1)+\\n\"
+		\"	moveq	#2,%%d1\\n\"
+		\"\\n\"
+		\"Lapnext:\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	bcs.s	Lapnotliteral\\n\"
+		\"	moveq	#2,%%d1\\n\"
+		\"Lapliteral:\\n\"
+		\"	move.b	(%%a0)+,(%%a1)+\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	bcc.s	Lapliteral\\n\"
+		\"\\n\"
+		\"Lapnotliteral:\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	bcc.w	Lapcodepair\\n\"
+		\"	moveq	#0,%%d0\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	bcc.s	Lapshortmatch\\n\"
+		\"\\n\"
+		\"	moveq	#3,%%d5\\n\"
+		\"Lapfourbits:\\n\"
+		\"	APLIB_BIT\\n\"
+		\"	roxl.l	#1,%%d0\\n\"
+		\"	dbf	%%d5,Lapfourbits\\n\"
+		\"	beq.s	Lapwritebyte\\n\"
+		\"	move.l	%%a1,%%a2\\n\"
+		\"	suba.l	%%d0,%%a2\\n\"
+		\"	move.b	(%%a2),%%d0\\n\"
+		\"Lapwritebyte:\\n\"
+		\"	move.b	%%d0,(%%a1)+\\n\"
+		\"	moveq	#2,%%d1\\n\"
+		\"	bra.w	Lapnext\\n\"
+		\"\\n\"
+		\"Lapshortmatch:\\n\"
+		\"	moveq	#3,%%d2\\n\"
+		\"	move.b	(%%a0)+,%%d0\\n\"
+		\"	lsr.b	#1,%%d0\\n\"
+		\"	beq.w	Lapdone\\n\"
+		\"	bcs.w	Lapnewlast\\n\"
+		\"	moveq	#2,%%d2\\n\"
+		\"	bra.w	Lapnewlast\\n\"
+		\"\\n\"
+		\"Lapcodepair:\\n\"
+		\"	APLIB_GAMMA\\n\"
+		\"	sub.l	%%d1,%%d2\\n\"
+		\"	bne.s	Lapnormalpair\\n\"
+		\"	move.l	%%d4,%%d0\\n\"
+		\"	APLIB_GAMMA\\n\"
+		\"	bra.s	Lapcopypair\\n\"
+		\"\\n\"
+		\"Lapnormalpair:\\n\"
+		\"	subq.l	#1,%%d2\\n\"
+		\"	lsl.l	#8,%%d2\\n\"
+		\"	move.b	(%%a0)+,%%d2\\n\"
+		\"	move.l	%%d2,%%d0\\n\"
+		\"	APLIB_GAMMA\\n\"
+		\"	cmp.l	%%a3,%%d0\\n\"
+		\"	bge.s	Laptwoinc\\n\"
+		\"	cmp.l	%%a4,%%d0\\n\"
+		\"	bge.s	Laponeinc\\n\"
+		\"	cmp.l	%%a5,%%d0\\n\"
+		\"	bge.s	Lapnewlast\\n\"
+		\"Laptwoinc:\\n\"
+		\"	addq.l	#1,%%d2\\n\"
+		\"Laponeinc:\\n\"
+		\"	addq.l	#1,%%d2\\n\"
+		\"Lapnewlast:\\n\"
+		\"	move.l	%%d0,%%d4\\n\"
+		\"Lapcopypair:\\n\"
+		\"	subq.l	#1,%%d2\\n\"
+		\"	move.l	%%a1,%%a2\\n\"
+		\"	suba.l	%%d0,%%a2\\n\"
+		\"Lapcopyloop:\\n\"
+		\"	move.b	(%%a2)+,(%%a1)+\\n\"
+		\"	dbf	%%d2,Lapcopyloop\\n\"
+		\"	moveq	#1,%%d1\\n\"
+		\"	bra.w	Lapnext\\n\"
+		\"\\n\"
+		\"Lapdone:\\n\"
+		\"	.purgem	APLIB_BIT\\n\"
+		\"	.purgem	APLIB_GAMMA\\n\"
+		: \"+a\" (held), \"+a\" (grown)
+		:
+		: \"d0\", \"d1\", \"d2\", \"d3\", \"d4\", \"d5\", \"a2\", \"a3\", \"a4\", \"a5\", \"memory\", \"cc\"
+	);
+
+	return (s32)grown - into;")
 	public static function aplib(from:Int, into:Int):Int {
-		source = from;
-		tag = 0;
-		left = 0;
-
-		var out:Int = into;
-		var lwm:Int = 2;
-		var last:Int = 0;
-
-		Memory.storeU8(out, Memory.loadU8(source++));
-		out++;
-
-		while (true) {
-			if (bit() == 0) {
-				Memory.storeU8(out, Memory.loadU8(source++));
-				out++;
-				lwm = 2;
-				continue;
-			}
-
-			if (bit() == 0) {
-				var length:Int = gamma() - lwm;
-				var offset:Int;
-
-				if (length == 0) {
-					offset = last;
-					length = gamma();
-				} else {
-					offset = ((length - 1) << 8) | Memory.loadU8(source++);
-					length = gamma();
-					if (offset >= 32000) length += 2;
-					else if (offset >= 1280) length += 1;
-					else if (offset < 128) length += 2;
-					last = offset;
-				}
-
-				out = repeat(out, offset, length);
-				lwm = 1;
-				continue;
-			}
-
-			if (bit() == 0) {
-				final held:Int = Memory.loadU8(source++);
-				final offset:Int = held >> 1;
-				if (offset == 0) break;
-
-				out = repeat(out, offset, 2 + (held & 1));
-				last = offset;
-				lwm = 1;
-				continue;
-			}
-
-			var offset:Int = 0;
-			var taken:Int = 4;
-			while (taken-- > 0) offset = (offset << 1) | bit();
-
-			if (offset == 0) {
-				Memory.storeU8(out, 0);
-			} else {
-				final value:Int = Memory.loadU8(out - offset);
-				Memory.storeU8(out, value);
-			}
-
-			out++;
-			lwm = 2;
-		}
-
-		return out - into;
+		return 0;
 	}
 
 	@:md.body("	register const u8* held __asm__(\"a0\") = (const u8*)from;
@@ -231,34 +274,5 @@ class Unpack {
 	return (s32)grown - into;")
 	public static function lz4w(from:Int, into:Int):Int {
 		return 0;
-	}
-
-	static inline function repeat(out:Int, offset:Int, length:Int):Int {
-		return Copy.bytes(out, out - offset, length);
-	}
-
-	static inline function repeatWords(out:Int, offset:Int, words:Int):Int {
-		return Copy.words(out, out - offset, words);
-	}
-
-	static function bit():Int {
-		if (left == 0) {
-			tag = Memory.loadU8(source++);
-			left = 8;
-		}
-		left--;
-		return (tag >> left) & 1;
-	}
-
-	static function gamma():Int {
-		var value:Int = 1;
-		var more:Int = 1;
-
-		while (more == 1) {
-			value = (value << 1) | bit();
-			more = bit();
-		}
-
-		return value;
 	}
 }
