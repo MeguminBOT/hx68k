@@ -54,6 +54,9 @@ final class Vdp {
 
 	public var colours(default, null):Int = 0;
 
+	public var spriteOverflow:Bool = false;
+	public var spriteCollision:Bool = false;
+
 	final memory:Memory;
 
 	var dot:Int = 0;
@@ -112,6 +115,8 @@ final class Vdp {
 			fifoAddress[i] = 0;
 			fifoValue[i] = 0;
 		}
+		spriteOverflow = false;
+		spriteCollision = false;
 		fifoHead = 0;
 		queued = 0;
 		stalledFor = 0;
@@ -386,6 +391,11 @@ final class Vdp {
 		if (queued == FIFO_DEPTH) value |= 0x0100;
 		if (dmaMode != 0) value |= 0x0002;
 		if (interlaced() && (frame & 1) != 0) value |= 0x0010;
+		if (spriteOverflow) value |= 0x0040;
+		if (spriteCollision) value |= 0x0020;
+
+		spriteOverflow = false;
+		spriteCollision = false;
 		return value;
 	}
 

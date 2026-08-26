@@ -494,8 +494,7 @@ echo ""
 echo "--- the VDP against Nemesis' port access ROM ---"
 "$GATE" fifo "$ROOT"
 
-# a tracked progress metric rather than a gate: three of its nine tests are wrong in both widths
-# and a fourth in H32, so this cannot exit nonzero yet
+# every one of its nine tests passes in both widths, so this is a gate rather than a metric now
 echo ""
 echo "--- Nemesis' sprite masking and overflow ROM, in both widths ---"
 "$GATE" sprite "$ROOT"

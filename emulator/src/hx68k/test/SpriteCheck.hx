@@ -61,7 +61,10 @@ class SpriteCheck {
 			}
 		}
 
-		Sys.println("  " + failures + " result rows carry red, over both widths");
+		if (failures > 0) {
+			Sys.println("  " + failures + " result rows carry red, over both widths");
+			Sys.exit(1);
+		}
 	}
 
 	static function turn(machine:Machine):Void {

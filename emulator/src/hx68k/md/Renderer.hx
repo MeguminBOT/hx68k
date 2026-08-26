@@ -25,6 +25,8 @@ final class Renderer {
 	final planeB:Vector<Int> = new Vector<Int>(MAX_WIDTH);
 	final sprites:Vector<Int> = new Vector<Int>(MAX_WIDTH);
 
+	var overflowed:Bool = false;
+
 	public function new() {
 		for (i in 0...pixels.length) pixels[i] = 0;
 	}
@@ -188,9 +190,12 @@ final class Renderer {
 		final bias = interlaced ? 256 : 128;
 		final beam = interlaced ? (y << 1) | field : y;
 
+		var previousWide = overflowed;
 		var link = 0;
 		var drawn = 0;
 		var covered = 0;
+		var hit = false;
+		var blocked = false;
 
 		for (visited in 0...maxEntries) {
 			final at = (table + link * 8) & 0xFFFF;
@@ -204,21 +209,41 @@ final class Renderer {
 
 			if (beam >= top && beam < top + tall * tallCell) {
 				drawn++;
-				if (drawn > maxSprites) break;
-				if (left == -128 && drawn > 1) break;
+				if (drawn > maxSprites) {
+					hit = true;
+					vdp.spriteOverflow = true;
+					break;
+				}
+				if (left == -128) {
+					if (previousWide) blocked = true;
+					previousWide = false;
+				} else previousWide = true;
 
-				covered += wideCells * 8;
-				paint(vdp, beam, top, left, tall, wideCells, attribute, tallCell);
-				if (covered >= maxPixels) break;
+				final columns = wideCells * 8;
+				final room = maxPixels - covered;
+				covered += columns;
+
+				if (!blocked) {
+					paint(vdp, beam, top, left, tall, wideCells, attribute, tallCell,
+						columns < room ? columns : room);
+				}
+
+				if (covered >= maxPixels) {
+					hit = true;
+					vdp.spriteOverflow = true;
+					break;
+				}
 			}
 
 			link = next;
-			if (link == 0) break;
+			if (link == 0 || link >= maxEntries) break;
 		}
+
+		overflowed = hit;
 	}
 
 	function paint(vdp:Vdp, beam:Int, top:Int, left:Int, tall:Int, wideCells:Int, attribute:Int,
-			tallCell:Int):Void {
+			tallCell:Int, columns:Int):Void {
 		final tile = attribute & 0x07FF;
 		final palette = (attribute >> 13) & 3;
 		final priority = (attribute & 0x8000) != 0 ? PRIORITY : 0;
@@ -229,9 +254,9 @@ final class Renderer {
 		var row = beam - top;
 		if (flipY) row = tall * tallCell - 1 - row;
 
-		for (column in 0...wideCells * 8) {
+		for (column in 0...columns) {
 			final x = left + column;
-			if (x < 0 || x >= width || sprites[x] != 0) continue;
+			if (x < 0 || x >= width) continue;
 
 			final source = flipX ? wideCells * 8 - 1 - column : column;
 			final cell = tile + (source >> 3) * tall + (row >> downShift);
@@ -240,6 +265,11 @@ final class Renderer {
 			final byte = vdp.vram.get(at);
 			final index = (source & 1) == 0 ? (byte >> 4) & 0x0F : byte & 0x0F;
 			if (index == 0) continue;
+
+			if (sprites[x] != 0) {
+				vdp.spriteCollision = true;
+				continue;
+			}
 
 			sprites[x] = (palette << 4 | index) | priority;
 		}

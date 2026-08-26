@@ -249,6 +249,57 @@ experiences, and both pass with the expectations they already had. A VDP write t
 is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
 Mega Drive does.
 
+## The sprite masking ROM, all nine tests in both widths
+
+`vendor/SpriteMaskingTest/sprites.bin` is Nemesis' Sprite Masking and Overflow Test ROM, 2008,
+fetched by `haxelib run hx68k setup` from the Internet Archive. It reads nothing back from the VDP
+and it has no read path to the picture: **each result is a tick and a cross drawn over each other,
+and the sprite masking under test is what hides one of them.** That is why it is a measurement of a
+renderer rather than a message from the ROM, and why the check reads its result rows off the
+framebuffer.
+
+It said three of its nine tests were wrong in both widths and a fourth in H32. Four rules fixed
+them, in this order, and each one was measured before the next went in:
+
+| what went in | H32 rows left red | H40 rows left red |
+| --- | --- | --- |
+| nothing, as it was | 3, 5, 6, 9 | 3, 5, 6 |
+| a link past the end of the table stops the scan | 3, 5, 6 | 3, 5, 6 |
+| a mask needs the sprite read before it to have x above zero | 3, 6 | 3, 6 |
+| the dot limit cuts a sprite rather than letting it finish | 6 | 6 |
+| a masked sprite still spends its width from the dot budget | none | none |
+
+**A link field past the end of the sprite table ends the scan.** The table holds 64 entries in H32
+and 80 in H40, and a link to anything at or above that stops the walk where before it wrapped and
+read whatever was there. That is the whole of test 9, which failed in H32 and passed in H40 for
+exactly that reason.
+
+**A mask is a sprite at x=0 whose immediately preceding sprite on the line had x above zero.** Not
+"at least one sprite has been drawn", which is the reading that sounds the same and fails test 5:
+the flag is about the sprite read before this one, so a mask straight after another mask does
+nothing, and a mask that is the first sprite on its line does nothing. The flag starts each line
+seeded from whether the previous line overflowed, which is what makes a first-sprite mask work
+after an overflow, and that is test 6.
+
+**The dot limit cuts a sprite in the middle.** H40 gives 320 sprite pixels a line and H32 gives
+256, and a sprite that starts inside the budget and runs past it is drawn up to the budget and no
+further, rather than being drawn whole or dropped. Test 3, the complex dot limit, is that and
+nothing else.
+
+**A masked sprite still spends its width.** Masking stops pixels being written; it does not stop
+the VDP walking the sprites it picked for the line, and each of them takes its width out of the
+budget on the way past. Without that a line that should overflow does not, and the mask on the
+line after it does not fire, which is test 6 again from the other side.
+
+**Two status bits went in with them**, both documented and neither reached by this ROM: bit 6, set
+when a line has more sprites or more sprite pixels than it can take, and bit 5, set when two
+sprites put a non-transparent pixel on the same place. Both are cleared by reading the status.
+
+Fifteen scenarios in `hx68k.test.RenderCheck` hold all of it headlessly, so the rules do not rest on
+one ROM: a mask after a sprite, a mask first on the line, a mask after a mask, the pixel either side
+of the dot limit, both status bits and their clearing on read, and a link to entry 70 followed in
+H40 and refused in H32.
+
 ## The horizontal counter has a range for each width
 
 The counter is not a pixel count: it counts once every two pixels and it skips a stretch in the

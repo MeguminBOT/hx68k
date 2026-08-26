@@ -36,6 +36,13 @@ class RenderCheck {
 		windowReplacesPlaneA();
 		spriteOverPlanes();
 		spritesPerLine();
+		spriteMask();
+		maskFirst();
+		maskAfterMask();
+		dotLimit();
+		overflowFlag();
+		collisionFlag();
+		linkPastTheTable();
 		shadowedLine();
 
 		if (args.length > 0) drawnText(args[0]);
@@ -201,6 +208,99 @@ class RenderCheck {
 
 		check(pixel(vdp, 19 * 8) == expected(vdp, 1), "the twentieth sprite on a line is drawn");
 		check(pixel(vdp, 20 * 8) == expected(vdp, 10), "the twenty-first is not, since H40 stops at twenty");
+	}
+
+	static function spriteMask():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		sprite(vdp, 0, 128, 128, 1, 0, 0x0001);
+		sprite(vdp, 1, 128, 0, 2, 0, 0x0001);
+		sprite(vdp, 2, 128, 144, 0, 0, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 0) == expected(vdp, 1), "a sprite before a mask is drawn");
+		check(pixel(vdp, 16) == expected(vdp, 10),
+			"and a sprite after one, where the mask follows a sprite with x above zero, is not");
+	}
+
+	static function maskFirst():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		sprite(vdp, 0, 128, 0, 1, 0, 0x0001);
+		sprite(vdp, 1, 128, 128, 0, 0, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 0) == expected(vdp, 1),
+			"a mask that is the first sprite on its line hides nothing");
+	}
+
+	static function maskAfterMask():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		sprite(vdp, 0, 128, 0, 1, 0, 0x0001);
+		sprite(vdp, 1, 128, 0, 2, 0, 0x0001);
+		sprite(vdp, 2, 128, 128, 0, 0, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 0) == expected(vdp, 1),
+			"and neither does a second mask straight after the first");
+	}
+
+	static function dotLimit():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		for (i in 0...13) sprite(vdp, i, 128, 96, i + 1, 0x08, 0x0001);
+		sprite(vdp, 13, 128, 128, 0, 0x0C, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 7) == expected(vdp, 1), "the last pixel the dot limit leaves room for is drawn");
+		check(pixel(vdp, 8) == expected(vdp, 10), "and the next one, in the same sprite, is not");
+	}
+
+	static function overflowFlag():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		for (i in 0...21) sprite(vdp, i, 128, 128 + i * 8, i < 20 ? i + 1 : 0, 0, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check((vdp.readStatus() & 0x0040) != 0, "too many sprites on a line raises the overflow bit");
+		check((vdp.readStatus() & 0x0040) == 0, "and reading the status clears it");
+	}
+
+	static function collisionFlag():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		sprite(vdp, 0, 128, 128, 1, 0, 0x0001);
+		sprite(vdp, 1, 128, 132, 0, 0, 0x0001);
+		vdp.renderer.line(vdp, 0);
+
+		check((vdp.readStatus() & 0x0020) != 0, "two sprites over one pixel raise the collision bit");
+		check((vdp.readStatus() & 0x0020) == 0, "and reading the status clears it");
+	}
+
+	static function linkPastTheTable():Void {
+		final vdp = setup();
+		register(vdp, 7, 10);
+
+		sprite(vdp, 0, 128, 128, 70, 0, 0x0001);
+		sprite(vdp, 70, 128, 160, 0, 0, 0x0001);
+		register(vdp, 12, 0x81);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 32) == expected(vdp, 1),
+			"a link to entry 70 is followed in H40, where the table holds eighty");
+
+		register(vdp, 12, 0x01);
+		vdp.renderer.line(vdp, 0);
+
+		check(pixel(vdp, 32) == expected(vdp, 10),
+			"and stops the scan in H32, where it holds sixty-four");
 	}
 
 	static function shadowedLine():Void {
