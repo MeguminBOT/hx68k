@@ -42,6 +42,11 @@ final class Vdp {
 	public static inline final V_LAST_PAL = 0x102;
 	public static inline final V_RESUME_PAL = 0x1CA;
 
+	public static inline final V_LAST_PAL_V30 = 0x10A;
+	public static inline final V_RESUME_PAL_V30 = 0x1D2;
+
+	public static inline final V_NEVER = 0x1FF;
+
 
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
@@ -209,6 +214,7 @@ final class Vdp {
 		slots = wide ? SLOTS_H40 : SLOTS_H32;
 		showing = (registers[1] & 0x40) != 0;
 		activeLines = (registers[1] & 0x08) != 0 ? LINES_V30 : LINES_V28;
+		endpoints();
 		vintOn = (registers[1] & 0x20) != 0;
 		hintOn = (registers[0] & 0x10) != 0;
 		externalOn = (registers[11] & 0x08) != 0;
@@ -424,8 +430,20 @@ final class Vdp {
 		pal = wanted;
 		lines = wanted ? LINES_PAL : LINES_NTSC;
 		masterHz = wanted ? MASTER_HZ_PAL : MASTER_HZ;
-		vLast = wanted ? V_LAST_PAL : V_LAST;
-		vResume = wanted ? V_RESUME_PAL : V_RESUME_NINE;
+		endpoints();
+	}
+
+	function endpoints():Void {
+		final tall = activeLines == LINES_V30;
+
+		if (pal) {
+			vLast = tall ? V_LAST_PAL_V30 : V_LAST_PAL;
+			vResume = tall ? V_RESUME_PAL_V30 : V_RESUME_PAL;
+			return;
+		}
+
+		vLast = tall ? V_NEVER : V_LAST;
+		vResume = tall ? V_NEVER : V_RESUME_NINE;
 	}
 
 	public inline function doubled():Bool {
@@ -530,7 +548,7 @@ final class Vdp {
 		pending = false;
 
 		var value = 0x3400 | (queued == 0 ? 0x0200 : 0x0000) | (pal ? 0x0001 : 0x0000);
-		if (line >= activeLines) value |= 0x0008;
+		if (line >= activeLines && line < lines - 1) value |= 0x0008;
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;
 		if (queued == FIFO_DEPTH) value |= 0x0100;

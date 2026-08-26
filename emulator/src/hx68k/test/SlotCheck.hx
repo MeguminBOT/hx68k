@@ -660,6 +660,43 @@ class SlotCheck {
 		return seen;
 	}
 
+	static function tallCounters():Void {
+		final palTall = ready(H40, DISPLAY_ON | TALL);
+		palTall.standard(true);
+		final wide = walked(palTall);
+
+		same("a PAL V30 frame counts as many times as a PAL frame has lines",
+			wide.length, Vdp.LINES_PAL);
+		same("the last before its jump is 0Ah", wide[266], Vdp.V_LAST_PAL_V30 & 0xFF);
+		same("and it comes back at D2h", wide[267], Vdp.V_RESUME_PAL_V30 & 0xFF);
+		same("ending at 255", wide[wide.length - 1], 0xFF);
+
+		final ntscTall = ready(H40, DISPLAY_ON | TALL);
+		final narrow = walked(ntscTall);
+
+		same("an NTSC V30 frame counts as many times as an NTSC frame has lines",
+			narrow.length, Vdp.LINES_NTSC);
+		same("but its counter never jumps back, so it ends where the frame does",
+			narrow[narrow.length - 1], (Vdp.LINES_NTSC - 1) & 0xFF);
+	}
+
+	static function blankingFlag():Void {
+		final vdp = ready(H40, DISPLAY_ON);
+		var set = -1;
+		var last = -1;
+
+		for (line in 0...Vdp.LINES_NTSC) {
+			for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+			if ((vdp.readStatus() & 0x0008) == 0) continue;
+			if (set < 0) set = vdp.line;
+			last = vdp.line;
+		}
+
+		same("the blanking flag sets where the active display ends", set, Vdp.LINES_V28);
+		same("and clears again on the last line of the frame, not at the wrap",
+			last, Vdp.LINES_NTSC - 2);
+	}
+
 	static function verticalPal():Void {
 		final vdp = ready(H40, DISPLAY_ON);
 		vdp.standard(true);
@@ -765,6 +802,8 @@ class SlotCheck {
 
 		Sys.println("what the counters read across a line and a frame");
 		verticalPal();
+		tallCounters();
+		blankingFlag();
 		interlacedCounter();
 		counters();
 

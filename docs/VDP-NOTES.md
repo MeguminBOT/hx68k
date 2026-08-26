@@ -366,6 +366,49 @@ other reading is that M3 gates both; nothing here can tell the two apart, since 
 repository enables IE2, and this is the reading that keeps the two register bits doing the one job
 each is named for.
 
+## Kabuto's hardware notes, and what they settled
+
+`vendor/Sega Mega Drive notes.html` is Kabuto of TiTAN's "SEGA Mega Drive / Genesis hardware
+notes", version 1.5, written over four years of measuring real hardware during the development of
+Overdrive 2. It is documentation rather than an emulator, so it is a source this repository may take
+behaviour from, and it settled four things that were open.
+
+**The access slot table is confirmed access for access.** The notes give the whole line as a
+pattern, where a tilde is a slot the outside world may use and an r is a refresh:
+
+```
+H40: Hssss AsaaBsbb ((A~aaBSbb)*3 AraaBSbb)*5 ~~ s*23 ~ s*11
+H32: Hssss AsaaBsbb ((A~aaBSbb)*3 AraaBSbb)*4 ~~ s*13 ~ s*13 ~
+```
+
+Counting those out gives 210 and 171 accesses a line with 18 and 16 slots, at positions 15, 23, 31,
+47, 55, 63, 79, 87, 95, 111, 119, 127, 143, 151, 159, 174, 175 and 199 in H40, and the same body
+with 142, 143, 157 and 171 in H32. **That is exactly the table already here**, which was read off
+Nemesis' diagrams, so two independent sources agree on every position. With the display off only
+the refresh accesses are kept, which is 205 and 167, also what is here.
+
+**So the H40 tail gap is right and Sega's figure is the approximation.** The section above records a
+24 slot gap between 175 and 199 disagreeing with a documented maximum wait of 4.77 microseconds.
+The pattern puts those two slots exactly where this model has them, so the gap is real and the
+figure, which its own document calls approximate, does not cover the tail. The check that pins the
+24 stays, and it is no longer a disagreement to resolve.
+
+**The vertical counter endpoints, for both standards and both heights.** These were inferred from
+arithmetic and are now sourced:
+
+| | V28 | V30 |
+| --- | --- | --- |
+| NTSC | 000h to 0EAh, 1E5h to 1FFh | 000h to 1FFh, no jump at all |
+| PAL | 000h to 102h, 1CAh to 1FFh | 000h to 10Ah, 1D2h to 1FFh |
+
+The PAL V28 pair is the one this repository had already inferred, and it is right. NTSC V30 not
+jumping is why that mode rolls on an NTSC set: the counter runs off the end of the frame.
+
+**The blanking flag clears a line before the frame does.** It sets when the counter goes from DFh to
+E0h in V28 and EFh to F0h in V30, which is where the active display ends and what was already here,
+and it clears when the counter goes from 1FEh to 1FFh, which is the last line of the frame rather
+than the wrap. That line now reads clear.
+
 ## What the 68000 waits when the FIFO fills, and one number that does not agree
 
 Sega's overview gives the longest a program can be held when it writes in a tight loop during
