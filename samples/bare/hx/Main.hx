@@ -1,10 +1,13 @@
 package;
 
 import md.Boot;
+import md.Fix16;
+import md.Maths;
 import md.Palette;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
+import md.Sram;
 import md.Tilemap;
 import md.UInt32;
 import md.Vector;
@@ -49,6 +52,14 @@ class Main {
 		Probe.report(readVram(Patterns.address(PATTERN)));
 		Probe.report(Tilemap.columns());
 		Probe.report(ticks >= 4 ? 1 : 0);
+		Probe.report(Maths.sqrt(Fix16.of(16)));
+		Probe.report(Maths.log2(1000));
+		Probe.report(Maths.nextPowerOfTwo(1000));
+		Probe.report(Maths.distance(30, 40));
+
+		Sram.enable();
+		Sram.writeLong(0, 0xCAFEF00D);
+		Sram.disable();
 		Probe.done();
 
 		while (true) {}

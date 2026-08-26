@@ -458,6 +458,14 @@ static const probe_t bare_expected[] = {
 	{ "a pattern uploaded without DMA", 0x1111 },
 	{ "the plane is 64 cells wide", 64 },
 	{ "and a vertical interrupt reached Haxe four times", 1 },
+	/* the native maths, with no table behind any of it. fix16 carries six fractional bits, so
+	   16 is 1024 and its root is 4, which is 256. log2 of 1000 is 9 taking the floor, the next
+	   power of two above 1000 is 1024, and the approximated distance of 30 by 40 is the 50 it
+	   should be */
+	{ "a fixed point square root",  256 },
+	{ "a floored log2",             9 },
+	{ "the next power of two",      1024 },
+	{ "an approximated distance",   50 },
 };
 
 static const probe_t art_expected[] = {

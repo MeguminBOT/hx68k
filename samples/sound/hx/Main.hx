@@ -4,7 +4,7 @@ import md.Fm;
 import md.Probe;
 import md.Psg;
 import md.System;
-import md.Z80Bus;
+import md.sgdk.Z80Bus;
 import md.sgdk.Sound;
 
 class Main {

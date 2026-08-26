@@ -1,4 +1,7 @@
-package md;
+package md.sgdk;
+
+import md.UInt16;
+import md.UInt32;
 
 extern class Timer {
 	@:native("getTick") static function tick():UInt32;

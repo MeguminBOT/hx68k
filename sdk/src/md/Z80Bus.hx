@@ -1,21 +1,86 @@
 package md;
 
-extern class Z80Bus {
-	@:native("Z80_init") static function init():Void;
-	@:native("Z80_requestBus") static function request(wait:Bool):Void;
-	@:native("Z80_getAndRequestBus") static function requestAndReport(wait:Bool):Bool;
-	@:native("Z80_releaseBus") static function release():Void;
-	@:native("Z80_isBusTaken") static function taken():Bool;
-	@:native("Z80_isDriverReady") static function driverReady():Bool;
-	@:native("Z80_getLoadedDriver") static function loadedDriver():Int16;
+import md.hw.Z80 as Port;
 
-	@:native("Z80_startReset") static function startReset():Void;
-	@:native("Z80_endReset") static function endReset():Void;
-	@:native("Z80_clear") static function clear():Void;
+class Z80Bus {
+	public static inline final RAM = 0xA00000;
 
-	@:native("Z80_read") static function read(at:UInt16):UInt8;
-	@:native("Z80_write") static function write(at:UInt16, value:UInt8):Void;
-	@:native("Z80_upload") static function upload(to:UInt16, data:Vector<UInt8>, size:UInt16):Void;
-	@:native("Z80_download") static function download(from:UInt16, into:Vector<UInt8>, size:UInt16):Void;
-	@:native("Z80_setBank") static function setBank(bank:UInt16):Void;
+	public static inline final SIZE = 0x2000;
+
+	public static inline final BANK = 0xA06000;
+
+	public static inline function request():Void {
+		Port.hold();
+	}
+
+	public static inline function release():Void {
+		Port.release();
+	}
+
+	public static inline function taken():Bool {
+		return Port.held();
+	}
+
+	public static function reset():Void {
+		Port.reset(true);
+		var spin = 0;
+		while (spin < 32) spin++;
+		Port.reset(false);
+	}
+
+	public static inline function readByte(at:UInt16):UInt8 {
+		return Memory.readU8(RAM + (at : Int));
+	}
+
+	public static inline function writeByte(at:UInt16, value:UInt8):Void {
+		Memory.writeU8(RAM + (at : Int), value);
+	}
+
+	public static function upload(to:UInt16, from:Vector<UInt8>, count:UInt16):Void {
+		Port.hold();
+
+		final at:Int = to;
+		var i:Int = 0;
+		while (i < count) {
+			Memory.writeU8(RAM + at + i, from[i]);
+			i++;
+		}
+
+		Port.release();
+	}
+
+	public static function download(from:UInt16, into:Vector<UInt8>, count:UInt16):Void {
+		Port.hold();
+
+		final at:Int = from;
+		var i:Int = 0;
+		while (i < count) {
+			into[i] = Memory.readU8(RAM + at + i);
+			i++;
+		}
+
+		Port.release();
+	}
+
+	public static function clear():Void {
+		Port.hold();
+
+		var i:Int = 0;
+		while (i < SIZE) {
+			Memory.writeU8(RAM + i, 0);
+			i++;
+		}
+
+		Port.release();
+	}
+
+	public static inline function setBank(bank:UInt16):Void {
+		final which:Int = bank;
+		var bit:Int = 0;
+
+		while (bit < 9) {
+			Memory.writeU8(BANK, (which >> bit) & 1);
+			bit++;
+		}
+	}
 }
