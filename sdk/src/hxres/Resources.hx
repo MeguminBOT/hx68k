@@ -92,7 +92,8 @@ class Resources {
 				};
 				case _: {
 					native(entry.pos, () -> emit.binary(field.name, sys.io.File.getBytes(file),
-						option(arguments, 2, "0") != "0"));
+						number(arguments, 1, 2), number(arguments, 2, 2), number(arguments, 3, 0),
+						option(arguments, 4, "true") != "false"));
 					{line: "", type: "Binary", symbol: field.name};
 				}
 			}
@@ -141,6 +142,12 @@ class Resources {
 
 	static function option(arguments:Array<String>, index:Int, fallback:String):String {
 		return index < arguments.length ? arguments[index] : fallback;
+	}
+
+	static function number(arguments:Array<String>, index:Int, fallback:Int):Int {
+		if (index >= arguments.length) return fallback;
+		final value = Std.parseInt(arguments[index]);
+		return value == null ? fallback : value;
 	}
 
 	static function source(path:String, pos:Position):String {

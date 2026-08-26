@@ -64,6 +64,9 @@ class Check {
 		Sys.println("how rescomp cuts the same frames into hardware sprites");
 		cuts(root, scratch, jar);
 
+		Sys.println("what rescomp makes of the same binary data");
+		binaries(root, scratch, jar);
+
 		Sys.println("");
 		Sys.println(checks + " resource checks, " + failures + " failures");
 		if (failures > 0) Sys.exit(1);
@@ -343,6 +346,60 @@ class Check {
 					shared + " shared, " + flips + " flipped, " + lines + " off line zero, "
 						+ priorities + " with priority");
 			case _:
+		}
+	}
+
+	static function binaries(root:String, scratch:String, jar:String):Void {
+		final sizes = [1, 2, 3, 15, 16, 17, 100, 255, 256];
+		final shapes = [
+			{align: 2, sizeAlign: 2, fill: 0},
+			{align: 2, sizeAlign: 16, fill: 0xAA},
+			{align: 4, sizeAlign: 4, fill: 0xFF},
+			{align: 256, sizeAlign: 256, fill: 0},
+			{align: 2, sizeAlign: 0, fill: 0}
+		];
+
+		final made = new Array<{name:String, path:String, align:Int, sizeAlign:Int, fill:Int}>();
+		final lines = new Array<String>();
+
+		for (size in sizes) {
+			final path = scratch + "/blob" + size + ".dat";
+			final blob = Bytes.alloc(size);
+			for (i in 0...size) blob.set(i, (i * 7) & 0xFF);
+			File.saveBytes(path, blob);
+
+			for (at in 0...shapes.length) {
+				final shape = shapes[at];
+				final name = "b" + size + "x" + at;
+				made.push({name: name, path: path, align: shape.align, sizeAlign: shape.sizeAlign,
+					fill: shape.fill});
+				lines.push('BIN ${name} "' + full(path) + '" ${shape.align} ${shape.sizeAlign} '
+					+ '${shape.fill} NONE TRUE');
+			}
+		}
+
+		File.saveContent(scratch + "/binaries.res", lines.join("\n") + "\n");
+
+		final run = new sys.io.Process("java", ["-jar", jar, scratch + "/binaries.res", scratch + "/binaries.s"]);
+		final said = run.stdout.readAll().toString() + run.stderr.readAll().toString();
+		final code = run.exitCode();
+		run.close();
+
+		if (code != 0) {
+			ok("rescomp runs on the fixture data", false, "it exited " + code + "\n" + said);
+			return;
+		}
+
+		final symbols = Assembly.read(File.getContent(scratch + "/binaries.s"));
+
+		for (each in made) {
+			final theirs = symbols.get(each.name);
+			if (theirs == null) {
+				ok(each.name + " is in rescomp's output", false, "no label named " + each.name);
+				continue;
+			}
+			compare(each.name, symbols, each.name,
+				Emit.evened(Emit.sized(File.getBytes(each.path), each.sizeAlign, each.fill)));
 		}
 	}
 

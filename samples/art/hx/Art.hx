@@ -8,4 +8,5 @@ extern class Art {
 	@:sprite("gfx/diamond.png", 2, 2) static var diamond;
 	@:tileset("gfx/blocks.png") static var blockTiles;
 	@:music("audio/tune.vgm") static var tune;
+	@:binary("data/table.dat", 2, 16, 0xAA) static var table;
 }

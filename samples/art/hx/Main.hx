@@ -51,6 +51,15 @@ class Main {
 		Probe.report(readVram(SpriteTable.base()));
 		Probe.report((music & 0xFFFFFF) < 0x400000 ? 1 : 0);
 		Probe.report(Memory.readU16(music + 0x108));
+
+		final bytes = Memory.addressOf(Art.table);
+
+		Probe.report(bytes & 1);
+		Probe.report(Memory.readU8(bytes));
+		Probe.report(Memory.readU8(bytes + 3));
+		Probe.report(Memory.readU8(bytes + 99));
+		Probe.report(Memory.readU8(bytes + 100));
+		Probe.report(Memory.readU8(bytes + 111));
 		Probe.report(Tilemap.cell(Plane.B, 3, 5));
 		Probe.report(Tilemap.cell(Plane.B, 10, 3));
 		Probe.report(Tilemap.cell(Plane.B, 14, 4));

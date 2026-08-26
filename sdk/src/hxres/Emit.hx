@@ -126,12 +126,40 @@ class Emit {
 		return "hxres_frame" + pieces;
 	}
 
-	public function binary(symbol:String, data:Bytes, far:Bool):Void {
+	public function binary(symbol:String, data:Bytes, align:Int, sizeAlign:Int, fill:Int, far:Bool):Void {
+		final padded = evened(sized(data, sizeAlign, fill));
 		final values = new Array<String>();
-		for (i in 0...data.length) values.push("0x" + StringTools.hex(data.get(i), 2));
-		blocks.push("const u8 " + symbol + "[" + data.length + "] " + (far ? FAR : NEAR) + " = {"
+		for (i in 0...padded.length) values.push("0x" + StringTools.hex(padded.get(i), 2));
+
+		blocks.push("const u8 " + symbol + "[" + padded.length + "] " + placed(far, align) + " = {"
 			+ NEWLINE + laid(values) + NEWLINE + "};");
-		declarations.push("extern const u8 " + symbol + "[" + data.length + "];");
+		declarations.push("extern const u8 " + symbol + "[" + padded.length + "];");
+	}
+
+	public static function evened(data:Bytes):Bytes {
+		if ((data.length & 1) == 0) return data;
+
+		final out = Bytes.alloc(data.length + 1);
+		out.blit(0, data, 0, data.length);
+		out.set(data.length, 0);
+		return out;
+	}
+
+	public static function sized(data:Bytes, align:Int, fill:Int):Bytes {
+		if (align <= 0) return data;
+
+		final whole = Std.int((data.length + (align - 1)) / align) * align;
+		if (whole == data.length) return data;
+
+		final out = Bytes.alloc(whole);
+		out.blit(0, data, 0, data.length);
+		for (i in data.length...whole) out.set(i, fill & 0xFF);
+		return out;
+	}
+
+	static function placed(far:Bool, align:Int):String {
+		return "__attribute__((section(\"" + (far ? ".rodata_binf" : ".rodata_bin") + "\"), aligned("
+			+ (align < 2 ? 2 : align) + ")))";
 	}
 
 	public function source():String {

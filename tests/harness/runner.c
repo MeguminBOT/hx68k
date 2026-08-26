@@ -494,6 +494,16 @@ static const probe_t art_expected[] = {
 	{ "sprite list holds the sprite", 80 + 128 },
 	{ "the tune is in ROM",         1 },
 	{ "the tune converted to XGM",  0x248E },
+	/* the binary resource. data/table.dat is 100 bytes of (i * 7) & 0xFF, declared with a size
+	   alignment of 16 and a fill of 0xAA, so it occupies 112 bytes and the last twelve are the
+	   fill. Every value below is computed from that rule rather than read back from what hxres
+	   emitted. */
+	{ "the table is word aligned",  0 },
+	{ "its first byte",             (0 * 7) & 0xFF },
+	{ "its fourth byte",            (3 * 7) & 0xFF },
+	{ "its last real byte",         (99 * 7) & 0xFF },
+	{ "the first byte of the fill", 0xAA },
+	{ "and the last",               0xAA },
 	/* the native tilemap, on plane B, which SGDK's boot leaves at 0xC000 as 64 by 32 cells.
 	   Every value below is worked out from the cell format and the plane geometry rather than
 	   read back from what md.Tilemap produced: a cell is
