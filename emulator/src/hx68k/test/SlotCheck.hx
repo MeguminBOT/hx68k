@@ -20,6 +20,10 @@ class SlotCheck {
 
 	static inline final DISPLAY_OFF = 0x04;
 
+	static inline final TALL = 0x08;
+
+	static inline final VINT_ON = 0x20;
+
 	static inline final VRAM_WRITE = 0x40000000;
 
 	static inline final A_WRITE = 4 * 7;
@@ -337,6 +341,39 @@ class SlotCheck {
 		same("to " + resume, to, resume);
 	}
 
+	static function blanksAt(display:Int):Int {
+		final vdp = ready(H40, display);
+
+		for (_ in 0...Vdp.LINES_NTSC) {
+			for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+			if ((vdp.readStatus() & 0x0008) != 0) return vdp.line;
+		}
+
+		return -1;
+	}
+
+	static function interruptsAt(display:Int):Int {
+		final vdp = ready(H40, display);
+
+		for (_ in 0...Vdp.LINES_NTSC) {
+			for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+			if (vdp.irqLevel() == Vdp.VINT_LEVEL) return vdp.line;
+		}
+
+		return -1;
+	}
+
+	static function heights():Void {
+		same("V28 leaves the active display after 224 lines",
+			blanksAt(DISPLAY_ON), Vdp.LINES_V28);
+		same("and V30 after 240", blanksAt(DISPLAY_ON | TALL), Vdp.LINES_V30);
+
+		same("the vertical interrupt comes at the end of V28's 224",
+			interruptsAt(DISPLAY_ON | VINT_ON), Vdp.LINES_V28);
+		same("and at the end of V30's 240",
+			interruptsAt(DISPLAY_ON | TALL | VINT_ON), Vdp.LINES_V30);
+	}
+
 	static function vertical():Void {
 		final vdp = ready(H40, DISPLAY_ON);
 
@@ -383,6 +420,9 @@ class SlotCheck {
 		Sys.println("");
 		Sys.println("where the external access slots are");
 		counting();
+
+		Sys.println("where the active display ends, in each height");
+		heights();
 
 		Sys.println("what the counters read across a line and a frame");
 		counters();

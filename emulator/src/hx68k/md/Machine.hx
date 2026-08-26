@@ -99,7 +99,7 @@ class Machine implements Bus implements Memory {
 		cpu.step();
 
 		if (vdp.line != lastLine) {
-			if (vdp.line == Vdp.ACTIVE_LINES) {
+			if (vdp.line == vdp.activeLines) {
 				z80Pending = true;
 				z80Hold = Vdp.MASTER_PER_LINE;
 				z80Raised++;

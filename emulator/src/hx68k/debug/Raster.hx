@@ -64,7 +64,7 @@ class Raster {
 			reads += read;
 			if (line > highest) highest = line;
 			if (!showing) offscreen += wrote;
-			else if (line < activeLines(vdp)) active += wrote;
+			else if (line < vdp.activeLines) active += wrote;
 			else blanked += wrote;
 
 			touches.push({
@@ -95,7 +95,4 @@ class Raster {
 		return out;
 	}
 
-	static inline function activeLines(vdp:Vdp):Int {
-		return (vdp.registers[1] & 0x08) != 0 ? 240 : 224;
-	}
 }

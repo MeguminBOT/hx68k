@@ -36,7 +36,7 @@ final class Renderer {
 		interlaced = vdp.interlaced();
 		field = interlaced ? vdp.frame & 1 : 0;
 		width = wide(vdp) ? 320 : 256;
-		height = (vdp.registers[1] & 0x08) != 0 ? 240 : 224;
+		height = vdp.activeLines;
 		if (y >= height) return;
 
 		layer(vdp, y, planeA, true);

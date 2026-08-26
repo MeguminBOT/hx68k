@@ -9,7 +9,9 @@ final class Vdp {
 
 	public static inline final MASTER_PER_LINE = 3420;
 	public static inline final LINES_NTSC = 262;
-	public static inline final ACTIVE_LINES = 224;
+
+	public static inline final LINES_V28 = 224;
+	public static inline final LINES_V30 = 240;
 	public static inline final ACTIVE_TICKS = 2560;
 
 	public static inline final FIFO_DEPTH = 4;
@@ -66,6 +68,7 @@ final class Vdp {
 
 	public var wide(default, null):Bool = false;
 	public var interlace(default, null):Int = 0;
+	public var activeLines(default, null):Int = LINES_V28;
 
 	var showing:Bool = false;
 	var slots:Int = SLOTS_H32;
@@ -180,6 +183,7 @@ final class Vdp {
 		wide = (registers[12] & 0x81) == 0x81;
 		slots = wide ? SLOTS_H40 : SLOTS_H32;
 		showing = (registers[1] & 0x40) != 0;
+		activeLines = (registers[1] & 0x08) != 0 ? LINES_V30 : LINES_V28;
 		vintOn = (registers[1] & 0x20) != 0;
 		hintOn = (registers[0] & 0x10) != 0;
 
@@ -191,7 +195,7 @@ final class Vdp {
 	}
 
 	inline function blanked():Bool {
-		return !showing || line >= ACTIVE_LINES;
+		return !showing || line >= activeLines;
 	}
 
 	public function slotIsExternal(at:Int):Bool {
@@ -351,9 +355,9 @@ final class Vdp {
 	}
 
 	function endOfDisplay():Void {
-		if (rendering && line < ACTIVE_LINES) renderer.line(this, line);
+		if (rendering && line < activeLines) renderer.line(this, line);
 
-		if (line <= ACTIVE_LINES) {
+		if (line <= activeLines) {
 			if (hintCounter <= 0) {
 				hintCounter = registers[10];
 				hint = true;
@@ -381,7 +385,7 @@ final class Vdp {
 
 		served = 0;
 		line++;
-		if (line == ACTIVE_LINES) vint = true;
+		if (line == activeLines) vint = true;
 		if (line >= LINES_NTSC) {
 			line = 0;
 			frame++;
@@ -457,7 +461,7 @@ final class Vdp {
 		pending = false;
 
 		var value = 0x3400 | (queued == 0 ? 0x0200 : 0x0000);
-		if (line >= ACTIVE_LINES) value |= 0x0008;
+		if (line >= activeLines) value |= 0x0008;
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;
 		if (queued == FIFO_DEPTH) value |= 0x0100;
