@@ -1,6 +1,7 @@
 package;
 
 import md.Int16;
+import md.Memory;
 import md.Native;
 import md.Dma;
 import md.Fm;
@@ -62,6 +63,8 @@ class Main {
 	@:md.size(16) static var shades:Vector<UInt16>;
 	@:md.size(128) static var patternWords:Vector<UInt32>;
 
+	@:md.size(512) static var room:Vector<UInt32>;
+
 	static var head:Entity;
 
 	@:md.main
@@ -100,6 +103,14 @@ class Main {
 		patternsInHaxe();
 		Probe.mark();
 		patternsInSgdk();
+		Probe.mark();
+		aplibInHaxe();
+		Probe.mark();
+		aplibInSgdk();
+		Probe.mark();
+		lz4wInHaxe();
+		Probe.mark();
+		lz4wInSgdk();
 		Probe.mark();
 		spritesInHaxe();
 		Probe.mark();
@@ -222,6 +233,22 @@ class Main {
 			SgdkTilemap.fill(Plane.A, 1, 0, 0, FILL_COLUMNS, FILL_ROWS);
 			n++;
 		}
+	}
+
+	static function aplibInHaxe():Void {
+		md.Unpack.aplib(Memory.addressOf(Packed.aplib), Memory.addressOf(room));
+	}
+
+	static function aplibInSgdk():Void {
+		Native.aplibUnpack(Memory.addressOf(Packed.aplib), Memory.addressOf(room));
+	}
+
+	static function lz4wInHaxe():Void {
+		md.Unpack.lz4w(Memory.addressOf(Packed.lz4w), Memory.addressOf(room));
+	}
+
+	static function lz4wInSgdk():Void {
+		Native.lz4wUnpack(Memory.addressOf(Packed.lz4w), Memory.addressOf(room));
 	}
 
 	static function patternsInHaxe():Void {

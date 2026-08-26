@@ -1007,13 +1007,18 @@ void md_interrupts_off(void);
 		if(cf.name == "addressOf") return "((s32)(" + compileExpressionOrError(args[0]) + "))";
 
 		final width = switch(cf.name) {
-			case "readU8" | "writeU8": "u8";
-			case "readU16" | "writeU16": "u16";
-			case "readU32" | "writeU32": "u32";
+			case "readU8" | "writeU8" | "loadU8" | "storeU8": "u8";
+			case "readU16" | "writeU16" | "loadU16" | "storeU16": "u16";
+			case "readU32" | "writeU32" | "loadU32" | "storeU32": "u32";
 			case _: Context.error("Unknown Memory operation: " + cf.name, pos);
 		}
 
-		final at = "(*(volatile " + width + "*)(" + compileExpressionOrError(args[0]) + "))";
+		final ordered = switch(cf.name) {
+			case "loadU8" | "loadU16" | "loadU32" | "storeU8" | "storeU16" | "storeU32": "";
+			case _: "volatile ";
+		}
+
+		final at = "(*(" + ordered + width + "*)(" + compileExpressionOrError(args[0]) + "))";
 		return args.length > 1 ? "(" + at + " = " + compileExpressionOrError(args[1]) + ")" : at;
 	}
 

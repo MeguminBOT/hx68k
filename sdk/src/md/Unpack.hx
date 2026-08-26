@@ -14,12 +14,12 @@ class Unpack {
 		var lwm:Int = 2;
 		var last:Int = 0;
 
-		Memory.writeU8(out, Memory.readU8(source++));
+		Memory.storeU8(out, Memory.loadU8(source++));
 		out++;
 
 		while (true) {
 			if (bit() == 0) {
-				Memory.writeU8(out, Memory.readU8(source++));
+				Memory.storeU8(out, Memory.loadU8(source++));
 				out++;
 				lwm = 2;
 				continue;
@@ -33,7 +33,7 @@ class Unpack {
 					offset = last;
 					length = gamma();
 				} else {
-					offset = ((length - 1) << 8) | Memory.readU8(source++);
+					offset = ((length - 1) << 8) | Memory.loadU8(source++);
 					length = gamma();
 					if (offset >= 32000) length += 2;
 					else if (offset >= 1280) length += 1;
@@ -47,7 +47,7 @@ class Unpack {
 			}
 
 			if (bit() == 0) {
-				final held:Int = Memory.readU8(source++);
+				final held:Int = Memory.loadU8(source++);
 				final offset:Int = held >> 1;
 				if (offset == 0) break;
 
@@ -62,10 +62,10 @@ class Unpack {
 			while (taken-- > 0) offset = (offset << 1) | bit();
 
 			if (offset == 0) {
-				Memory.writeU8(out, 0);
+				Memory.storeU8(out, 0);
 			} else {
-				final value:Int = Memory.readU8(out - offset);
-				Memory.writeU8(out, value);
+				final value:Int = Memory.loadU8(out - offset);
+				Memory.storeU8(out, value);
 			}
 
 			out++;
@@ -80,7 +80,7 @@ class Unpack {
 		var out:Int = into;
 
 		while (true) {
-			final header:Int = Memory.readU16(at);
+			final header:Int = Memory.loadU16(at);
 			at += 2;
 
 			final literals:Int = (header >> 12) & 0xF;
@@ -88,9 +88,9 @@ class Unpack {
 			final low:Int = header & 0xFF;
 
 			if (literals == 0 && matched == 0 && low == 0) {
-				final tail:Int = Memory.readU16(at);
+				final tail:Int = Memory.loadU16(at);
 				if ((tail & 0x8000) != 0) {
-					Memory.writeU8(out, tail & 0xFF);
+					Memory.storeU8(out, tail & 0xFF);
 					out++;
 				}
 				return out - into;
@@ -98,7 +98,7 @@ class Unpack {
 
 			var run:Int = literals;
 			while (run-- > 0) {
-				Memory.writeU16(out, Memory.readU16(at));
+				Memory.storeU16(out, Memory.loadU16(at));
 				out += 2;
 				at += 2;
 			}
@@ -110,7 +110,7 @@ class Unpack {
 
 			if (low == 0) continue;
 
-			final far:Int = Memory.readU16(at);
+			final far:Int = Memory.loadU16(at);
 			at += 2;
 
 			out = repeatWords(out, (((-far) & 0x7FFF) + 1) * 2, low + 2);
@@ -125,8 +125,8 @@ class Unpack {
 		var run:Int = length;
 
 		while (run-- > 0) {
-			final value:Int = Memory.readU8(back);
-			Memory.writeU8(to, value);
+			final value:Int = Memory.loadU8(back);
+			Memory.storeU8(to, value);
 			back++;
 			to++;
 		}
@@ -140,8 +140,8 @@ class Unpack {
 		var run:Int = words;
 
 		while (run-- > 0) {
-			final value:Int = Memory.readU16(back);
-			Memory.writeU16(to, value);
+			final value:Int = Memory.loadU16(back);
+			Memory.storeU16(to, value);
 			back += 2;
 			to += 2;
 		}
@@ -151,7 +151,7 @@ class Unpack {
 
 	static function bit():Int {
 		if (left == 0) {
-			tag = Memory.readU8(source++);
+			tag = Memory.loadU8(source++);
 			left = 8;
 		}
 		left--;

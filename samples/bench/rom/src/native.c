@@ -131,3 +131,13 @@ s32 native_object_pass(s16 seed)
 
 	return total;
 }
+
+u32 native_aplib_unpack(u32 from, u32 into)
+{
+	return aplib_unpack((u8 *)from, (u8 *)into);
+}
+
+u32 native_lz4w_unpack(u32 from, u32 into)
+{
+	return lz4w_unpack((const u8 *)from, (u8 *)into);
+}

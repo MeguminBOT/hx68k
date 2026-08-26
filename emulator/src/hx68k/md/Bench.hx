@@ -76,27 +76,39 @@ class Bench {
 
 	static function report(spans:Array<Span>):Int {
 		var slower = 0;
+		var compared = 0;
 
 		for (span in spans) {
 			final against = reference(spans, span.group);
 			var note = "";
-			if (against != null && span.kind != "c") {
+			if (against != null && span.kind == "haxe") {
 				final percent = Math.round((span.cycles - against) * 1000 / against) / 10;
-				note = "  " + (percent > 0 ? "+" : "") + percent + "% against C";
-				if (percent > TOLERANCE) slower++;
+				final asm = hasKind(spans, span.group, "asm");
+				note = "  " + (percent > 0 ? "+" : "") + percent
+					+ (asm ? "% against hand written 68000" : "% against C");
+				if (!asm) {
+					compared++;
+					if (percent > TOLERANCE) slower++;
+				}
 			}
 			Sys.println("  " + StringTools.rpad(span.group + " " + span.kind, " ", 24)
 				+ StringTools.lpad(Std.string(span.cycles), " ", 9) + " cycles" + note);
 		}
 
 		Sys.println("");
-		Sys.println(spans.length + " measured spans, " + slower + " more than " + TOLERANCE
-			+ "% slower than the C written beside it");
+		Sys.println(spans.length + " measured spans, " + compared + " held against the C written "
+			+ "beside them, " + slower + " of those more than " + TOLERANCE + "% slower");
 		return slower == 0 ? 0 : 1;
+	}
+
+	static function hasKind(spans:Array<Span>, group:String, kind:String):Bool {
+		for (span in spans) if (span.group == group && span.kind == kind) return true;
+		return false;
 	}
 
 	static function reference(spans:Array<Span>, group:String):Null<Int> {
 		for (span in spans) if (span.group == group && span.kind == "c") return span.cycles;
+		for (span in spans) if (span.group == group && span.kind == "asm") return span.cycles;
 		return null;
 	}
 }
