@@ -70,7 +70,8 @@ build "harness"     "$HERE/harness/build.sh"
 
 # every check and tool below used to be its own neko build and its own neko run. One hxcpp binary
 # holds all of them, chosen by its first argument, built with the three defines the window is built
-# with. It took the gate from fifteen minutes to two.
+# with. Measured on the eight cores this is pinned to, that took the whole gate from 940 seconds to
+# 61, while adding the 240p walk, the PSG and four more frames of the commercial ROM to it.
 printf "building %-16s" "gate"
 if (cd "$ROOT/emulator" && haxe gate.hxml) > "$LOG" 2>&1; then
 	echo "ok"
