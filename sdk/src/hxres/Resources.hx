@@ -81,10 +81,12 @@ class Resources {
 					{line: "", type: "SpriteDefinition", symbol: '(&${field.name})'};
 				}
 				case "music": {
-					line: 'XGM ${field.name} "$file"',
-					type: "Music",
-					symbol: field.name
-				};
+					native(entry.pos, () -> emit.binary(field.name,
+						hxres.music.Xgc.compile(sys.io.File.getBytes(file),
+							number(arguments, 1, -1)),
+						256, 256, 0, true, "NONE"));
+					{line: "", type: "Music", symbol: field.name};
+				}
 				case "sound": {
 					line: 'WAV ${field.name} "$file" ' + option(arguments, 1, "XGM"),
 					type: "Sound",

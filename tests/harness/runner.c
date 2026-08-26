@@ -652,7 +652,7 @@ int main(int argc, char **argv)
 	snprintf(rom, sizeof(rom), "%s/samples/art/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/art/rom/out/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("art: resources through hxres and rescomp", "art", "samples/art",
+		suite_probe_rom("art: every resource through hxres, with no rescomp", "art", "samples/art",
 			rom, sym, art_expected, COUNT(art_expected), 0x51);
 	else
 		printf("\nart: skipped (rom not built)\n");

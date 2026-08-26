@@ -16,5 +16,5 @@ echo "[2/2] c -> rom"
 # makefile.gen hangs sega.o off out/rom_header.bin and not off sega.s, so our boot file
 # would never be reassembled after an edit. Drop the object and let make rebuild it.
 rm -f out/release/sega.o out/debug/sega.o
-make.exe -f "$GDK/makefile.gen" SIZEBND="$SIZEBND" SRC_LIB="$BOOT" "$@"
+make.exe -f "$GDK/makefile.gen" SIZEBND="$SIZEBND" RESCOMP=false SRC_LIB="$BOOT" "$@"
 ls -la out/rom.bin

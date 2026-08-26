@@ -9,6 +9,19 @@ class Xgc {
 	public var samples:Array<XgmSample>;
 	public var pal:Int;
 
+	public static function compile(source:Bytes, timing:Int):Bytes {
+		if (timing == 0) source.set(0x24, 60);
+		else if (timing == 1) source.set(0x24, 50);
+
+		final tune = new Vgm(source, 0);
+		tune.convertWaits();
+		tune.cleanCommands();
+		tune.cleanSamples();
+		tune.fixKeyCommands();
+
+		return new Xgc(new Xgm(tune)).bytes();
+	}
+
 	public function new(from:Xgm) {
 		commands = [];
 		samples = from.samples.copy();
