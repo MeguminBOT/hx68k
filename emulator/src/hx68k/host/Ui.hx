@@ -51,6 +51,7 @@ class Ui {
 	var dragging:Null<Panel> = null;
 	var resizing:Null<Panel> = null;
 	var scrubbing:Null<Panel> = null;
+	var holdingTime:Bool = false;
 	var scrubbingAcross:Null<Panel> = null;
 	var acrossFrom:Int = 0;
 	var downFrom:Int = 0;
@@ -218,6 +219,44 @@ class Ui {
 		toolPen += wide + controlGap;
 
 		return hit;
+	}
+
+	public function timeline(span:Int, position:Int, label:String):Int {
+		if (toolPen > margin) {
+			toolRow++;
+			toolPen = margin;
+		}
+
+		if (toolRow >= toolRows) {
+			holdingTime = false;
+			return -1;
+		}
+
+		final top = toolRow * bar + toolInset;
+		final high = bar - toolInset * 2;
+		final track = width - margin * 2;
+
+		paint.rectangle(margin, top, track, high, BACKGROUND);
+		paint.rectangle(margin, top, track, 1, FRAME);
+
+		if (span > 0) {
+			paint.rectangle(margin + Timeline.thumbAt(span, position, track), top,
+				Timeline.thumbWidth(span, track), high, ACTIVE, 0.75);
+		}
+
+		final over = pointerY >= toolRow * bar && pointerY < (toolRow + 1) * bar
+			&& pointerX >= margin && pointerX < margin + track;
+
+		if (pressed && over) holdingTime = true;
+		if (!down) holdingTime = false;
+
+		paint.text(label, margin + (track - paint.font.measure(label)) * 0.5,
+			toolRow * bar + toolText, INK);
+
+		toolPen = margin + track;
+		if (!holdingTime || span < 1) return -1;
+
+		return Timeline.pick(span, pointerX - margin, track);
 	}
 
 	public function keeping(room:Float):Void {

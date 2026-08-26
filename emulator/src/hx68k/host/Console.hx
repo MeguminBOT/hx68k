@@ -341,7 +341,7 @@ class Console {
 
 			var ran = 0;
 			while (ran < CATCH_UP && started >= due) {
-				if (rewind != null) rewind.frame() else emulate();
+				emulate();
 				due += period;
 				frames++;
 				ran++;
@@ -402,12 +402,12 @@ class Console {
 	}
 
 	function emulate():Void {
-		if (remote == null || !remote.attached) {
-			machine.runFrame();
+		if (remote != null && remote.attached) {
+			if (!remote.halted) remote.untilFrame();
 			return;
 		}
 
-		if (!remote.halted) remote.untilFrame();
+		if (rewind != null) rewind.frame() else machine.runFrame();
 	}
 
 	function serving(on:Bool):Void {
@@ -629,9 +629,10 @@ class Console {
 	function toolRows():Int {
 		final want = sequence();
 		final keep = keeping();
+		final extra = rewind == null ? 0 : 1;
 
-		for (rows in 1...MOST_TOOL_ROWS + 1) if (ui.fits(want, rows, keep, width)) return rows;
-		return MOST_TOOL_ROWS;
+		for (rows in 1...MOST_TOOL_ROWS + 1) if (ui.fits(want, rows, keep, width)) return rows + extra;
+		return MOST_TOOL_ROWS + extra;
 	}
 
 	function toolbar():Void {
@@ -678,6 +679,7 @@ class Console {
 		}
 
 		ui.note(status());
+		scrubbing();
 
 		if (wanted != scale) rescale(wanted);
 	}
@@ -1100,8 +1102,33 @@ class Console {
 			return;
 		}
 
-		tell(rewind.back(1) ? "back one frame, " + rewind.depth + " left"
-			: "the rewind ring is empty");
+		if (!rewind.back(1)) {
+			tell("there is nothing kept behind this frame");
+			return;
+		}
+
+		paused = true;
+		tell("back one frame, " + rewind.behind() + " behind it");
+	}
+
+	function scrubbing():Void {
+		if (rewind == null) return;
+
+		final span = rewind.depth;
+		final picked = ui.timeline(span, span - 1 - rewind.at, timeShown());
+		if (picked < 0) return;
+
+		final wanted = span - 1 - picked;
+		if (wanted == rewind.at) return;
+
+		rewind.seek(wanted);
+		paused = true;
+	}
+
+	function timeShown():String {
+		if (rewind.depth == 0) return "nothing kept yet";
+		if (rewind.at == 0) return "now, " + rewind.behind() + " frames behind it";
+		return "-" + rewind.at + " frames, " + rewind.behind() + " behind";
 	}
 
 	function winds(on:Bool):Void {

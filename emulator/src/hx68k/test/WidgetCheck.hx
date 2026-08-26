@@ -5,6 +5,7 @@ import hx68k.host.Focus.Holder;
 import hx68k.host.Field;
 import hx68k.host.Keys;
 import hx68k.host.Bindings;
+import hx68k.host.Timeline;
 
 class WidgetCheck {
 	static var failures:Int = 0;
@@ -245,6 +246,43 @@ class WidgetCheck {
 		}
 	}
 
+	static function timeline():Void {
+		final wide = 400.0;
+
+		ok("a thumb narrower than the track needs a span to divide it",
+			Timeline.thumbWidth(1, wide) == wide, "one position gave a narrower thumb");
+		ok("ten positions share the track between them",
+			Timeline.thumbWidth(10, wide) == wide / 10, "it was " + Timeline.thumbWidth(10, wide));
+		ok("and a span too long to see keeps a thumb that can be grabbed",
+			Timeline.thumbWidth(1000, wide) == Timeline.LEAST,
+			"it was " + Timeline.thumbWidth(1000, wide));
+
+		ok("the newest position puts the thumb at the left",
+			Timeline.thumbAt(120, 0, wide) == 0, "it was " + Timeline.thumbAt(120, 0, wide));
+		ok("and the oldest at the far end",
+			Timeline.thumbAt(120, 119, wide) == wide - Timeline.LEAST,
+			"it was " + Timeline.thumbAt(120, 119, wide));
+		ok("a position past the end is held to it",
+			Timeline.thumbAt(120, 400, wide) == Timeline.thumbAt(120, 119, wide),
+			"it went further than the track");
+
+		same("the left of the track picks the first position",
+			Std.string(Timeline.pick(120, 0, wide)), "0");
+		same("the right of it picks the last",
+			Std.string(Timeline.pick(120, wide, wide)), "119");
+		same("the middle picks the middle", Std.string(Timeline.pick(121, wide / 2, wide)), "60");
+		same("and a pointer that has left the track is held to it",
+			Std.string(Timeline.pick(120, -80, wide)), "0");
+
+		var walked = 0;
+		for (position in 0...120) {
+			if (Timeline.pick(120, Timeline.thumbAt(120, position, wide)
+				+ Timeline.LEAST * 0.5, wide) == position) walked++;
+		}
+		same("every position the thumb can sit at is the one picked back from it",
+			walked + " of 120", "120 of 120");
+	}
+
 	static function main():Void {
 		run();
 	}
@@ -263,6 +301,9 @@ class WidgetCheck {
 
 		Sys.println("the binding table, and what answers to a key");
 		binding();
+
+		Sys.println("the timeline the rewind ring is scrubbed along");
+		timeline();
 
 		Sys.println("");
 		Sys.println(checks + " checks, " + failures + " failures");
