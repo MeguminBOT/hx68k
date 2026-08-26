@@ -310,6 +310,117 @@ case "$PASSES" in
 esac
 
 echo ""
+echo "--- the gdb remote serial protocol, spoken to itself ---"
+"$GATE" gdb
+
+# and then spoken to the real thing. SGDK ships m68k-elf-gdb, so the same sample is debugged again
+# with gdb driving it: gdb reads DWARF out of rom.out on its own and reaches the machine only
+# through the stub, so every value it prints came back over the protocol. The line it stops on is
+# the generated C that steps the loop variable, found by the name the sample declares, and the
+# values it reads there have to be the ones the debugger above already read a different way.
+echo ""
+echo "--- the same machine, debugged by gdb itself ---"
+
+GDB_WORK="$HERE/.gdb"
+GDB_LINE="$(grep -n "^	*$WANT_LOCAL++;" "$ROOT/samples/bug/rom/src/Main.c" | cut -d: -f1)"
+
+rm -rf "$GDB_WORK"
+mkdir -p "$GDB_WORK"
+
+"$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/stub.txt" 2>&1 &
+STUB=$!
+
+WAITED=0
+while [ "$WAITED" -lt 300 ]; do
+	if grep -q "waiting for a connection" "$GDB_WORK/stub.txt" 2>/dev/null; then break; fi
+	sleep 0.1
+	WAITED=$((WAITED + 1))
+done
+
+GDB_PORT="$(sed -n 's/.*127\.0\.0\.1:\([0-9]*\),.*/\1/p' "$GDB_WORK/stub.txt")"
+if [ -z "$GDB_PORT" ]; then
+	echo "FAILED"
+	echo "  the stub never said which port it took"
+	cat "$GDB_WORK/stub.txt"
+	kill "$STUB" 2>/dev/null || true
+	exit 1
+fi
+
+{
+	echo "set confirm off"
+	echo "set pagination off"
+	echo "target remote 127.0.0.1:$GDB_PORT"
+	echo "break Main_accumulate"
+	echo "continue"
+	echo "print $WANT_PARAMETER"
+	echo "break Main.c:$GDB_LINE"
+	PASS=1
+	while [ "$PASS" -le "$WANT_ARGUMENT" ]; do
+		echo "continue"
+		echo "print $WANT_LOCAL"
+		PASS=$((PASS + 1))
+	done
+	echo "bt"
+	echo "detach"
+} > "$GDB_WORK/session.gdb"
+
+# a stub that never stops leaves gdb waiting for a stop reply that is not coming, so the session
+# is held to two minutes and one that runs out of them fails on what it did not print
+SEEN="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/session.gdb" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
+	| grep -v "host encoding" | grep -v "please file a bug report")"
+wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
+
+echo "$SEEN" | sed 's/^/  /'
+
+printf "gdb %-22s" "reached the function"
+case "$SEEN" in
+	*"Main_accumulate ($WANT_PARAMETER=$WANT_ARGUMENT)"*) echo "ok" ;;
+	*) echo "FAILED"
+	   echo "  gdb never stopped in Main_accumulate with $WANT_PARAMETER = $WANT_ARGUMENT"
+	   exit 1 ;;
+esac
+
+printf "gdb %-22s" "read the parameter"
+GDB_READ="$(echo "$SEEN" | grep '^\$1 = ' | sed 's/^\$1 = //')"
+if [ "$GDB_READ" = "$WANT_ARGUMENT" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  gdb read $WANT_PARAMETER as ${GDB_READ:-nothing}, not $WANT_ARGUMENT"
+	exit 1
+fi
+
+PASS=1
+while [ "$PASS" -le "$WANT_ARGUMENT" ]; do
+	printf "gdb %-22s" "the loop, pass $PASS"
+	GDB_READ="$(echo "$SEEN" | grep "^\\\$$((PASS + 1)) = " | sed "s/^\\\$$((PASS + 1)) = //")"
+	if [ "$GDB_READ" = "$PASS" ]; then
+		echo "ok"
+	else
+		echo "FAILED"
+		echo "  gdb read $WANT_LOCAL as ${GDB_READ:-nothing} on pass $PASS"
+		exit 1
+	fi
+	PASS=$((PASS + 1))
+done
+
+printf "gdb %-22s" "walked the stack"
+case "$SEEN" in
+	*"#0  Main_accumulate"*"Main_main"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  gdb did not put Main_main under Main_accumulate"; exit 1 ;;
+esac
+
+printf "gdb %-22s" "and let go"
+case "$(cat "$GDB_WORK/stub.txt")" in
+	*"closed after 1 session"*) echo "ok" ;;
+	*) echo "FAILED"; cat "$GDB_WORK/stub.txt"; exit 1 ;;
+esac
+
+echo ""
 echo "--- who called whom, read off the stack ---"
 
 backtrace() {

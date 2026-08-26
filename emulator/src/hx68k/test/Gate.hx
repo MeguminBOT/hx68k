@@ -16,6 +16,7 @@ class Gate {
 			case "disassembly": DisassemblyCheck.run(rest);
 			case "fifo": FifoCheck.run(rest);
 			case "game": GameCheck.run(rest);
+			case "gdb": GdbCheck.run();
 			case "layout": LayoutCheck.run();
 			case "map": hx68k.map.MapTool.run(rest);
 			case "opn": OpnCheck.run(rest);
@@ -41,7 +42,7 @@ class Gate {
 
 	static function usage():Void {
 		Sys.println("usage: gate <program> [arguments]");
-		Sys.println("  bench debug disassembly fifo game layout map opn pattern render");
-		Sys.println("  psg rom settings slot sound sprite sst state view widget z80");
+		Sys.println("  bench debug disassembly fifo game gdb layout map opn pattern");
+		Sys.println("  psg render rom settings slot sound sprite sst state view widget z80");
 	}
 }

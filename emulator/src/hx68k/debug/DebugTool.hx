@@ -14,7 +14,8 @@ class DebugTool {
 			Sys.println("usage: debug <rom.bin> [<rom.out> <generated-source>]"
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
-				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]");
+				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]"
+				+ " [--gdb port]");
 			Sys.exit(2);
 		}
 
@@ -25,6 +26,7 @@ class DebugTool {
 		var rastered = 0;
 		var read = "";
 		var settle = 10;
+		var serving = 0;
 		var hits:Array<Int> = [1];
 		var expected:Array<Int> = [];
 
@@ -46,6 +48,7 @@ class DebugTool {
 				case "--read": read = value(args, i);
 				case "--hits": hits = value(args, i).split(",").map(text -> Std.parseInt(text));
 				case "--settle": settle = count(args, i);
+				case "--gdb": serving = count(args, i);
 				case _: i--;
 			}
 			i += 2;
@@ -71,6 +74,7 @@ class DebugTool {
 
 		final once = hits[hits.length - 1];
 
+		if (serving > 0) Sys.exit(serve(debugger, stop, serving, settle, once));
 		if (showing) Sys.exit(views(debugger, stop, settle, once));
 		if (walking) Sys.exit(stack(debugger, stop, settle, once));
 		if (read != "") Sys.exit(readNames(debugger, stop, read.split(","), settle, hits));
@@ -78,6 +82,40 @@ class DebugTool {
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, once));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, once));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, once) : hunt(debugger, stop, watch, expected));
+	}
+
+	static function serve(debugger:Debugger, stop:String, port:Int, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
+
+		var gdb:Null<Gdb> = null;
+		var tried = port;
+
+		while (gdb == null && tried < port + 16) {
+			try {
+				gdb = new Gdb(debugger, tried);
+			} catch (e:Dynamic) {
+				tried++;
+			}
+		}
+
+		if (gdb == null) {
+			Sys.println("no free port between " + port + " and " + (port + 15));
+			return 2;
+		}
+
+		Sys.println("gdb remote on 127.0.0.1:" + gdb.port + ", waiting for a connection");
+		Sys.stdout().flush();
+
+		while (!gdb.ending) {
+			gdb.attend(0.05);
+			gdb.advance(20000);
+			if (gdb.sessions > 0 && !gdb.attached) break;
+		}
+
+		gdb.close();
+		Sys.println("gdb remote closed after " + gdb.sessions + " session"
+			+ (gdb.sessions == 1 ? "" : "s"));
+		return gdb.sessions > 0 ? 0 : 1;
 	}
 
 	static function show(value:Int, width:Int, signed:Bool):String {
