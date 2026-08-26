@@ -75,8 +75,9 @@ nothing here is ticked on intent.
       splitting a transfer that crosses a 128 KB boundary in its source
 - [x] The PSG and the YM2612, native, with the PSG's clock folded to a literal by the region define
 - [x] The pad, native, reading a three-button controller and telling a port with one from an empty one
-- [ ] The startup and the interrupt table, which is what "needs no SGDK" actually turns on;
-      `docs/SGDK.md` audits every SGDK file for what to port, what to carry and what to drop
+- [x] A ROM that links no SGDK at all: `samples/bare` is 45 symbols, none of them SGDK's, booting
+      from a vector table and a cold VDP bring-up of ours. `docs/SGDK.md` audits every SGDK file
+- [ ] Interrupts reaching Haxe, and a vertical interrupt process that is ours
 - [x] `haxelib run hx68k new <name>` writes a project that builds and boots, checked by the gate
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not

@@ -18,6 +18,8 @@ tests/harness/.build/
 tests/.build.log
 tests/.observables.txt
 tests/.template/
+tests/.bare.txt
+tests/.libmd.txt
 
 *.o
 *.bin

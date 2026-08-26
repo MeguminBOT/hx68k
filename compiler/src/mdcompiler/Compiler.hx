@@ -86,10 +86,23 @@ class Compiler extends DirectToStringCompiler {
 			Context.error("No entry point. Mark a static function with @:md.main.", Context.currentPos());
 			return;
 		}
-		setExtraFile(ENTRY, '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n'
-			+ 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();\n\treturn 0;\n}\n');
+		setExtraFile(ENTRY, entryFile(entry));
 
 		setExtraFile(ROM_HEADER, romHeader());
+	}
+
+	static function entryFile(entry:String):String {
+		final head = '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n';
+
+		if(!Context.defined("md-native-boot"))
+			return head + 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();'
+				+ '\n\treturn 0;\n}\n';
+
+		return head
+			+ 'void md_vertical(void) {}\n\n'
+			+ 'void md_horizontal(void) {}\n\n'
+			+ 'void md_external(void) {}\n\n'
+			+ 'void md_start(void)\n{\n\t${entry}();\n\tfor(;;) { }\n}\n';
 	}
 
 	static function romHeader():String {

@@ -446,6 +446,19 @@ static const probe_t pal_expected[] = {
 	{ "and so does the version register", 1 },
 };
 
+static const probe_t bare_expected[] = {
+	/* a ROM whose link carries no SGDK symbol. The first two are the startup itself: a static
+	   with an initial value proves sdk/boot/sega.s copied .data out of ROM into work RAM, and a
+	   vector that was never written proves it cleared the rest. The others prove the VDP came up
+	   from cold with no VDP_init anywhere */
+	{ "an initialised static survived the boot", 0x1234 },
+	{ "and the rest of RAM was cleared", 0 },
+	{ "a colour set through the native palette", 0x0EEE },
+	{ "a cell set through the native tilemap", 1 },
+	{ "a pattern uploaded without DMA", 0x1111 },
+	{ "the plane is 64 cells wide", 64 },
+};
+
 static const probe_t art_expected[] = {
 	/* bit 4 in each is not the colour: it is what the FIFO slot the next write will use still
 	   holds, which a CRAM read exposes in the bits CRAM does not store */
@@ -577,6 +590,14 @@ int main(int argc, char **argv)
 			rom, sym, art_expected, COUNT(art_expected), 0x51);
 	else
 		printf("\nart: skipped (rom not built)\n");
+
+	snprintf(rom, sizeof(rom), "%s/samples/bare/rom/out/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/samples/bare/rom/out/release/symbol.txt", root);
+	if (file_exists(rom))
+		suite_probe_rom("bare: a ROM that boots without SGDK", "bare", "samples/bare",
+			rom, sym, bare_expected, COUNT(bare_expected), 0);
+	else
+		printf("\nbare: skipped (rom not built)\n");
 
 	snprintf(rom, sizeof(rom), "%s/samples/events/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/events/rom/out/release/symbol.txt", root);

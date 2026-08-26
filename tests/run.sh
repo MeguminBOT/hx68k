@@ -72,6 +72,7 @@ codegen "ntsc region" "$ROOT/samples/spike/rom/src/rom_header.c" '"JUE {13}"'
 build "art rom"     "$ROOT/samples/art/build.sh"
 build "events rom"  "$ROOT/samples/events/build.sh"
 build "sdk rom"     "$ROOT/samples/sdk/build.sh"
+build "bare rom"    "$ROOT/samples/bare/build.sh"
 build "harness"     "$HERE/harness/build.sh"
 
 # every check and tool below used to be its own neko build and its own neko run. One hxcpp binary
@@ -200,6 +201,33 @@ echo "  $STATICS"
 
 # 68000 core conformance is a tracked progress metric, not yet a gate:
 # coverage is partial, so a low overall number is expected and honest.
+echo ""
+echo "--- a ROM with no SGDK in it ---"
+
+BARE="$ROOT/samples/bare/rom/out/release/rom.out"
+NM="$ROOT/vendor/SGDK/bin/nm"
+
+printf "bare %-20s" "no SGDK symbol"
+"$NM" --defined-only "$BARE" | awk '{print $3}' | sort > "$ROOT/tests/.bare.txt"
+"$NM" --defined-only "$ROOT/vendor/SGDK/lib/libmd.a" | awk '$2=="T"||$2=="D"||$2=="B"||$2=="R"{print $3}' | sort -u > "$ROOT/tests/.libmd.txt"
+SHARED="$(comm -12 "$ROOT/tests/.bare.txt" "$ROOT/tests/.libmd.txt" | wc -l | tr -d ' ')"
+if [ "$SHARED" = "0" ]; then
+	echo "ok"
+	echo "  $(wc -l < "$ROOT/tests/.bare.txt" | tr -d ' ') symbols, none of them SGDK's"
+else
+	echo "FAILED"
+	comm -12 "$ROOT/tests/.bare.txt" "$ROOT/tests/.libmd.txt" | head -20
+	exit 1
+fi
+
+printf "bare %-20s" "boots and draws"
+DREW="$("$GATE" game "$ROOT/samples/bare/rom/out/release/rom.bin" 60)"
+case "$DREW" in
+	*"display=on"*) echo "ok" ;;
+	*) echo "FAILED"; echo "$DREW"; exit 1 ;;
+esac
+echo "$DREW" | grep -E "screen |digest "
+
 echo ""
 echo "--- the project a new user gets ---"
 
