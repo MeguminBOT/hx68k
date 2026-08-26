@@ -300,6 +300,43 @@ one ROM: a mask after a sprite, a mask first on the line, a mask after a mask, t
 of the dot limit, both status bits and their clearing on read, and a link to entry 70 followed in
 H40 and refused in H32.
 
+## A drain stops at the line's own last slot
+
+`drain()` turns the dot counter into a slot number, and it used to do that without holding the
+answer to the line it was on. A tick that carried the dot past the end of a line therefore served
+slots belonging to the next one, and `endOfLine()` then reset the count under it. The slots were
+not borrowed from the next line, they were created: nothing deducted them.
+
+Measured over ten blanked H40 lines, ticked in bus cycles of 28 master clocks rather than one at a
+time, which is what the machine does:
+
+| | with the overshoot | held to the line | what ten lines allow |
+| --- | --- | --- | --- |
+| VRAM fill | 2053 | 2049 | 204 then 205 nine times |
+| 68K to VDP | 2054 | 2050 | 205 ten times |
+| VRAM copy | 1027 | 1025 | a byte every second slot |
+
+About a fifth of a percent fast, which no ROM here draws differently for: Sonic 2 reaches the same
+seven frames and the port access ROM stays at 100% on both pages. It shows up only when something
+counts the slots, which `hx68k.debug.Slots` now does. Ticking one master clock at a time never
+reaches it, because the dot then never overshoots a line end by more than one clock, so the check
+that holds it ticks in bus cycles.
+
+The drain runs a second time straight after `events()` has rolled the line, so the part of a tick
+that belongs to the new line is served on that tick rather than the next one.
+
+## Why the documented fill rates are one below the transfer rates
+
+Sega's table gives 205, 18, 167 and 16 words a line for a 68000 to VDP transfer and 204, 17, 166
+and 15 bytes for a VRAM fill, one less in every one of the four widths. That is not a slower rate.
+A fill is started by a write to the data port and that write takes an access slot of its own, so
+the line the fill starts on has one fewer slot left for it; the second line of the same fill
+carries 205. A copy is started by a control port write, takes no such slot, and comes out at
+floor(205 / 2) because it reads before it writes.
+
+All twelve rates are now held exactly rather than to five either way, and the fill's first line is
+held to 204 with the run of lines after it held to 205 each.
+
 ## The horizontal counter has a range for each width
 
 The counter is not a pixel count: it counts once every two pixels and it skips a stretch in the
