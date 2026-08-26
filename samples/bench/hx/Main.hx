@@ -2,16 +2,23 @@ package;
 
 import md.Int16;
 import md.Native;
+import md.Palette;
 import md.Probe;
 import md.System;
+import md.Transfer;
+import md.UInt16;
 import md.Vector;
+import md.sgdk.Palette as SgdkPalette;
 
 class Main {
 	static inline final CELLS = 256;
 	static inline final ENTITIES = 64;
 
+	static inline final LOADS = 64;
+
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
+	@:md.size(16) static var shades:Vector<UInt16>;
 
 	static var head:Entity;
 
@@ -34,6 +41,10 @@ class Main {
 		final objects = objectPass(seed);
 		Probe.mark();
 		final nativeObjects = Native.objectPass(seed);
+		Probe.mark();
+		paletteInHaxe();
+		Probe.mark();
+		paletteInSgdk();
 		Probe.mark();
 
 		System.enableInterrupts();
@@ -60,6 +71,12 @@ class Main {
 			i++;
 		}
 
+		var shade = 0;
+		while (shade < 16) {
+			shades[shade] = (shade * 0x111) & 0x0EEE;
+			shade++;
+		}
+
 		var previous:Entity = null;
 		var made = 0;
 		while (made < ENTITIES) {
@@ -71,6 +88,22 @@ class Main {
 
 		Native.fill();
 		Native.build();
+	}
+
+	static function paletteInHaxe():Void {
+		var n = 0;
+		while (n < LOADS) {
+			Palette.setColours(0, shades, 16);
+			n++;
+		}
+	}
+
+	static function paletteInSgdk():Void {
+		var n = 0;
+		while (n < LOADS) {
+			SgdkPalette.setColours(0, shades, 16, Transfer.Cpu);
+			n++;
+		}
 	}
 
 	static function narrowPass(seed:Int16):Int {

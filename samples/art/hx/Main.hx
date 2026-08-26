@@ -6,7 +6,6 @@ import md.Plane;
 import md.Probe;
 import md.Sprite;
 import md.System;
-import md.Transfer;
 import md.Vdp;
 import md.hw.Vdp as Ports;
 
@@ -16,7 +15,7 @@ class Main {
 		Sprite.init();
 
 		Vdp.drawImage(Plane.A, Art.blocks, 0, 0);
-		Palette.setFromResource(0, Art.blockPalette, Transfer.Cpu);
+		Palette.setFromResource(0, Art.blockPalette);
 
 		Sprite.add(Art.diamond, 100, 80, 0);
 		Sprite.update();

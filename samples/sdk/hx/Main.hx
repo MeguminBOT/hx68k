@@ -4,7 +4,7 @@ import md.Dma;
 import md.Fix16;
 import md.Joy;
 import md.Maths;
-import md.Palette;
+import md.sgdk.Palette;
 import md.Plane;
 import md.Probe;
 import md.System;

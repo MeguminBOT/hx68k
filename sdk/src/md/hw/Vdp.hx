@@ -39,6 +39,10 @@ class Vdp {
 		return Memory.readU16(COUNTER);
 	}
 
+	public static inline function autoIncrement(step:Int):Void {
+		register(15, step);
+	}
+
 	public static inline function colour(index:Int, value:Int):Void {
 		address(CRAM_WRITE, index * 2);
 		write(value);
