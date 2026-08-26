@@ -15,7 +15,7 @@ class DebugTool {
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
 				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]"
-				+ " [--gdb port]");
+				+ " [--gdb port] [--slots frames]");
 			Sys.exit(2);
 		}
 
@@ -27,6 +27,7 @@ class DebugTool {
 		var read = "";
 		var settle = 10;
 		var serving = 0;
+		var spending = 0;
 		var hits:Array<Int> = [1];
 		var expected:Array<Int> = [];
 
@@ -49,6 +50,7 @@ class DebugTool {
 				case "--hits": hits = value(args, i).split(",").map(text -> Std.parseInt(text));
 				case "--settle": settle = count(args, i);
 				case "--gdb": serving = count(args, i);
+				case "--slots": spending = count(args, i);
 				case _: i--;
 			}
 			i += 2;
@@ -75,6 +77,7 @@ class DebugTool {
 		final once = hits[hits.length - 1];
 
 		if (serving > 0) Sys.exit(serve(debugger, stop, serving, settle, once));
+		if (spending > 0) Sys.exit(spend(debugger, stop, spending, settle, once));
 		if (showing) Sys.exit(views(debugger, stop, settle, once));
 		if (walking) Sys.exit(stack(debugger, stop, settle, once));
 		if (read != "") Sys.exit(readNames(debugger, stop, read.split(","), settle, hits));
@@ -116,6 +119,23 @@ class DebugTool {
 		Sys.println("gdb remote closed after " + gdb.sessions + " session"
 			+ (gdb.sessions == 1 ? "" : "s"));
 		return gdb.sessions > 0 ? 0 : 1;
+	}
+
+	static function spend(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int):Int {
+		if (!reach(debugger, stop, settle, hits)) return 1;
+
+		final slots = new Slots(debugger);
+
+		for (i in 0...frames) {
+			final spent = slots.frame();
+			Sys.println("");
+			Sys.println("--- frame " + (i + 1) + " of " + frames + " ---");
+			for (line in Slots.lines(spent, 40)) Sys.println("  " + line);
+			Sys.println("");
+			for (line in Slots.summary(spent)) Sys.println("  " + line);
+		}
+
+		return 0;
 	}
 
 	static function show(value:Int, width:Int, signed:Bool):String {

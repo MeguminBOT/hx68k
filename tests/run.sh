@@ -709,6 +709,33 @@ case "$RASTER" in
 	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;
 esac
 
+# every external access slot a line offers is one the VDP can spend on the outside world, and a
+# line that spends more than it has is the model creating bandwidth the hardware does not have.
+# The art ROM clears VRAM with a fill at boot, which saturates every blanked line it runs across,
+# so this is where that would show.
+echo ""
+echo "--- what a frame's VDP access slots went on ---"
+SPEND="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 12 --slots 1)"
+echo "$SPEND"
+
+printf "slots %-18s" "none overspent"
+case "$SPEND" in
+	*"no line spent more slots than it had"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  a line spent slots the hardware does not have"; exit 1 ;;
+esac
+
+USED="$(echo "$SPEND" | sed -n 's/.*was the busiest, spending \([0-9]*\) of its \([0-9]*\) slots/\1/p')"
+OPEN="$(echo "$SPEND" | sed -n 's/.*was the busiest, spending \([0-9]*\) of its \([0-9]*\) slots/\2/p')"
+
+printf "slots %-18s" "a fill saturates"
+if [ -n "$USED" ] && [ "$USED" = "$OPEN" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  the busiest line spent ${USED:-nothing} of ${OPEN:-nothing}, where a fill should take them all"
+	exit 1
+fi
+
 echo ""
 echo "--- a state a machine can be put back into ---"
 "$GATE" state "$ROOT"
