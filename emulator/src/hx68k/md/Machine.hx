@@ -287,8 +287,17 @@ class Machine implements Bus implements Memory {
 		if (at >= 0xA10000 && at < 0xA10020) {
 			final offset = at & 0x1F;
 			final byte = both(value, uds, lds) & 0xFF;
-			if (offset >= 2 && offset <= 6) padData[(offset >> 1) - 1] = byte;
-			else if (offset >= 8 && offset <= 12) padControl[(offset >> 1) - 4] = byte;
+			if (offset >= 2 && offset <= 6) {
+				final port = (offset >> 1) - 1;
+				final was = trigger(port);
+				padData[port] = byte;
+				if (!was && trigger(port)) vdp.trigger();
+			} else if (offset >= 8 && offset <= 12) {
+				final port = (offset >> 1) - 4;
+				final was = trigger(port);
+				padControl[port] = byte;
+				if (!was && trigger(port)) vdp.trigger();
+			}
 			return 0;
 		}
 
@@ -344,6 +353,10 @@ class Machine implements Bus implements Memory {
 		if (offset >= 2 && offset <= 6) return pad((offset >> 1) - 1);
 		if (offset >= 8 && offset <= 12) return padControl[(offset >> 1) - 4];
 		return 0x00;
+	}
+
+	function trigger(port:Int):Bool {
+		return (padControl[port] & 0x40) != 0 ? (padData[port] & 0x40) != 0 : true;
 	}
 
 	function pad(port:Int):Int {

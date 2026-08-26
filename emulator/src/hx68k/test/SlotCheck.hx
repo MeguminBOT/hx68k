@@ -25,6 +25,10 @@ class SlotCheck {
 
 	static inline final VINT_ON = 0x20;
 
+	static inline final LATCH = 0x02;
+
+	static inline final EXTERNAL_ON = 0x08;
+
 	static inline final VRAM_WRITE = 0x40000000;
 
 	static inline final A_WRITE = 4 * 7;
@@ -388,6 +392,76 @@ class SlotCheck {
 		same("where NTSC V28 is 36", Vdp.LINES_NTSC - Vdp.LINES_V28 - 2, 36);
 	}
 
+	static function latching():Void {
+		final free = ready(H40, DISPLAY_ON);
+		final first = free.readCounter();
+		for (_ in 0...400) free.tick(1);
+		ok("with M3 clear the counter runs on", free.readCounter() != first, "it did not move");
+
+		free.trigger();
+		final after = free.readCounter();
+		for (_ in 0...400) free.tick(1);
+		ok("and a trigger freezes nothing", free.readCounter() != after, "it froze anyway");
+
+		final stopped = ready(H40, DISPLAY_ON);
+		set(stopped, 0, LATCH);
+		stopped.trigger();
+		final frozen = stopped.readCounter();
+		for (_ in 0...800) stopped.tick(1);
+		same("with M3 set a trigger freezes the counter", stopped.readCounter(), frozen);
+		ok("and the VDP says it is holding one", stopped.latched, "it says it is not");
+
+		set(stopped, 0, 0x00);
+		ok("clearing M3 lets go of it", !stopped.latched, "it is still holding one");
+		ok("and the counter runs again", stopped.readCounter() != frozen, "it stayed frozen");
+	}
+
+	static function wiring():Void {
+		final machine = new Machine();
+		machine.vdp.rendering = false;
+		machine.vdp.writeControl(0x8000 | LATCH);
+
+		machine.writeByte(0xA10009, 0x40);
+		machine.writeByte(0xA10003, 0x00);
+		ok("a port holding TH low latches nothing", !machine.vdp.latched, "it latched");
+
+		machine.writeByte(0xA10003, 0x40);
+		ok("and TH rising on it is the trigger", machine.vdp.latched, "it did not latch");
+
+		machine.vdp.acknowledge(Vdp.EXTERNAL_LEVEL);
+		machine.writeByte(0xA10003, 0x40);
+		ok("writing the same high level again is not a second trigger, since HL is an edge",
+			!machine.vdp.external, "it triggered on the level");
+
+		final input = new Machine();
+		input.vdp.rendering = false;
+		input.vdp.writeControl(0x8000 | LATCH);
+		input.writeByte(0xA10009, 0x00);
+		ok("a port with TH left an input, which is how a light gun is wired, sees no edge",
+			!input.vdp.latched, "it latched with nothing driving it");
+	}
+
+	static function externally():Void {
+		final port = ready(H40, DISPLAY_ON);
+		port.trigger();
+		same("a trigger raises nothing while IE2 is clear", port.irqLevel(), 0);
+
+		set(port, 11, EXTERNAL_ON);
+		same("and level 2 the moment IE2 is set", port.irqLevel(), Vdp.EXTERNAL_LEVEL);
+
+		port.acknowledge(Vdp.EXTERNAL_LEVEL);
+		same("acknowledging it clears it", port.irqLevel(), 0);
+
+		final both = ready(H40, DISPLAY_ON | VINT_ON);
+		set(both, 11, EXTERNAL_ON);
+		for (_ in 0...Vdp.MASTER_PER_LINE * (Vdp.LINES_V28 + 1)) both.tick(1);
+		both.trigger();
+		same("the vertical interrupt outranks the external one", both.irqLevel(), Vdp.VINT_LEVEL);
+
+		both.acknowledge(Vdp.VINT_LEVEL);
+		same("which is still waiting behind it", both.irqLevel(), Vdp.EXTERNAL_LEVEL);
+	}
+
 	static function sameText(what:String, got:String, wanted:String):Void {
 		ok(what, got == wanted, "wanted " + wanted + ", got " + got);
 	}
@@ -504,6 +578,11 @@ class SlotCheck {
 
 		Sys.println("which television standard the machine is on");
 		standards();
+
+		Sys.println("what stops the HV counter and what the trigger raises");
+		latching();
+		wiring();
+		externally();
 
 		Sys.println("which of the three interlace settings is running");
 		interlacing();

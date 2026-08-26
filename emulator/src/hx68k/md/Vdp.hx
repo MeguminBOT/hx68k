@@ -42,6 +42,7 @@ final class Vdp {
 
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
+	public static inline final EXTERNAL_LEVEL = 2;
 
 	public final registers:Vector<Int> = new Vector<Int>(32);
 	public final vram:Bytes = Bytes.alloc(0x10000);
@@ -68,6 +69,11 @@ final class Vdp {
 	public var spriteOverflow:Bool = false;
 	public var spriteCollision:Bool = false;
 
+	public var latched(default, null):Bool = false;
+	public var external:Bool = false;
+
+	var held:Int = 0;
+
 	public var wide(default, null):Bool = false;
 	public var interlace(default, null):Int = 0;
 	public var activeLines(default, null):Int = LINES_V28;
@@ -80,6 +86,8 @@ final class Vdp {
 	var slots:Int = SLOTS_H32;
 	var vintOn:Bool = false;
 	var hintOn:Bool = false;
+	var externalOn:Bool = false;
+	var latching:Bool = false;
 
 	final memory:Memory;
 
@@ -147,6 +155,9 @@ final class Vdp {
 		}
 		spriteOverflow = false;
 		spriteCollision = false;
+		latched = false;
+		external = false;
+		held = 0;
 		decode();
 		fifoHead = 0;
 		queued = 0;
@@ -192,6 +203,9 @@ final class Vdp {
 		activeLines = (registers[1] & 0x08) != 0 ? LINES_V30 : LINES_V28;
 		vintOn = (registers[1] & 0x20) != 0;
 		hintOn = (registers[0] & 0x10) != 0;
+		externalOn = (registers[11] & 0x08) != 0;
+		latching = (registers[0] & 0x02) != 0;
+		if (!latching) latched = false;
 
 		interlace = switch (registers[12] & 0x06) {
 			case 0x02: 1;
@@ -411,18 +425,32 @@ final class Vdp {
 	public function irqLevel():Int {
 		if (vint && vintOn) return VINT_LEVEL;
 		if (hint && hintOn) return HINT_LEVEL;
+		if (external && externalOn) return EXTERNAL_LEVEL;
 		return 0;
 	}
 
 	public function acknowledge(level:Int):Void {
-		if (level == VINT_LEVEL) vint = false else hint = false;
+		switch (level) {
+			case VINT_LEVEL: vint = false;
+			case HINT_LEVEL: hint = false;
+			case _: external = false;
+		}
+	}
+
+	public function trigger():Void {
+		if (latching && !latched) {
+			held = counter();
+			latched = true;
+		}
+
+		external = true;
 	}
 
 	public function writeControl(value:Int):Void {
 		if (!pending && (value & 0xC000) == 0x8000) {
 			final index = (value >> 8) & 0x1F;
 			if (index < 11 || (registers[1] & 0x04) != 0) registers[index] = value & 0xFF;
-			if (index == 0 || index == 1 || index == 12) decode();
+			if (index == 0 || index == 1 || index == 11 || index == 12) decode();
 			code = code & 0x3C;
 			return;
 		}
@@ -489,6 +517,10 @@ final class Vdp {
 
 	public function readCounter():Int {
 		reads++;
+		return latched ? held : counter();
+	}
+
+	function counter():Int {
 		final v = line <= V_LAST ? line : line - V_LAST - 1 + V_RESUME;
 		return ((v & 0xFF) << 8) | horizontal();
 	}
