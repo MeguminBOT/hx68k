@@ -95,12 +95,13 @@ nothing here is ticked on intent.
       self-checking 68000 ROMs
 - [x] A read drains the write FIFO before it happens, which the port access ROM discriminates on,
       and the longest the bus is held matches Sega's own figure to the clock
-- [ ] The CRAM digital to analogue curve. The levels are expanded linearly, and getting the real
-      curve needs a capture off a console
-- [ ] The price of a Z80 reaching the 68000's bus. The arbitration is modelled in one direction,
-      the 68000 holding the Z80, which is the 57,957 states of 59,672 the gate prints; the other
-      direction costs the 68000 nothing, and no vendored source gives the figure it should cost
+- [x] The vertical counter's endpoints for both standards and both heights, and what it reads
+      under interlace
+- [x] What the bus costs: two cycles in every 128 taken from the 68000, and a Z80 reaching the
+      68000's bus holding it for eleven of its cycles while paying 3.3 of its own
+- [ ] A Z80 write through its window into 68000 space, which currently goes nowhere
 - [ ] SRAM and EEPROM
+- [ ] The CRAM digital to analogue curve, which needs a capture off a console
 
 ### Debugger
 
@@ -370,6 +371,7 @@ docs/
 | Nuked-OPN2 | LGPL-2.1 | The FM reference; porting it would make that module LGPL |
 | SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
 | Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
+| Kabuto's Mega Drive notes | freely published | Hardware measured on real consoles, cited where taken |
 | VDPFIFOTesting, Sprite Masking Test | test ROMs | What the VDP's ports and sprites are held to |
 | 240p Test Suite | test ROM | What the renderer's patterns are held to |
 | Flamewing's BCD verifier, an illegal opcode ROM | test ROMs | Two the 68000 core is held to |
