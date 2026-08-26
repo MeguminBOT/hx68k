@@ -24,10 +24,17 @@ class Machine implements Bus implements Memory {
 	public static inline final EVERY = 128;
 	public static inline final STOLEN = 2;
 
+	public static inline final HOLDS_68K = 11;
+	public static inline final HOLDS_Z80_TENTHS = 33;
+
 	public var cycles(default, null):Int = 0;
 
 	var counted:Int = 0;
 	var owed:Bool = false;
+
+	public var heldByZ80:Int = 0;
+
+	public var z80Tenths:Int = 0;
 	public var interrupts(default, null):Int = 0;
 	public var rom(default, null):Bytes = Bytes.alloc(0);
 
@@ -176,9 +183,28 @@ class Machine implements Bus implements Memory {
 	public var audible:Bool = true;
 
 	inline function stolen():Int {
-		if (!owed) return 0;
-		owed = false;
-		return STOLEN;
+		var n = 0;
+
+		if (owed) {
+			owed = false;
+			n += STOLEN;
+		}
+
+		if (heldByZ80 > 0) {
+			n += heldByZ80;
+			heldByZ80 = 0;
+		}
+
+		return n;
+	}
+
+	public function tookBus():Int {
+		heldByZ80 += HOLDS_68K;
+
+		z80Tenths += HOLDS_Z80_TENTHS;
+		final waited = Std.int(z80Tenths / 10);
+		z80Tenths -= waited * 10;
+		return waited;
 	}
 
 	inline function advance(n:Int):Void {
