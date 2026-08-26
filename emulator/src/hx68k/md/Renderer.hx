@@ -11,6 +11,10 @@ final class Renderer {
 
 	static inline final PRIORITY = 0x100;
 
+	static final LEVELS:Vector<Int> = Vector.fromArrayCopy([
+		0, 29, 52, 70, 87, 101, 116, 130, 144, 158, 172, 187, 206, 228, 255
+	]);
+
 	public final pixels:Vector<Int> = new Vector<Int>(MAX_WIDTH * MAX_HEIGHT);
 	public var width(default, null):Int = MAX_WIDTH;
 	public var height(default, null):Int = 224;
@@ -327,24 +331,14 @@ final class Renderer {
 	}
 
 	public static function rgb(entry:Int, mode:Int):Int {
-		var r = (entry >> 1) & 7;
-		var g = (entry >> 5) & 7;
-		var b = (entry >> 9) & 7;
-
-		if (mode == SHADOW) {
-			r >>= 1;
-			g >>= 1;
-			b >>= 1;
-		} else if (mode == HIGHLIGHT) {
-			r = (r >> 1) + 4;
-			g = (g >> 1) + 4;
-			b = (b >> 1) + 4;
-		}
-
-		return (level(r) << 16) | (level(g) << 8) | level(b);
+		return (level((entry >> 1) & 7, mode) << 16)
+			| (level((entry >> 5) & 7, mode) << 8)
+			| level((entry >> 9) & 7, mode);
 	}
 
-	static inline function level(value:Int):Int {
-		return Std.int(value * 255 / 7);
+	static inline function level(value:Int, mode:Int):Int {
+		if (mode == SHADOW) return LEVELS[value];
+		if (mode == HIGHLIGHT) return LEVELS[value + 7];
+		return LEVELS[value << 1];
 	}
 }

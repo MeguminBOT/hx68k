@@ -23,12 +23,12 @@ class PatternCheck {
 	];
 
 	static final DREW:Map<String, String> = [
-		"pluge" => "E967C800",
-		"colour bars" => "0EFB2FF6",
-		"colour bars with grey" => "81966A02",
+		"pluge" => "125D8000",
+		"colour bars" => "11C0F6F6",
+		"colour bars with grey" => "75840D46",
 		"grid" => "BCB46000",
 		"linearity" => "D8DCA780",
-		"grey ramp" => "FF27A000",
+		"grey ramp" => "FCCFA000",
 		"white screen" => "D8BE8000"
 	];
 

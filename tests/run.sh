@@ -763,8 +763,8 @@ echo "--- the VDP against Nemesis' port access ROM ---"
 # are held to the frame they drew, so either number changing is a failure.
 echo ""
 echo "--- two self-checking 68000 ROMs ---"
-"$GATE" game "$ROOT/vendor/M68000Tests/illegal.bin" 600 --digest 600:B6000000
-"$GATE" game "$ROOT/vendor/M68000Tests/bcd.bin" 900 --digest 900:B01733C1
+"$GATE" game "$ROOT/vendor/M68000Tests/illegal.bin" 600 --digest 600:9C000000
+"$GATE" game "$ROOT/vendor/M68000Tests/bcd.bin" 900 --digest 900:B9DDED13
 
 echo ""
 echo "--- Nemesis' sprite masking and overflow ROM, in both widths ---"
@@ -930,7 +930,7 @@ if [ -f "$GAME" ]; then
 	# 1302 rather than 1300 because the fills the level load does now take the time a VDP takes over
 	# them, which the game spends waiting: frame 1302 came out bit identical to what frame 1300 drew
 	# before, so the two frames are the whole of the difference.
-	"$GATE" game "$GAME" 5000 		--digest 120:E902E100,400:B8B01EAE,900:8CBCB5C6,1302:042E9B5F,2000:8B7A928D,4000:67906FFB,5000:BB65A3C9
+	"$GATE" game "$GAME" 5000 		--digest 120:C18A4C00,400:B8B01EAE,900:6DF58F81,1302:DD3FE8CC,2000:6B1A7DF2,4000:39AE913C,5000:FB672DE9
 fi
 
 echo ""

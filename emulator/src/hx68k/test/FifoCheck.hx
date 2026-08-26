@@ -13,9 +13,9 @@ class FifoCheck {
 
 	static inline final PAD_START = 0x80;
 
-	static inline final PASSED = 0x004800;
+	static final PASSED = Renderer.rgb(0x0040, 0);
 
-	static inline final FAILED = 0xDA0000;
+	static final FAILED = Renderer.rgb(0x000C, 0);
 
 	static var failures:Int = 0;
 

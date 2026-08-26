@@ -44,6 +44,7 @@ class RenderCheck {
 		collisionFlag();
 		linkPastTheTable();
 		shadowedLine();
+		colourLevels();
 
 		if (args.length > 0) drawnText(args[0]);
 
@@ -116,6 +117,54 @@ class RenderCheck {
 
 	static function expected(vdp:Vdp, index:Int, mode:Int = 0):Int {
 		return Renderer.rgb(vdp.cram[index], mode);
+	}
+
+	static function channel(value:Int, mode:Int):Int {
+		return (Renderer.rgb(value << 1, mode) >> 16) & 0xFF;
+	}
+
+	static function distinct(values:Array<Int>):Int {
+		final seen = new Map<Int, Bool>();
+		for (value in values) seen.set(value, true);
+
+		var count = 0;
+		for (_ in seen.keys()) count++;
+		return count;
+	}
+
+	static function colourLevels():Void {
+		final normal = [for (n in 0...8) channel(n, 0)];
+		final shadow = [for (n in 0...8) channel(n, Renderer.SHADOW)];
+		final highlight = [for (n in 0...8) channel(n, Renderer.HIGHLIGHT)];
+
+		check(normal[0] == 0 && normal[7] == 255,
+			"the darkest colour reads as black and the brightest as full");
+		check(shadow[0] == normal[0], "shadowing black leaves black");
+		check(highlight[7] == normal[7], "highlighting the brightest cannot pass full");
+		check(shadow[7] == highlight[0],
+			"shadow ends where highlight starts, so the three modes share one ramp");
+
+		check(distinct(normal) == 8, "a normal colour reaches eight levels");
+		check(distinct(shadow) == 8, "so does a shadowed one");
+		check(distinct(highlight) == 8, "so does a highlighted one");
+		check(distinct(normal.concat(shadow).concat(highlight)) == 15,
+			"and the three together reach fifteen, not sixteen");
+
+		final ramp = shadow.concat(highlight.slice(1));
+		var rising = true;
+		for (n in 1...ramp.length) if (ramp[n] <= ramp[n - 1]) rising = false;
+		check(rising, "the ramp rises at every step");
+
+		var every = true;
+		for (n in 0...8) if (normal[n] != ramp[n * 2]) every = false;
+		check(every, "a normal colour is every other level of that ramp");
+
+		final steps = [for (n in 1...ramp.length) ramp[n] - ramp[n - 1]];
+		var flatter = true;
+		for (n in 1...steps.length - 1) {
+			if (steps[n] >= steps[0] || steps[n] >= steps[steps.length - 1]) flatter = false;
+		}
+		check(flatter, "and it is a curve, flatter in the middle than at either end");
 	}
 
 	static function backdrop():Void {

@@ -99,9 +99,10 @@ nothing here is ticked on intent.
       under interlace
 - [x] What the bus costs: two cycles in every 128 taken from the 68000, and a Z80 reaching the
       68000's bus holding it for eleven of its cycles while paying 3.3 of its own
+- [x] The colour the VDP actually puts on the pin: fifteen levels rather than sixteen, spaced on a
+      curve rather than evenly, with normal, shadow and highlight three readings of the one ramp
 - [ ] A Z80 write through its window into 68000 space, which currently goes nowhere
 - [ ] SRAM and EEPROM
-- [ ] The CRAM digital to analogue curve, which needs a capture off a console
 
 ### Debugger
 
@@ -372,6 +373,7 @@ docs/
 | SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
 | Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
 | Kabuto's Mega Drive notes | freely published | Hardware measured on real consoles, cited where taken |
+| TmEE's VDP colour measurements | freely published | The colour ramp, measured off several consoles |
 | VDPFIFOTesting, Sprite Masking Test | test ROMs | What the VDP's ports and sprites are held to |
 | 240p Test Suite | test ROM | What the renderer's patterns are held to |
 | Flamewing's BCD verifier, an illegal opcode ROM | test ROMs | Two the 68000 core is held to |

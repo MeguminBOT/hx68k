@@ -13,9 +13,9 @@ class SpriteCheck {
 
 	static inline final PAD_C = 0x20;
 
-	static inline final PASSED = 0x00FF00;
+	static final PASSED = Renderer.rgb(0x00E0, 0);
 
-	static inline final FAILED = 0xFF0000;
+	static final FAILED = Renderer.rgb(0x000E, 0);
 
 	static final NAMED = [
 		"max sprites per line",

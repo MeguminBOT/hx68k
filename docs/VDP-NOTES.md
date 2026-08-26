@@ -809,6 +809,62 @@ largely have. `./tests/run.sh` builds it so it cannot rot; running it is one com
 itself.
 
 **What it does not settle.** The colour bars are the pattern that would show the CRAM levels being
-expanded linearly rather than through the DAC's own curve, which this renderer does and real
-hardware does not. Eleven even steps is what linear expansion looks like, and it is what is drawn
-here. Telling that apart from the real curve needs a capture from a console, not a test ROM.
+expanded wrongly, and no test ROM can tell a right expansion from a wrong one, since both draw
+eleven steps. What settled it was a capture off a console, recorded in the next section.
+
+## What the colour levels actually are
+
+The renderer expanded a 3-bit CRAM component to eight bits linearly, as `value * 255 / 7`, and
+worked out shadow and highlight by halving that component first. Both were wrong, and the second
+was wrong in a way that lost information: `value >> 1` over an 0 to 7 component has four results,
+so a shadowed or highlighted colour reached four levels where the hardware gives it eight.
+
+The DAC has fifteen levels, not sixteen, and they are not evenly spaced. Measured at the end of the
+voltage dividers ahead of the RGB encoder, as voltages from 0V to 1V, they are:
+
+| | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| normal | 0 | 52 | 87 | 116 | 144 | 172 | 206 | 255 |
+| shadow | 0 | 29 | 52 | 70 | 87 | 101 | 116 | 130 |
+| highlight | 130 | 144 | 158 | 172 | 187 | 206 | 228 | 255 |
+
+Those three rows are one ramp of fifteen levels read three ways, which is the part that matters:
+
+```
+0  29  52  70  87  101  116  130  144  158  172  187  206  228  255
+^      ^       ^        ^        ^         ^         ^          ^     normal, every other one
+|--------------- shadow, the first eight ---------|
+                                    |------------- highlight, the last eight -------------|
+```
+
+So a component's level is `LEVELS[n * 2]` normally, `LEVELS[n]` shadowed and `LEVELS[n + 7]`
+highlighted. Shadow and highlight introduce no level of their own, not even a subtly different one,
+and highlighting the brightest colour cannot pass white: white is white, and does not get whiter.
+The curve is compressed in the middle and expanded at both ends, so the step at either end of the
+ramp is larger than every step between them.
+
+**Where this came from.** Measured by TmEE co.(TM) and published on the Spritesmind forum, with the
+figures tabulated at `plutiedev.com/vdp-color-ramp`. MD1, several MD2 ASICs and the ASIC shared by
+the MD2 and the Genesis 3 all gave the same output, and all three colour channels gave the same
+levels, so one table serves every model and every channel. Repeated measurements landed on the same
+values each time. Mask of Destiny reports a slightly different set for BlastEm, derived on a linear
+voltage assumption, and attributes the difference to variation between individual DACs.
+
+Emulators had previously used a step of 16 with white special-cased, which implies sixteen levels
+and a highlight mode that brightens white further. Neither is what the part does.
+
+**How this is held.** Eleven checks in `RenderCheck` state the structure rather than the numbers:
+that shadow ends where highlight starts, that each mode reaches eight levels and the three together
+reach fifteen, that a normal colour is every other level, that the ramp rises at every step, and
+that it is flatter in the middle than at either end. Six of the eleven fail on the linear
+expansion, which is how they were confirmed to be testing something.
+
+**What moved.** Six of Sonic 2's seven digests and four of the 240p suite's seven. The three 240p
+patterns that did not move are the grid, the linearity grid and the white screen, which use only
+levels 0 and 7; those map to 0 and 255 under either expansion. Sonic 2's frame 400 did not move for
+the same reason. Nothing else in the gate changed, since `Renderer.rgb` is reached only from the
+palette build, and which palette entry a pixel takes is untouched by this.
+
+**Still not settled.** Whether the encoder on the way out of the VDP, and the model of console
+around it, shift these further before they reach a television. The figures above are what the VDP
+puts on the pin.
