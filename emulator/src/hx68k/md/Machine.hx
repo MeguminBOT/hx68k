@@ -307,7 +307,9 @@ class Machine implements Bus implements Memory {
 		}
 
 		if (at >= 0xA04000 && at < 0xA06000) {
-			sound.ym.write(at & 3, both(value, uds, lds));
+			final port = at & 2;
+			if (uds) sound.ym.write(port, (value >> 8) & 0xFF);
+			if (lds) sound.ym.write(port | 1, value & 0xFF);
 			return 0;
 		}
 

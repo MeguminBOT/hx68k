@@ -24,7 +24,7 @@ final class Psg {
 	public var writes(default, null):Int = 0;
 
 	var latched:Int = 0;
-	var noise:Int = 0;
+	public var noise(default, null):Int = 0;
 	public var shift(default, null):Int = 0x8000;
 	var spare:Int = 0;
 	var total:Int = 0;
