@@ -396,13 +396,27 @@ wait ran on into the next line. Measured on a tight write loop, the longest stal
 clocks where the table allows 320; with the wrap fixed it is 264. No ROM here writes to the VDP
 during active display, so nothing the gate draws moved.
 
-**Still not right, and written down rather than left implied.** A full FIFO pops an entry inside
-`push` to make room, and the drain then serves the same slot again when the stall time is handed to
-the machine, so the queue can empty at twice the rate the slots allow. That is why the measured 264
-sits below the 320 the table permits rather than at it. Putting it right means the write waiting
-before it is queued rather than after, which is a reordering of `Machine.write` and the one thing in
-this area that could disturb what a CRAM or VSRAM read exposes of the FIFO, so it is not being done
-in passing.
+**The write waits before it is queued, not after.** A full FIFO used to pop an entry inside `push`
+to make room, and the drain then served the same slot again when the stall was handed back to the
+machine, so the queue emptied at up to twice the rate the slots allow. `Machine.write` now asks the
+VDP how long it is held, spends that time, and only then stores: the drain frees the entry during
+the wait, exactly as a slot does on the hardware, and nothing pops twice. `Vdp.holdFor` is the
+question and `writeData` no longer answers with a duration.
+
+With that, the stall the 68000 takes is the slot table's own gap, to the clock:
+
+| | widest gap | in master clocks | the bus is held | plus the write's own four cycles |
+| --- | --- | --- | --- | --- |
+| H32 | 16 slots | 320 | 292 | 320 |
+| H40 | 26 slots | 423 | 395 | 423 |
+
+The four cycles are the write's bus cycle, which the CPU spends before it can be held at all, so a
+program in a tight loop sees the gap less the work it already did. H32's 320 is Sega's 5.96
+microseconds exactly.
+
+The port access ROM passes all fifteen suites through the reordering, which is the thing that had to
+be true: its first suite is the FIFO buffer size and its third is a transfer through the FIFO, and
+what a CRAM or VSRAM read exposes depends on which slot the next write will use.
 
 ## The two television standards, and how 313 was settled
 

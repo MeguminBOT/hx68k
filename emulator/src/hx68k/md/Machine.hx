@@ -149,8 +149,15 @@ class Machine implements Bus implements Memory {
 
 	public function write(addr:Int, fc:Int, data:Int, uds:Bool, lds:Bool):Void {
 		advance(4);
-		final held = store(addr & 0xFFFFFE, data & 0xFFFF, uds, lds);
-		if (held > 0) advance(Std.int((held + MASTER_PER_68K - 1) / MASTER_PER_68K));
+
+		final at = addr & 0xFFFFFE;
+
+		if (at >= 0xC00000 && at < 0xE00000 && (at & 0x1F) < 0x04) {
+			final held = vdp.holdFor();
+			if (held > 0) advance(Std.int((held + MASTER_PER_68K - 1) / MASTER_PER_68K));
+		}
+
+		store(at, data & 0xFFFF, uds, lds);
 		while (vdp.transferring()) advance(1);
 	}
 
@@ -341,8 +348,8 @@ class Machine implements Bus implements Memory {
 
 	function vdpWrite(at:Int, value:Int):Int {
 		final port = at & 0x1F;
-		if (port < 0x04) return vdp.writeData(value);
-		if (port < 0x08) vdp.writeControl(value);
+		if (port < 0x04) vdp.writeData(value);
+		else if (port < 0x08) vdp.writeControl(value);
 		else if (port >= 0x10 && port < 0x18) sound.writePsg(value);
 		return 0;
 	}

@@ -345,20 +345,20 @@ final class Vdp {
 		if (queued > atDeepest) atDeepest = queued;
 	}
 
-	function push(value:Int):Int {
-		var held = 0;
+	public function holdFor():Int {
+		if (queued < FIFO_DEPTH) return 0;
 
-		if (queued == FIFO_DEPTH) {
-			held = until();
-			pop();
-		}
-
-		enqueue(code, address, value);
+		final held = until();
 		stalledFor += held;
 		atStalled += held;
-
-		address = (address + registers[15]) & 0xFFFF;
 		return held;
+	}
+
+	function push(value:Int):Void {
+		if (queued == FIFO_DEPTH) pop();
+
+		enqueue(code, address, value);
+		address = (address + registers[15]) & 0xFFFF;
 	}
 
 	function events():Void {
@@ -468,14 +468,17 @@ final class Vdp {
 		if ((code & 0x20) != 0) startDma();
 	}
 
-	public function writeData(value:Int):Int {
+	public function writeData(value:Int):Void {
 		writes++;
 		atWrote++;
 		pending = false;
 
-		if (filling) return startFill(value);
+		if (filling) {
+			startFill(value);
+			return;
+		}
 
-		return push(value);
+		push(value);
 	}
 
 	public function readData():Int {
@@ -608,15 +611,14 @@ final class Vdp {
 		dmaMode = DMA_COPY;
 	}
 
-	function startFill(value:Int):Int {
+	function startFill(value:Int):Void {
 		filling = false;
 
 		final length = requested();
-		final held = push(value);
+		push(value);
 
 		dmaByte = (value >> 8) & 0xFF;
 		dmaLeft = length;
 		dmaMode = DMA_FILL;
-		return held;
 	}
 }
