@@ -34,6 +34,16 @@ class Compiler extends DirectToStringCompiler {
 
 	static final IDENT = ~/[^A-Za-z0-9_]/g;
 
+	static final RESERVED:Map<String, Bool> = [
+		"asm" => true, "auto" => true, "char" => true, "const" => true, "double" => true,
+		"float" => true, "goto" => true, "int" => true, "long" => true, "register" => true,
+		"restrict" => true, "short" => true, "signed" => true, "sizeof" => true,
+		"struct" => true, "union" => true, "unsigned" => true, "void" => true,
+		"volatile" => true, "bool" => true, "s8" => true, "s16" => true, "s32" => true,
+		"u8" => true, "u16" => true, "u32" => true, "TRUE" => true, "FALSE" => true,
+		"NULL" => true
+	];
+
 	static inline final MARK_OPEN = "\x01";
 	static inline final MARK_CLOSE = "\x02";
 
@@ -144,8 +154,13 @@ class Compiler extends DirectToStringCompiler {
 		return c.isExtern ? native : classPrefix(c) + "_" + safe(native);
 	}
 
+	static function local(name:String):String {
+		final plain = safe(name);
+		return RESERVED.exists(plain) ? plain + "_" : plain;
+	}
+
 	function varName(v:TVar):String {
-		return safe(v.name);
+		return local(v.name);
 	}
 
 	function toC(t:Type, pos:haxe.macro.Expr.Position):String {
@@ -536,9 +551,9 @@ class Compiler extends DirectToStringCompiler {
 	function ctorArgs(cf:ClassField):Array<{name:String, declaration:String}> {
 		return switch(haxe.macro.TypeTools.follow(cf.type)) {
 			case TFun(args, _): [for(i in 0...args.length) {
-				name: args[i].name == null || args[i].name == "" ? "a" + i : safe(args[i].name),
+				name: args[i].name == null || args[i].name == "" ? "a" + i : local(args[i].name),
 				declaration: declare(args[i].t,
-					args[i].name == null || args[i].name == "" ? "a" + i : safe(args[i].name), cf.pos)
+					args[i].name == null || args[i].name == "" ? "a" + i : local(args[i].name), cf.pos)
 			}];
 			case _: Context.error("A constructor must be a function.", cf.pos);
 		}
@@ -801,7 +816,7 @@ class Compiler extends DirectToStringCompiler {
 		final name = f.isStatic ? fieldName(classType, f.field, true) : methodName(classType, f.field);
 		final ret = isCtor ? "void" : toC(f.ret, f.field.pos);
 
-		final params = f.args.map(a -> declare(a.type, safe(a.getName()), f.field.pos));
+		final params = f.args.map(a -> declare(a.type, local(a.getName()), f.field.pos));
 		if(!f.isStatic) params.unshift('$prefix* self');
 		final signature = ret + " " + name + "(" + (params.length == 0 ? "void" : params.join(", ")) + ")"
 			+ section(f.field.meta);
