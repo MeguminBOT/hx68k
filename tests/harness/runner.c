@@ -517,6 +517,15 @@ static const probe_t art_expected[] = {
 	{ "lz4w fourth byte",           (3 * 7) & 0xFF },
 	{ "lz4w last real byte",        (99 * 7) & 0xFF },
 	{ "lz4w last byte of the fill", 0xAA },
+	/* data/spread.dat, whose lz4w parse reaches all 256 entries of the unpacker's dispatch
+	   table, every entry point of both literal chains, long matches from 17 words to the 257
+	   the format allows, and the ending block that carries a trailing byte. The digest is a
+	   rotate and xor over the file's own 5715 words, worked out from the file rather than from
+	   anything the unpacker produced. */
+	{ "the whole table gives the size back", 11431 },
+	{ "the whole table reproduces the file", 0x7DA6 },
+	{ "its odd trailing byte",      0x5A },
+	{ "a word from the middle of it", 12705 },
 	/* the native tilemap, on plane B, which SGDK's boot leaves at 0xC000 as 64 by 32 cells.
 	   Every value below is worked out from the cell format and the plane geometry rather than
 	   read back from what md.Tilemap produced: a cell is

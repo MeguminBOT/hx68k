@@ -26,6 +26,8 @@ class Main {
 
 	@:md.size(32) static var scratch:Vector<UInt32>;
 
+	@:md.size(2870) static var sweepRoom:Vector<UInt32>;
+
 	@:md.main
 	static function main():Void {
 		Sprite.init();
@@ -80,6 +82,13 @@ class Main {
 		Probe.report(Memory.readU8(room + 3));
 		Probe.report(Memory.readU8(room + 99));
 		Probe.report(Memory.readU8(room + 111));
+		final wide = Memory.addressOf(sweepRoom);
+		final swept = Unpack.lz4w(Memory.addressOf(Art.sweep), wide);
+		Probe.report(swept);
+		Probe.report(rolled(wide, 5715));
+		Probe.report(Memory.readU8(wide + 11430));
+		Probe.report(Memory.readU16(wide + 4000));
+
 		Probe.report(Tilemap.cell(Plane.B, 3, 5));
 		Probe.report(Tilemap.cell(Plane.B, 10, 3));
 		Probe.report(Tilemap.cell(Plane.B, 14, 4));
@@ -149,5 +158,17 @@ class Main {
 	static function readCram(index:Int):Int {
 		Ports.address(Ports.CRAM_READ, index * 2);
 		return Ports.read();
+	}
+
+	static function rolled(at:Int, count:Int):Int {
+		var value:Int = 0;
+		var index:Int = 0;
+		while (index < count) {
+			final word:Int = Memory.readU16(at + (index << 1));
+			final turned:Int = ((value << 1) | (value >> 15)) & 0xFFFF;
+			value = turned ^ word;
+			index++;
+		}
+		return value;
 	}
 }
