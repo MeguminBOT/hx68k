@@ -71,6 +71,9 @@ class Check {
 		Sys.println("what xgmtool makes of the same VGM");
 		tunes(root, scratch);
 
+		Sys.println("what rescomp makes of the same WAV");
+		sounds(root, scratch, jar);
+
 		Sys.println("what aplib makes of the same bytes");
 		packing(root, scratch);
 
@@ -165,6 +168,141 @@ class Check {
 			ok("a set of " + count + " cells iterates as a Java HashSet does", said == ORDERS[count - 1],
 				"got " + said + ", Java gives " + ORDERS[count - 1]);
 		}
+	}
+
+	static function sounds(root:String, scratch:String, jar:String):Void {
+		final fixtures = hxres.Sounds.all();
+		final lines = new Array<String>();
+
+		for (each in fixtures) {
+			final path = scratch + "/" + each.name + ".wav";
+			File.saveBytes(path, each.data);
+			lines.push('WAV ${each.name} "' + full(path) + '" ' + each.driver + " " + each.rate);
+		}
+
+		File.saveContent(scratch + "/sounds.res", lines.join("
+") + "
+");
+
+		final made = new sys.io.Process("java",
+			["-jar", jar, scratch + "/sounds.res", scratch + "/sounds.s"]);
+		final said = made.stdout.readAll().toString() + made.stderr.readAll().toString();
+		final code = made.exitCode();
+		made.close();
+
+		if (code != 0) {
+			ok("rescomp runs on the fixture sounds", false, "it exited " + code + "
+" + said);
+			return;
+		}
+
+		final symbols = Assembly.read(File.getContent(scratch + "/sounds.s"));
+		final drift = new Array<String>();
+
+		for (each in fixtures) {
+			if (symbols.get(each.name) == null) {
+				ok(each.name + " is in rescomp's output", false, "no data under " + each.name);
+				continue;
+			}
+			final wanted = numbers(symbols, each.name);
+
+			var ours:Array<Int> = null;
+			try {
+				ours = hxres.Sounds.made(each);
+			} catch (e:Dynamic) {
+				ok(each.name + " converts", false, Std.string(e));
+				continue;
+			}
+
+			if (!each.exact) {
+				drift.push(each.name + " " + apart(ours, wanted));
+				continue;
+			}
+
+			if (ours.length != wanted.length) {
+				ok(each.name + " is the size rescomp makes it", false,
+					"rescomp gives " + wanted.length + " bytes, this gives " + ours.length);
+				continue;
+			}
+
+			var first:Int = -1;
+			for (i in 0...wanted.length) {
+				if (ours[i] != wanted[i]) {
+					first = i;
+					break;
+				}
+			}
+
+			ok(each.name + " matches rescomp byte for byte", first < 0,
+				"byte " + first + " is " + hex(ours[first]) + " where rescomp has "
+				+ hex(wanted[first]));
+		}
+
+		if (drift.length > 0)
+			Sys.println("  resampled, which is ours, against rescomp's: " + drift.join(", "));
+
+		resampler();
+	}
+
+	static function resampler():Void {
+		final flat = hxres.Sounds.constant(16000, 200, 12000);
+		final held = new hxres.Wave(flat).resampled(8000);
+		var level:Bool = held.length > 0;
+		for (value in held) if (Math.abs(value - held[0]) > 1e-9) level = false;
+		ok("a constant resamples to that constant", level,
+			"it came back with " + held.length + " frames that are not all one value");
+
+		final source = hxres.Sounds.ramp(8000, 100);
+		final wave = new hxres.Wave(source);
+
+		ok("the same rate is not resampled at all", wave.resampled(8000).length == 100,
+			"100 frames became " + wave.resampled(8000).length);
+
+		final doubled = wave.resampled(16000);
+		ok("doubling gives twice the frames", doubled.length == 200,
+			"100 frames became " + doubled.length);
+
+		var apart:Float = 0;
+		for (index in 0...100) {
+			final gap = Math.abs(doubled[index * 2] - wave.frames[index]);
+			if (gap > apart) apart = gap;
+		}
+		ok("doubling leaves every source frame where it was", apart < 1e-9,
+			"the worst moved by " + apart);
+
+		final halved = wave.resampled(4000);
+		ok("halving gives half the frames", halved.length == 50,
+			"100 frames became " + halved.length);
+
+		apart = 0;
+		for (index in 0...50) {
+			final mean = (wave.frames[index * 2] + wave.frames[(index * 2) + 1]) / 2;
+			final gap = Math.abs(halved[index] - mean);
+			if (gap > apart) apart = gap;
+		}
+		ok("halving averages each pair of source frames", apart < 1e-9,
+			"the worst is out by " + apart);
+
+		final third = wave.resampled(24000);
+		ok("a rate that is not a whole factor still counts right", third.length == 300,
+			"100 frames became " + third.length);
+	}
+
+	static function apart(ours:Array<Int>, wanted:Array<Int>):String {
+		final count:Int = ours.length < wanted.length ? ours.length : wanted.length;
+		var worst:Int = 0;
+		var total:Int = 0;
+
+		for (i in 0...count) {
+			final mine:Int = ours[i] > 127 ? ours[i] - 256 : ours[i];
+			final theirs:Int = wanted[i] > 127 ? wanted[i] - 256 : wanted[i];
+			final gap:Int = mine > theirs ? mine - theirs : theirs - mine;
+			if (gap > worst) worst = gap;
+			total += gap;
+		}
+
+		return ours.length + "b worst " + worst + " mean "
+			+ (count > 0 ? Std.int((total * 10) / count) / 10 : 0);
 	}
 
 	static function tunes(root:String, scratch:String):Void {

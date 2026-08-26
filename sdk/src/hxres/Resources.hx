@@ -88,10 +88,15 @@ class Resources {
 					{line: "", type: "Music", symbol: field.name};
 				}
 				case "sound": {
-					line: 'WAV ${field.name} "$file" ' + option(arguments, 1, "XGM"),
-					type: "Sound",
-					symbol: field.name
-				};
+					final driver = option(arguments, 1, "PCM");
+					native(entry.pos, () -> emit.binary(field.name,
+						hxres.Sounds.convert(sys.io.File.getBytes(file), driver,
+							number(arguments, 2, 0)),
+						hxres.Sounds.alignOf(driver), hxres.Sounds.alignOf(driver),
+						hxres.Sounds.fillOf(driver),
+						option(arguments, 3, "false") != "false", "NONE"));
+					{line: "", type: "Sound", symbol: field.name};
+				}
 				case _: {
 					native(entry.pos, () -> emit.binary(field.name, sys.io.File.getBytes(file),
 						number(arguments, 1, 2), number(arguments, 2, 2), number(arguments, 3, 0),
