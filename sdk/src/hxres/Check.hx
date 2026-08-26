@@ -179,51 +179,67 @@ class Check {
 			final stem = scratch + "/" + StringTools.replace(each.name, " ", "_");
 			File.saveBytes(stem + ".vgm", each.data);
 
-			if (FileSystem.exists(stem + ".ref.vgm")) FileSystem.deleteFile(stem + ".ref.vgm");
-			final made = new sys.io.Process(tool, [stem + ".vgm", stem + ".ref.vgm", "-s"]);
-			final said = made.stdout.readAll().toString() + made.stderr.readAll().toString();
-			final code = made.exitCode();
-			made.close();
-
-			if (code != 0 || !FileSystem.exists(stem + ".ref.vgm")) {
-				ok(each.name + " runs through xgmtool", false, "it exited " + code + "
-" + said);
-				continue;
-			}
-
-			final wanted = File.getBytes(stem + ".ref.vgm");
-			var ours:haxe.io.Bytes = null;
-
+			var tune:hxres.music.Vgm = null;
 			try {
-				final tune = new hxres.music.Vgm(each.data, 0);
+				tune = new hxres.music.Vgm(each.data, 0);
 				tune.convertWaits();
 				tune.cleanCommands();
 				tune.cleanSamples();
 				tune.fixKeyCommands();
-				ours = tune.bytes();
 			} catch (e:Dynamic) {
-				ok(each.name + " converts", false, Std.string(e));
+				ok(each.name + " reads", false, Std.string(e));
 				continue;
 			}
 
-			if (ours.length != wanted.length) {
-				ok(each.name + " is the size xgmtool makes it", false,
-					"xgmtool gives " + wanted.length + " bytes, this gives " + ours.length);
+			against(tool, each.name + " as a VGM", stem, ".vgm", tune.bytes());
+
+			var made:hxres.music.Xgm = null;
+			try {
+				made = new hxres.music.Xgm(tune);
+			} catch (e:Dynamic) {
+				ok(each.name + " converts to XGM", false, Std.string(e));
 				continue;
 			}
 
-			var first:Int = -1;
-			for (i in 0...wanted.length) {
-				if (ours.get(i) != wanted.get(i)) {
-					first = i;
-					break;
-				}
-			}
-
-			ok(each.name + " matches xgmtool byte for byte", first < 0,
-				"byte " + first + " is " + hex(ours.get(first)) + " where xgmtool has "
-				+ hex(wanted.get(first)));
+			against(tool, each.name + " as an XGM", stem, ".xgm", made.bytes());
 		}
+	}
+
+	static function against(tool:String, what:String, stem:String, kind:String,
+			ours:haxe.io.Bytes):Void {
+		final reference = stem + ".ref" + kind;
+		if (FileSystem.exists(reference)) FileSystem.deleteFile(reference);
+
+		final ran = new sys.io.Process(tool, [stem + ".vgm", reference, "-s"]);
+		final said = ran.stdout.readAll().toString() + ran.stderr.readAll().toString();
+		final code = ran.exitCode();
+		ran.close();
+
+		if (code != 0 || !FileSystem.exists(reference)) {
+			ok(what + " runs through xgmtool", false, "it exited " + code + "
+" + said);
+			return;
+		}
+
+		final wanted = File.getBytes(reference);
+
+		if (ours.length != wanted.length) {
+			ok(what + " is the size xgmtool makes it", false,
+				"xgmtool gives " + wanted.length + " bytes, this gives " + ours.length);
+			return;
+		}
+
+		var first:Int = -1;
+		for (i in 0...wanted.length) {
+			if (ours.get(i) != wanted.get(i)) {
+				first = i;
+				break;
+			}
+		}
+
+		ok(what + " matches xgmtool byte for byte", first < 0,
+			"byte " + first + " is " + hex(ours.get(first)) + " where xgmtool has "
+			+ hex(wanted.get(first)));
 	}
 
 	static function palettes(root:String, scratch:String, jar:String):Void {

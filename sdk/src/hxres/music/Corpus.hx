@@ -51,6 +51,28 @@ class Corpus {
 		return byte(0x70 | ((count - 1) & 0x0F));
 	}
 
+	function ymSpread(port:Int, count:Int, seed:Int):Corpus {
+		var register:Int = 0x30;
+		var made:Int = 0;
+		while (made < count && register < 0xB8) {
+			if ((register & 3) != 3) {
+				ym(port, register, (seed + (made * 37)) & 0xFF);
+				made++;
+			}
+			register++;
+		}
+		return this;
+	}
+
+	function keySpread(count:Int):Corpus {
+		for (step in 0...count) {
+			final channel:Int = [0, 1, 2, 4, 5, 6][step % 6];
+			ym(0, 0x28, ((step % 2) == 0 ? 0xF0 : 0x00) | channel);
+			waitSamples(20);
+		}
+		return this;
+	}
+
 	function mark():Corpus {
 		loopAt = at();
 		return this;
@@ -230,6 +252,35 @@ class Corpus {
 			name: "psg noise and its volume",
 			data: new Corpus(60).psg(0xE7).psg(0xF0).waitFrame().psg(0xE4).waitFrame()
 				.psg(0xFF).waitFrame().done()
+		});
+
+		out.push({
+			name: "more ym port 0 writes than one command holds",
+			data: new Corpus(60).ymSpread(0, 40, 0x11).waitFrame().ymSpread(0, 40, 0x55)
+				.waitFrame().done()
+		});
+
+		out.push({
+			name: "more ym port 1 writes than one command holds",
+			data: new Corpus(60).ymSpread(1, 40, 0x22).waitFrame().ymSpread(1, 40, 0x66)
+				.waitFrame().done()
+		});
+
+		out.push({
+			name: "exactly sixteen ym port 0 writes",
+			data: new Corpus(60).ymSpread(0, 16, 0x33).waitFrame().ymSpread(0, 17, 0x77)
+				.waitFrame().done()
+		});
+
+		out.push({
+			name: "more key writes than one command holds",
+			data: new Corpus(60).keySpread(20).waitFrame().done()
+		});
+
+		out.push({
+			name: "both ports and the psg in one frame",
+			data: new Corpus(60).ymSpread(0, 20, 0x44).ymSpread(1, 20, 0x88).psg(0x80)
+				.psg(0x1F).psg(0x90).ym(0, 0x28, 0xF0).psg(0xA5).waitFrame().waitFrame().done()
 		});
 
 		return out;
