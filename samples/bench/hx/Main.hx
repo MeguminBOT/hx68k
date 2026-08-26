@@ -251,6 +251,8 @@ class Main {
 		Native.lz4wUnpack(Memory.addressOf(Packed.lz4w), Memory.addressOf(room));
 	}
 
+
+
 	static function patternsInHaxe():Void {
 		var n = 0;
 		while (n < PATTERN_LOADS) {

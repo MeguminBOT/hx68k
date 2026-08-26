@@ -75,78 +75,77 @@ class Unpack {
 		return out - into;
 	}
 
+	@:md.body("	const u8* source = (const u8*)from;
+	u8* target = (u8*)into;
+
+	__asm__ __volatile__ (
+		\"1:\\n\"
+		\"	moveq	#0,%%d0\\n\"
+		\"	move.b	(%0)+,%%d0\\n\"
+		\"	moveq	#0,%%d1\\n\"
+		\"	move.b	(%0)+,%%d1\\n\"
+		\"	move.w	%%d0,%%d3\\n\"
+		\"	or.w	%%d1,%%d3\\n\"
+		\"	beq.w	8f\\n\"
+		\"	move.w	%%d0,%%d2\\n\"
+		\"	lsr.w	#4,%%d2\\n\"
+		\"	add.w	%%d2,%%d2\\n\"
+		\"	lea	2f(%%pc),%%a1\\n\"
+		\"	suba.w	%%d2,%%a1\\n\"
+		\"	jmp	(%%a1)\\n\"
+		\"	.rept	15\\n\"
+		\"	move.w	(%0)+,(%1)+\\n\"
+		\"	.endr\\n\"
+		\"2:	and.w	#15,%%d0\\n\"
+		\"	beq.w	5f\\n\"
+		\"	addq.w	#1,%%d1\\n\"
+		\"	add.w	%%d1,%%d1\\n\"
+		\"	move.l	%1,%%a0\\n\"
+		\"	suba.w	%%d1,%%a0\\n\"
+		\"	addq.w	#1,%%d0\\n\"
+		\"	add.w	%%d0,%%d0\\n\"
+		\"	lea	4f(%%pc),%%a1\\n\"
+		\"	suba.w	%%d0,%%a1\\n\"
+		\"	jmp	(%%a1)\\n\"
+		\"	.rept	16\\n\"
+		\"	move.w	(%%a0)+,(%1)+\\n\"
+		\"	.endr\\n\"
+		\"4:	bra.w	1b\\n\"
+		\"5:	tst.w	%%d1\\n\"
+		\"	beq.w	1b\\n\"
+		\"	move.w	(%0)+,%%d3\\n\"
+		\"	neg.w	%%d3\\n\"
+		\"	and.w	#32767,%%d3\\n\"
+		\"	addq.w	#1,%%d3\\n\"
+		\"	add.w	%%d3,%%d3\\n\"
+		\"	move.l	%1,%%a0\\n\"
+		\"	suba.w	%%d3,%%a0\\n\"
+		\"	addq.w	#1,%%d1\\n\"
+		\"6:	move.w	(%%a0)+,(%1)+\\n\"
+		\"	dbra	%%d1,6b\\n\"
+		\"	bra.w	1b\\n\"
+		\"8:	move.w	(%0),%%d3\\n\"
+		\"	btst	#15,%%d3\\n\"
+		\"	beq.s	9f\\n\"
+		\"	move.b	%%d3,(%1)\\n\"
+		\"	addq.l	#1,%1\\n\"
+		\"9:\\n\"
+		: \"+a\" (source), \"+a\" (target)
+		:
+		: \"d0\", \"d1\", \"d2\", \"d3\", \"a0\", \"a1\", \"memory\", \"cc\"
+	);
+
+	return (s32)target - into;")
 	public static function lz4w(from:Int, into:Int):Int {
-		var at:Int = from;
-		var out:Int = into;
-
-		while (true) {
-			final header:Int = Memory.loadU16(at);
-			at += 2;
-
-			final literals:Int = (header >> 12) & 0xF;
-			final matched:Int = (header >> 8) & 0xF;
-			final low:Int = header & 0xFF;
-
-			if (literals == 0 && matched == 0 && low == 0) {
-				final tail:Int = Memory.loadU16(at);
-				if ((tail & 0x8000) != 0) {
-					Memory.storeU8(out, tail & 0xFF);
-					out++;
-				}
-				return out - into;
-			}
-
-			var run:Int = literals;
-			while (run-- > 0) {
-				Memory.storeU16(out, Memory.loadU16(at));
-				out += 2;
-				at += 2;
-			}
-
-			if (matched != 0) {
-				out = repeatWords(out, (low + 1) * 2, matched + 1);
-				continue;
-			}
-
-			if (low == 0) continue;
-
-			final far:Int = Memory.loadU16(at);
-			at += 2;
-
-			out = repeatWords(out, (((-far) & 0x7FFF) + 1) * 2, low + 2);
-		}
-
-		return out - into;
+		return 0;
 	}
 
-	static function repeat(out:Int, offset:Int, length:Int):Int {
-		var to:Int = out;
-		var back:Int = out - offset;
-		var run:Int = length;
-
-		while (run-- > 0) {
-			final value:Int = Memory.loadU8(back);
-			Memory.storeU8(to, value);
-			back++;
-			to++;
-		}
-
-		return to;
+	static inline function repeat(out:Int, offset:Int, length:Int):Int {
+		return Copy.bytes(out, out - offset, length);
 	}
 
-	static function repeatWords(out:Int, offset:Int, words:Int):Int {
-		var to:Int = out;
-		var back:Int = out - offset;
-		var run:Int = words;
-
-		while (run-- > 0) {
-			final value:Int = Memory.loadU16(back);
-			Memory.storeU16(to, value);
-			back += 2;
-			to += 2;
-		}
-
-		return to;
+	static inline function repeatWords(out:Int, offset:Int, words:Int):Int {
+		return Copy.words(out, out - offset, words);
 	}
 
 	static function bit():Int {

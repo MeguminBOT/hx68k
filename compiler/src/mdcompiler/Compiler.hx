@@ -711,6 +711,31 @@ void md_interrupts_off(void);
 		}
 	}
 
+	function assembly(f:ClassFuncData):Null<String> {
+		final entry = f.field.meta.extract(":md.body")[0];
+		if(entry == null) return null;
+
+		if(entry.params.length != 1)
+			Context.error("@:md.body takes one string, which becomes the whole body of the C function.",
+				entry.pos);
+
+		return switch(entry.params[0].expr) {
+			case EConst(CString(s)): s;
+			case _: Context.error("@:md.body takes a string literal.", entry.params[0].pos);
+		}
+	}
+
+	function placeholder(expr:TypedExpr):Bool {
+		return switch(expr.expr) {
+			case TBlock([]): true;
+			case TBlock([one]): placeholder(one);
+			case TReturn(null): true;
+			case TReturn({expr: TConst(_)}): true;
+			case TConst(_): true;
+			case _: false;
+		}
+	}
+
 	function emitStruct(prefix:String, fields:Array<ClassField>, vtable:Bool):Void {
 		appendToExtraFile(HEADER, 'typedef struct $prefix $prefix;\n', P_TYPEDEFS);
 
@@ -872,6 +897,19 @@ void md_interrupts_off(void);
 
 		final expr = f.expr;
 		if(expr == null) return;
+
+		final written = assembly(f);
+		if(written != null) {
+			if(!f.isStatic) Context.error("@:md.body must mark a static function.", f.field.pos);
+			if(!placeholder(expr))
+				Context.error("A function marked @:md.body carries its body in the metadata, so the Haxe "
+					+ "body is never compiled. Leave it as a single return of a constant.", f.field.pos);
+
+			final origin = mark(f.field.pos, name, classType.name + "." + f.field.name);
+			body.push(origin + attributes(f.field.meta) + signature + "\n{\n" + written + "\n}");
+			return;
+		}
+
 		final outer = currentReturn;
 		currentReturn = isCtor ? null : f.ret;
 		final origin = mark(f.field.pos, name, classType.name + "." + f.field.name);
