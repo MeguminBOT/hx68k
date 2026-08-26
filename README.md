@@ -93,9 +93,13 @@ nothing here is ticked on intent.
 - [x] Five hardware test ROMs in the gate: Nemesis' port access ROM at 100% on both pages, his
       sprite masking ROM 9 of 9 in both widths, the 240p suite's seven patterns, and two
       self-checking 68000 ROMs
-- [ ] The VDP read prefetch, and what the vertical counter reads in interlace mode 2. Both are
-      parked: nothing here can say whether a guess at them is right
-- [ ] The price of bus contention. Arbitration is modelled, its cost is not
+- [x] A read drains the write FIFO before it happens, which the port access ROM discriminates on,
+      and the longest the bus is held matches Sega's own figure to the clock
+- [ ] The CRAM digital to analogue curve. The levels are expanded linearly, and getting the real
+      curve needs a capture off a console
+- [ ] The price of a Z80 reaching the 68000's bus. The arbitration is modelled in one direction,
+      the 68000 holding the Z80, which is the 57,957 states of 59,672 the gate prints; the other
+      direction costs the 68000 nothing, and no vendored source gives the figure it should cost
 - [ ] SRAM and EEPROM
 
 ### Debugger
