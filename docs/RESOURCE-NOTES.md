@@ -287,6 +287,54 @@ which `(literal, match)` pairs appear, not by reasoning about the parser.
 
 ---
 
+## Music
+
+rescomp runs `xgmtool in.vgm out.bin -s` with AUTO timing and wraps the result as
+`Bin(align 256, sizeAlign 256, fill 0, no compression, far)`. Because the output extension is not
+`.xgm`, xgmtool runs `VGM_create`, four clean-up passes, `XGM_createFromVGM` and then `XGC_create`,
+so the port is three stages rather than one.
+
+### xgmtool writes all three intermediate forms, which is what made the port tractable
+
+`in.vgm` to `out.vgm` applies the four passes and stops; to `out.xgm` adds the XGM conversion; to
+`out.bin` adds the XGC compilation. That gives an independent byte comparison per stage instead of
+one at the end, which is the difference between finding a fault in the stage that caused it and
+finding it three stages later. 33 generated tunes are held to all three, which is 99 comparisons.
+
+### A PSG data byte with no latch byte behind it does nothing
+
+`PSG_copy` sets the latched index and type to -1, and `VGM_cleanCommands` copies the PSG state at
+the start of every frame. So a frame whose first PSG write is a data byte rather than a latch byte
+reaches `psg->registers[-1][-1]`. That is three ints before the struct, and the matching
+`psg->init[-1][-1] = true` lands inside `registers[3][1]`, in a byte the `0xF` volume mask throws
+away. Nothing the delta reads is touched either way, so the observable answer is that the write
+does nothing, and hxres does exactly that. In hxcpp the same indexing is a segfault, which is how
+it was found. Two tunes hold it.
+
+### What the corpus was not reaching
+
+Four mutations passed the whole check before the tunes that catch them were written, and each names
+a hole worth knowing about:
+
+- **The 15% wait margin.** No tune had a wait landing between `limit - 15%` and `limit - 14%`.
+  628 samples for NTSC and 754 for PAL sit in that window.
+- **The `0x27` timers mask.** The values written were `0x00` and `0x40`, identical under `0xC0` and
+  under `0xE0`. A value with bit 5 set tells them apart.
+- **The state change table's base address.** `XGC_getStateChange` walks the release registers at
+  0x80 to 0x8E, and the tunes that wrote a spread of YM registers started at 0x30 and stopped at
+  0x66. The DAC entry at 0x60 was reached and the twenty four register entries were not, so moving
+  the base from 0x44 to 0x45 changed nothing.
+- **The sixteen write chunk.** A PSG delta can never exceed twelve commands in a frame, so the PSG
+  chunk boundary is unreachable by construction; a YM port delta can, and forty writes in a frame
+  reaches it.
+
+A fifth mutation survives and should: `YM2612_set` stores a key write at `registers[port][value & 7]`
+and returns whether it changed. Registers 0 to 7 are ones `canIgnore` filters out, so neither `get`
+nor the delta ever reads them back, and every caller discards the return value. The store is dead
+in the whole conversion path.
+
+---
+
 ## What is deliberately not reproduced
 
 Nothing yet. Where a rescomp behaviour is judged wrong rather than merely surprising, the
