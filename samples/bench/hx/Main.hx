@@ -4,6 +4,7 @@ import md.Int16;
 import md.Native;
 import md.Dma;
 import md.Fm;
+import md.Joy;
 import md.DmaTarget;
 import md.Palette;
 import md.Psg;
@@ -20,6 +21,7 @@ import md.Tilemap;
 import md.UInt32;
 import md.sgdk.Dma as SgdkDma;
 import md.sgdk.Fm as SgdkFm;
+import md.sgdk.Joy as SgdkJoy;
 import md.sgdk.Palette as SgdkPalette;
 import md.sgdk.Psg as SgdkPsg;
 import md.sgdk.SpriteTable as SgdkSpriteTable;
@@ -52,6 +54,8 @@ class Main {
 	static inline final DMA_FRAMES = 8;
 
 	static inline final SOUND_WRITES = 64;
+
+	static inline final PAD_READS = 64;
 
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
@@ -116,6 +120,10 @@ class Main {
 		fmInHaxe();
 		Probe.mark();
 		fmInSgdk();
+		Probe.mark();
+		padInHaxe();
+		Probe.mark();
+		padInSgdk();
 		Probe.mark();
 
 		Vdp.setEnable(true);
@@ -330,6 +338,26 @@ class Main {
 		var n = 0;
 		while (n < SOUND_WRITES) {
 			SgdkFm.setRegister(0, 0x40 + (n & 3), n & 0x7F);
+			n++;
+		}
+	}
+
+	static function padInHaxe():Void {
+		Joy.init();
+
+		var n = 0;
+		while (n < PAD_READS) {
+			Joy.update();
+			n++;
+		}
+	}
+
+	static function padInSgdk():Void {
+		SgdkJoy.init();
+
+		var n = 0;
+		while (n < PAD_READS) {
+			SgdkJoy.update();
 			n++;
 		}
 	}
