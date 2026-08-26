@@ -495,6 +495,16 @@ echo "--- the VDP against Nemesis' port access ROM ---"
 "$GATE" fifo "$ROOT"
 
 # every one of its nine tests passes in both widths, so this is a gate rather than a metric now
+# two 68000 ROMs that check themselves. The illegal opcode one paints the screen green when every
+# encoding it tries takes the illegal instruction vector and red when one does not, which is how
+# that was established: sending them to vector 11 instead turns it red. The BCD one prints an error
+# count for ABCD, SBCD and NBCD in both value and flags, and every one of the six reads zero. Both
+# are held to the frame they drew, so either number changing is a failure.
+echo ""
+echo "--- two self-checking 68000 ROMs ---"
+"$GATE" game "$ROOT/vendor/M68000Tests/illegal.bin" 600 --digest 600:B6000000
+"$GATE" game "$ROOT/vendor/M68000Tests/bcd.bin" 900 --digest 900:B01733C1
+
 echo ""
 echo "--- Nemesis' sprite masking and overflow ROM, in both widths ---"
 "$GATE" sprite "$ROOT"

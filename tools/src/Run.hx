@@ -61,6 +61,11 @@ class Run {
 			about: "Nemesis' VDP port access ROM: fifteen suites the VDP's timing is held to"
 		},
 		{
+			name: "M68000Tests", group: "test",
+			url: "", present: "M68000Tests/illegal.bin", size: "1 MB",
+			about: "two self-checking 68000 ROMs: the illegal opcodes and the BCD instructions"
+		},
+		{
 			name: "SpriteMaskingTest", group: "test",
 			url: "", present: "SpriteMaskingTest/sprites.bin", size: "256 KB",
 			about: "Nemesis' sprite masking and overflow ROM: nine tests, in both widths"
@@ -160,6 +165,7 @@ class Run {
 				case "SDL3": sdl(vendor);
 				case "miniaudio": miniaudio(vendor);
 				case "VDPFIFOTesting": fifo(vendor);
+				case "M68000Tests": opcodes(vendor);
 				case "SpriteMaskingTest": sprites(vendor);
 				case "240pTestSuite": patterns(vendor);
 				case _: clone(source, vendor);
@@ -241,6 +247,32 @@ class Run {
 
 		FileSystem.deleteFile(archive);
 		return FileSystem.exists(into + "/VDPFIFOTesting.bin");
+	}
+
+	static function opcodes(vendor:String):Bool {
+		final into = vendor + "/M68000Tests";
+		if (!FileSystem.exists(into)) FileSystem.createDirectory(into);
+
+		final wanted = [
+			{ id: "1NKagoNVmUEZB9DojKcmXSsSlJY96xS8-", zipped: "itest.BIN", named: "illegal.bin" },
+			{ id: "1EgwX-T4g9bUcsGc6FywO_-4Irxjo1Vgn", zipped: "bcd-verifier-u1.bin", named: "bcd.bin" }
+		];
+
+		for (each in wanted) {
+			final archive = into + "/.fetched.zip";
+			if (!download("https://drive.google.com/uc?id=" + each.id + "&export=download", archive)) {
+				return false;
+			}
+
+			unpack(archive, into);
+			FileSystem.deleteFile(archive);
+
+			if (!FileSystem.exists(into + "/" + each.zipped)) return false;
+			if (FileSystem.exists(into + "/" + each.named)) FileSystem.deleteFile(into + "/" + each.named);
+			FileSystem.rename(into + "/" + each.zipped, into + "/" + each.named);
+		}
+
+		return true;
 	}
 
 	static function sprites(vendor:String):Bool {

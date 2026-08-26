@@ -316,7 +316,10 @@ class M68000 {
 		opcode = op;
 		faultIr = op;
 		final h = table[op];
-		if (h == null) throw 'unimplemented opcode ${StringTools.hex(op, 4)}';
+		if (h == null) {
+			exception(Exceptions.VEC_ILLEGAL, (pcAtStart - 4) | 0, 4);
+			return;
+		}
 		h(this);
 	}
 

@@ -5,7 +5,7 @@ import hx68k.cpu.m68k.Addressing.*;
 import hx68k.cpu.m68k.Flags.*;
 
 class Exceptions {
-	static inline final VEC_ILLEGAL = 4;
+	public static inline final VEC_ILLEGAL = 4;
 
 	public static inline final VEC_DIVIDE_BY_ZERO = 5;
 
