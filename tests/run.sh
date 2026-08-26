@@ -587,16 +587,19 @@ GAME="$ROOT/_realRomTest/sth2.md"
 if [ -f "$GAME" ]; then
 	echo ""
 	echo "--- a commercial ROM, booted on hx68k-emu ---"
-	# the title screen is the narrowest thing this ROM does, so one run checks four frames of the
-	# attract mode instead: the SEGA logo, two of the title screen, and the two-player Emerald Hill
-	# it reaches about 1,200 frames in, which is the only place here that draws interlaced planes
-	# and interlaced sprites, and the only one that draws a level at all. The widest check in this
-	# file, and three seconds of it.
+	# the title screen is the narrowest thing this ROM does, so one run checks seven frames of the
+	# attract mode instead: the SEGA logo, two of the title screen, the two-player Emerald Hill it
+	# reaches about 1,200 frames in and the same level in motion at 2,000, the title screen it
+	# cycles back to at 4,000, and a one-player Chemical Plant Zone at 5,000. The interlaced ones
+	# are the only place here that draws interlaced planes and interlaced sprites, and Chemical
+	# Plant is the level whose water palette the interrupt spacing fixed. Every one of the seven was
+	# looked at before its digest was written here. The widest check in this file, and eleven
+	# seconds of it.
 	#
 	# 1302 rather than 1300 because the fills the level load does now take the time a VDP takes over
 	# them, which the game spends waiting: frame 1302 came out bit identical to what frame 1300 drew
 	# before, so the two frames are the whole of the difference.
-	"$GATE" game "$GAME" 1302 		--digest 120:E902E100,400:B8B01EAE,900:67BCC091,1302:E8E80E0E
+	"$GATE" game "$GAME" 5000 		--digest 120:E902E100,400:B8B01EAE,900:67BCC091,1302:E8E80E0E,2000:AB47EFAB,4000:DED35A8C,5000:8F0AD0E6
 fi
 
 echo ""
