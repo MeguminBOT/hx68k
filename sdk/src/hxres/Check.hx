@@ -202,6 +202,16 @@ class Check {
 			}
 
 			against(tool, each.name + " as an XGM", stem, ".xgm", made.bytes());
+
+			var compiled:hxres.music.Xgc = null;
+			try {
+				compiled = new hxres.music.Xgc(made);
+			} catch (e:Dynamic) {
+				ok(each.name + " compiles to XGC", false, Std.string(e));
+				continue;
+			}
+
+			against(tool, each.name + " as an XGC", stem, ".bin", compiled.bytes());
 		}
 	}
 

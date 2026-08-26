@@ -83,7 +83,7 @@ class Ym2612 {
 			&& get(port, register) == state.get(port, register);
 	}
 
-	inline function isDiff(state:Ym2612, port:Int, register:Int):Bool {
+	public inline function isDiff(state:Ym2612, port:Int, register:Int):Bool {
 		return !isSame(state, port, register);
 	}
 

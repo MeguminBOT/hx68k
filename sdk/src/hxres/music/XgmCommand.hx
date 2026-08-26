@@ -46,6 +46,12 @@ class XgmCommand {
 		return new XgmCommand(held, 1);
 	}
 
+	public static function raw(command:Int, data:Bytes, size:Int):XgmCommand {
+		final out = new XgmCommand(data, size);
+		out.command = command;
+		return out;
+	}
+
 	public function type():Int {
 		if (command == FRAME) return FRAME;
 		if (command == LOOP) return LOOP;
@@ -79,6 +85,39 @@ class XgmCommand {
 			held.set(at, source.psgValue());
 			return at + 1;
 		}, PSG);
+	}
+
+	public inline function isPsgWrite():Bool return (command & 0xF0) == PSG;
+
+	public inline function isPort0Write():Bool return (command & 0xF0) == YM2612_PORT0;
+
+	public inline function isPort1Write():Bool return (command & 0xF0) == YM2612_PORT1;
+
+	public inline function isYmWrite():Bool return isPort0Write() || isPort1Write();
+
+	public inline function isRegKeyWrite():Bool return (command & 0xF0) == YM2612_REGKEY;
+
+	public inline function writeCount():Int return (data.get(0) & 0x0F) + 1;
+
+	public function withoutRegister(register:Int):XgmCommand {
+		final count:Int = writeCount();
+		final held = Bytes.alloc((count * 2) + 1);
+		var at:Int = 1;
+
+		for (step in 0...count) {
+			final which:Int = data.get((step * 2) + 1) & 0xFF;
+			if (which == register) continue;
+			held.set(at, which);
+			held.set(at + 1, data.get((step * 2) + 2) & 0xFF);
+			at += 2;
+		}
+
+		final kept:Int = Std.int(at / 2);
+		if (kept == count) return this;
+		if (kept == 0) return null;
+
+		held.set(0, (data.get(0) & 0xF0) | (kept - 1));
+		return new XgmCommand(held.sub(0, (kept * 2) + 1), (kept * 2) + 1);
 	}
 
 	static function register(held:Bytes, at:Int, source:VgmCommand):Int {

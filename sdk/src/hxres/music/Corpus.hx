@@ -73,6 +73,19 @@ class Corpus {
 		return this;
 	}
 
+	function ymRelease(port:Int, seed:Int):Corpus {
+		var register:Int = 0x80;
+		var made:Int = 0;
+		while (register < 0x90) {
+			if ((register & 3) != 3) {
+				ym(port, register, (seed + (made * 23)) & 0xFF);
+				made++;
+			}
+			register++;
+		}
+		return this;
+	}
+
 	function mark():Corpus {
 		loopAt = at();
 		return this;
@@ -281,6 +294,30 @@ class Corpus {
 			name: "both ports and the psg in one frame",
 			data: new Corpus(60).ymSpread(0, 20, 0x44).ymSpread(1, 20, 0x88).psg(0x80)
 				.psg(0x1F).psg(0x90).ym(0, 0x28, 0xF0).psg(0xA5).waitFrame().waitFrame().done()
+		});
+
+		out.push({
+			name: "the release registers changing every frame",
+			data: new Corpus(60).ymRelease(0, 0x10).waitFrame().ymRelease(0, 0x40).waitFrame()
+				.ymRelease(0, 0x80).waitFrame().waitFrame().done()
+		});
+
+		out.push({
+			name: "the release registers on both ports",
+			data: new Corpus(60).ymRelease(0, 0x11).ymRelease(1, 0x22).waitFrame()
+				.ymRelease(1, 0x66).waitFrame().ym(0, 0x82, 0x99).waitFrame().done()
+		});
+
+		out.push({
+			name: "one release register and the dac together",
+			data: new Corpus(60).ym(0, 0x80, 0x1F).ym(0, 0x2B, 0x80).waitFrame()
+				.ym(0, 0x80, 0x2F).waitFrame().ym(0, 0x2B, 0x00).waitFrame().done()
+		});
+
+		out.push({
+			name: "psg volume falling to silence",
+			data: new Corpus(60).psg(0x80).psg(0x1F).psg(0x9F).waitFrame().psg(0x98)
+				.waitFrame().psg(0x90).waitFrame().psg(0xBF).psg(0xB0).waitFrame().done()
 		});
 
 		return out;
