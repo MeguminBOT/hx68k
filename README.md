@@ -79,8 +79,10 @@ nothing here is ticked on intent.
 - [x] YM2612, 1032 of 1032 fixtures bit identical to Nuked-OPN2
 - [x] SN76489 including the noise LFSR, held to 38 checks from its documentation
 - [x] Bus, memory map, Z80 arbitration, the SSF2 mapper, pads
+- [x] NTSC and PAL, chosen by the cartridge header when the ROM loads: 262 lines at 59.92 frames
+      a second, or 313 at 49.70
 - [x] VDP renderer: planes, window, sprites, priority, shadow and highlight, H40/H32, V28/V30,
-      interlace mode 2, sprite masking and the per-line and per-dot limits
+      all three interlace settings, sprite masking and the per-line and per-dot limits
 - [x] VDP timing: the four entry write FIFO with its `!DTACK` stall, the external access slots a
       line offers, and all twelve documented DMA rates, exactly rather than to a tolerance
 - [x] Both HV counters, walked across a line of each width and across a whole frame
