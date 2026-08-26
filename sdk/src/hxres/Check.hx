@@ -71,6 +71,9 @@ class Check {
 		Sys.println("what aplib makes of the same bytes");
 		packing(root, scratch);
 
+		Sys.println("what lz4w makes of the same bytes");
+		wordPacking(root, scratch);
+
 		Sys.println("");
 		Sys.println(checks + " resource checks, " + failures + " failures");
 		if (failures > 0) Sys.exit(1);
@@ -376,6 +379,26 @@ class Check {
 		add("three", 3, i -> 0);
 		add("odd", 4095, i -> (i * 7) % 11);
 
+		// isolated two word matches at offsets past the short form's reach, so the parse has to weigh
+		// a long match against the literals it displaces rather than winning outright
+		final sparse = Bytes.alloc(8192);
+		for (i in 0...sparse.length) sparse.set(i, ((i * 2654435) >> 5) & 0xFF);
+		var mark = 700;
+		while (mark + 4 < Std.int(sparse.length / 2)) {
+			for (k in 0...4) sparse.set((mark * 2) + k, sparse.get(((mark - 600) * 2) + k));
+			mark += 37;
+		}
+		out.push({name: "farpairs", data: sparse});
+
+		final lone = Bytes.alloc(6000);
+		for (i in 0...lone.length) lone.set(i, ((i * 40503) >> 7) & 0xFF);
+		var spot = 900;
+		while (spot + 6 < Std.int(lone.length / 2)) {
+			for (k in 0...6) lone.set((spot * 2) + k, lone.get(((spot - 400) * 2) + k));
+			spot += 11;
+		}
+		out.push({name: "nearpairs", data: lone});
+
 		final text = "the quick brown fox jumps over the lazy dog. ";
 		final many = Bytes.alloc(text.length * 40);
 		for (i in 0...many.length) many.set(i, text.charCodeAt(i % text.length));
@@ -457,6 +480,58 @@ class Check {
 		ok("the corpus reaches a short match", reached.shorts > 0, "none emitted");
 		ok("the corpus reaches a long match", reached.longs > 0, "none emitted");
 		ok("the corpus reaches a repeated offset", reached.repeats > 0, "none emitted");
+	}
+
+	static function wordPacking(root:String, scratch:String):Void {
+		final tool = root + "/vendor/SGDK/bin/lz4w.jar";
+		if (!FileSystem.exists(tool)) {
+			ok("lz4w.jar is present to compare against", false, "no jar at " + tool);
+			return;
+		}
+
+		final summary = new Array<String>();
+
+		for (each in payloads()) {
+			final source = scratch + "/word_" + each.name + ".dat";
+			final packed = scratch + "/word_" + each.name + ".lz4w";
+			File.saveBytes(source, each.data);
+			if (FileSystem.exists(packed)) FileSystem.deleteFile(packed);
+
+			final run = new sys.io.Process("java", ["-jar", tool, "p", source, packed, "-s"]);
+			run.stdout.readAll();
+			run.stderr.readAll();
+			final code = run.exitCode();
+			run.close();
+
+			if (code != 0 || !FileSystem.exists(packed)) {
+				ok(each.name + " packs with lz4w.jar", false, "it exited " + code);
+				continue;
+			}
+
+			final theirs = File.getBytes(packed);
+			final ours = Lz4w.pack(each.data);
+
+			if (ours.length != theirs.length) {
+				ok(each.name + " packs to the same length as lz4w", false,
+					"lz4w gives " + theirs.length + " bytes, this gives " + ours.length
+						+ " for " + each.data.length + " in");
+				continue;
+			}
+
+			var first = -1;
+			for (i in 0...theirs.length) if (theirs.get(i) != ours.get(i)) {
+				first = i;
+				break;
+			}
+
+			ok(each.name + " packs byte for byte as lz4w does", first < 0,
+				"byte " + first + " is 0x" + StringTools.hex(ours.get(first), 2) + " where lz4w has 0x"
+					+ StringTools.hex(theirs.get(first), 2));
+
+			summary.push(each.name + " " + each.data.length + "->" + ours.length);
+		}
+
+		Sys.println("  " + summary.join(", "));
 	}
 
 	static var reached:Tally = new Tally();
