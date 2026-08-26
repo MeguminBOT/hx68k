@@ -41,3 +41,6 @@ tests/.gdb/
 # the resource pipeline check, built on demand
 sdk/bin/
 tests/.resources/
+
+# permission entries this tooling writes for itself
+.claude/settings.json

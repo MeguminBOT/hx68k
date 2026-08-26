@@ -78,6 +78,36 @@ present under another name.
 
 ---
 
+## The sprite cut
+
+### The order cells reach a solution in comes from a Java HashSet, and it changes the answer
+
+`CellGrid.getSpriteCells` returns `new ArrayList<>(new HashSet<>(...))`, so the cells arrive in
+`HashMap` bucket order rather than in grid order. That order survives into the solution: cells are
+sorted by tile count with a stable sort, so cells of equal size keep the order they arrived in, and
+that decides which merges `optimizeMergeForPart` tries first.
+
+Reproducing it needs three things, all measured against Java rather than assumed:
+
+- **`java.awt.Rectangle.hashCode` is `Rectangle2D`'s**, which converts x, y, width and height to
+  IEEE 754 doubles, sums them weighted 1, 37, 43 and 47 as 64 bit integers, and folds the halves
+  together with exclusive or. `HashOrder.hash` builds the double bit patterns by hand; twelve
+  rectangles pin it.
+- **The bucket index is `(capacity - 1) & (h ^ (h >>> 16))`**, and within a bucket the order is
+  insertion order.
+- **The table doubles for two different reasons, and the second is the one that surprises.** The
+  familiar one is size passing three quarters of capacity. The other is `treeifyBin`: when a bucket
+  reaches nine entries and the table is smaller than 64, `HashMap` resizes instead of turning the
+  bucket into a tree. Eleven of the twelve reference rectangles trigger exactly that, and a model
+  with only the load factor rule puts the table at 16 where Java has 32 and gets the order wrong
+  from the eleventh cell on.
+
+Established by reading `HashSet.map.table.length` back through reflection at each size, after a
+model built on the load factor alone disagreed with Java at eleven and twelve rectangles and agreed
+everywhere below.
+
+---
+
 ## What is deliberately not reproduced
 
 Nothing yet. Where a rescomp behaviour is judged wrong rather than merely surprising, the

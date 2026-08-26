@@ -42,6 +42,9 @@ class Check {
 		Sys.println("what a PNG decodes to");
 		decoding(root);
 
+		Sys.println("the order rescomp's cells reach a solution in");
+		ordering();
+
 		if (!hasJava() || !FileSystem.exists(jar)) {
 			Sys.println("");
 			Sys.println(checks + " resource checks, " + failures + " failures, "
@@ -94,6 +97,56 @@ class Check {
 		for (i in 0...blocks.indexes.length) if (blocks.indexes.get(i) > indexes) indexes = blocks.indexes.get(i);
 		ok("no pixel names a colour the palette does not declare", indexes < blocks.declared,
 			"the highest index is " + indexes);
+	}
+
+	static final SHAPES = [
+		[0, 0, 8, 8], [8, 0, 8, 8], [16, 0, 8, 8], [0, 8, 8, 8], [8, 8, 16, 16], [24, 24, 32, 32],
+		[-8, -8, 32, 8], [40, 16, 8, 24], [0, 32, 24, 8], [32, 0, 8, 8], [16, 16, 8, 8], [48, 48, 16, 16]
+	];
+
+	static final HASHES = [
+		-1958739968, -882900992, -881852416, -807403520, 362807296, 516947968,
+		358612992, 383516672, -662175744, -880803840, 308281344, 462422016
+	];
+
+	static final ORDERS = [
+		"0,0,8,8",
+		"0,0,8,8 8,0,8,8",
+		"0,0,8,8 8,0,8,8 16,0,8,8",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16 24,24,32,32",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16 24,24,32,32 -8,-8,32,8",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16 24,24,32,32 -8,-8,32,8 40,16,8,24",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16 24,24,32,32 -8,-8,32,8 0,32,24,8 40,16,8,24",
+		"0,0,8,8 8,0,8,8 16,0,8,8 0,8,8,8 8,8,16,16 24,24,32,32 -8,-8,32,8 32,0,8,8 0,32,24,8 40,16,8,24",
+		"0,0,8,8 8,0,8,8 0,8,8,8 8,8,16,16 -8,-8,32,8 32,0,8,8 16,16,8,8 0,32,24,8 16,0,8,8 24,24,32,32 40,16,8,24",
+		"0,0,8,8 8,0,8,8 0,8,8,8 8,8,16,16 -8,-8,32,8 32,0,8,8 16,16,8,8 0,32,24,8 16,0,8,8 24,24,32,32 48,48,16,16 40,16,8,24"
+	];
+
+	static function ordering():Void {
+		var wrong = -1;
+		for (i in 0...SHAPES.length) {
+			final shape = SHAPES[i];
+			if (HashOrder.hash(new Rect(shape[0], shape[1], shape[2], shape[3])) != HASHES[i]) {
+				wrong = i;
+				break;
+			}
+		}
+		ok("a rectangle hashes as java.awt.Rectangle does", wrong < 0,
+			"shape " + wrong + " hashes " + (wrong < 0 ? 0
+				: HashOrder.hash(new Rect(SHAPES[wrong][0], SHAPES[wrong][1], SHAPES[wrong][2], SHAPES[wrong][3])))
+				+ " where Java gives " + (wrong < 0 ? 0 : HASHES[wrong]));
+
+		for (count in 1...SHAPES.length + 1) {
+			final given = new Array<Rect>();
+			for (i in 0...count) given.push(new Rect(SHAPES[i][0], SHAPES[i][1], SHAPES[i][2], SHAPES[i][3]));
+
+			final laid = HashOrder.of(given, r -> r);
+			final said = laid.map(r -> r.x + "," + r.y + "," + r.width + "," + r.height).join(" ");
+			ok("a set of " + count + " cells iterates as a Java HashSet does", said == ORDERS[count - 1],
+				"got " + said + ", Java gives " + ORDERS[count - 1]);
+		}
 	}
 
 	static function palettes(root:String, scratch:String, jar:String):Void {
