@@ -61,6 +61,11 @@ class Run {
 			about: "Nemesis' VDP port access ROM: fifteen suites the VDP's timing is held to"
 		},
 		{
+			name: "SpriteMaskingTest", group: "test",
+			url: "", present: "SpriteMaskingTest/sprites.bin", size: "256 KB",
+			about: "Nemesis' sprite masking and overflow ROM: nine tests, in both widths"
+		},
+		{
 			name: "240pTestSuite", group: "test",
 			url: "", present: "240pTestSuite/240p.bin", size: "256 KB",
 			about: "Artemio Urbina's pattern ROM: what the renderer is looked at through"
@@ -155,6 +160,7 @@ class Run {
 				case "SDL3": sdl(vendor);
 				case "miniaudio": miniaudio(vendor);
 				case "VDPFIFOTesting": fifo(vendor);
+				case "SpriteMaskingTest": sprites(vendor);
 				case "240pTestSuite": patterns(vendor);
 				case _: clone(source, vendor);
 			}
@@ -235,6 +241,14 @@ class Run {
 
 		FileSystem.deleteFile(archive);
 		return FileSystem.exists(into + "/VDPFIFOTesting.bin");
+	}
+
+	static function sprites(vendor:String):Bool {
+		final into = vendor + "/SpriteMaskingTest";
+		if (!FileSystem.exists(into)) FileSystem.createDirectory(into);
+
+		return download("https://archive.org/download/Sprite_Masking_Test_ROM_PD/"
+			+ "Sprite_Masking_Test_ROM_PD.bin", into + "/sprites.bin");
 	}
 
 	static function patterns(vendor:String):Bool {

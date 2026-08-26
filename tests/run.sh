@@ -494,6 +494,12 @@ echo ""
 echo "--- the VDP against Nemesis' port access ROM ---"
 "$GATE" fifo "$ROOT"
 
+# a tracked progress metric rather than a gate: three of its nine tests are wrong in both widths
+# and a fourth in H32, so this cannot exit nonzero yet
+echo ""
+echo "--- Nemesis' sprite masking and overflow ROM, in both widths ---"
+"$GATE" sprite "$ROOT"
+
 echo ""
 echo "--- the 240p Test Suite's patterns, walked through its own menus ---"
 "$GATE" pattern "$ROOT"

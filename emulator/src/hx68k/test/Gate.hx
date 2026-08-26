@@ -26,6 +26,7 @@ class Gate {
 			case "settings": SettingsCheck.run(rest);
 			case "slot": SlotCheck.run();
 			case "sound": SoundCheck.run(rest);
+			case "sprite": SpriteCheck.run(rest);
 			case "sst": SstConform.run(rest);
 			case "state": StateCheck.run(rest);
 			case "view": ViewCheck.run();
@@ -41,6 +42,6 @@ class Gate {
 	static function usage():Void {
 		Sys.println("usage: gate <program> [arguments]");
 		Sys.println("  bench debug disassembly fifo game layout map opn pattern render");
-		Sys.println("  psg rom settings slot sound sst state view widget z80");
+		Sys.println("  psg rom settings slot sound sprite sst state view widget z80");
 	}
 }
