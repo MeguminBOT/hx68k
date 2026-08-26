@@ -14,6 +14,10 @@ aPLib
 		Size optimized (164 bytes) by Franck "hitchhikr" Charlet
 		More optimizations by r57shell
 
+	It is the same routine, sentinel bit and all, with the bit reader and the gamma decoder
+	inlined at every call site rather than reached by bsr, which is where a third of that
+	version's time went. That trades the size the credits above were won on: 240 bytes.
+
 LZ4W
 	A word oriented variant of LZ4 by Stephane Dallongeville, part of SGDK and documented in
 	bin/lz4w.txt. LZ4 itself is Yann Collet's.

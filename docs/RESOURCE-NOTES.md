@@ -182,10 +182,14 @@ Measured on `samples/bench`, unpacking the same blob, pinned to logical processo
 
 | | cycles | against the assembly beside it |
 | --- | --- | --- |
-| `md.Unpack.lz4w` | 20564 | -0.3% |
-| SGDK `lz4w_unpack` | 20630 | |
-| `md.Unpack.aplib` | 227202 | +74.8% |
-| SGDK `aplib_unpack` | 129956 | |
+| `md.Unpack.lz4w` | 20562 | -0.3% |
+| SGDK `lz4w_unpack` | 20628 | |
+| `md.Unpack.aplib` | 81044 | -37.6% |
+| SGDK `aplib_unpack` | 129954 | |
+
+Both are written as 68000 carried in `@:md.body`. Written in Haxe they were 35534 and 227202, and
+what each of them cost is in its own section below, because the two have nothing in common: one is
+a dispatch problem and the other is a call overhead problem.
 
 ### The dispatch structure is the whole of the lz4w difference
 
@@ -217,7 +221,7 @@ Literals are copied `move.l` at a time, two words for 20 cycles rather than 24, 
 available because each literal count has its own entry point in one of two fallthrough chains: an
 even one ending in `move.l` and an odd one ending in `move.w`.
 
-### It is generated, not transcribed
+### The lz4w table is generated, not transcribed
 
 SGDK writes the table and its chains out: 728 lines. Five gas macros nested two deep produce the
 same 3450 bytes from 144 lines, because `.irp` inside `.macro` substitutes both the macro's
@@ -233,11 +237,41 @@ from the compressed stream, which the packer here never emits, is a `dbra` loop 
 second 128 entry table and its two unrolled chains, which saves about 2 KB for a path no data
 reaches.
 
-### The fixture only covered 16 of the 256 entries
+### aplib spends more than a third of its time in bsr and rts
 
-`data/table.dat` is a 100 byte ramp with no repeats in it, so every segment of its lz4w parse is
-`lit=15, mat=0`: one column of one row. Two mutations of the table survived the whole gate on it,
-one widening the odd chain's last copy to a longword and one shortening the long match chain.
+SGDK's decruncher reads one bit per call to `.get_bit`, and the call is `bsr` at 18 and `rts` at 16
+around an `add.b` at 4 and a `bne` at 10. 34 of those 48 cycles are the call. `.decode_gamma` is
+called the same way and pays another 34.
+
+Inlined, a bit is `add.b %d3,%d3` and `bne.s`, so 14 cycles, or 24 on the one call in eight that
+refills the tag byte. Nothing else about the routine changes: it is the same sentinel bit riding
+below the data in `d3`, the same `addx` accumulation through X, the same three offset bands. It
+costs 240 bytes rather than 164.
+
+The bench blob's stream holds 1193 bit reads, 182 gamma decodes and 334 literals in 79 runs, and
+hoisting the LWM store out of a literal run saves 4 cycles on each literal after a run's first.
+34 x 1193 + 34 x 182 + 4 x 255 predicts 47770 cycles saved; 48910 were measured, the difference
+being the refill path, which pays the call overhead too. The prediction is what says the reading is
+right, rather than that a number moved.
+
+`md.Copy` went with the Haxe version. It existed to give that implementation a byte copy and had no
+other caller, and an SDK primitive with no caller and no check is the gap this repository has
+already objected to once.
+
+### The fixtures covered 3 of aplib's 11 paths and 16 of lz4w's 256 entries
+
+`data/table.dat` is a 100 byte ramp with no repeats in it. Every segment of its lz4w parse is
+`lit=15, mat=0`, one column of one row, and its aplib parse is 100 literals, one code pair and the
+ending block: 3 of the 11 paths the decruncher has. Two mutations of the lz4w table survived the
+whole gate on it, one widening the odd chain's last copy to a longword and one shortening the long
+match chain.
+
+`data/crunch.dat` takes all 11 aplib paths. Its size is set by one of them: the length correction
+splits at 128, 1280 and 32000, so reaching the last band needs a match more than 32000 bytes back,
+which needs a file longer than that. It is 33379 bytes, most of it a repeated block that packs into
+long matches and costs little to unpack, with the crafted cases at either end. Two mutations fail on
+it, one dropping the correction in the 1280 to 31999 band and one leaving LWM at 2 after a match.
+The first of those is caught by a single occurrence in the whole file, one byte short in 33379.
 
 `data/spread.dat` is built to reach all 256. Literal words are all distinct, so the only matches
 are the ones put there deliberately, and each is copied from a distance rather than from the words
