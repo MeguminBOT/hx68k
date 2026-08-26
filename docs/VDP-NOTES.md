@@ -312,9 +312,10 @@ of endpoints, and only H40's was modelled:
 | H32 | 93h | E9h | 171 |
 
 The vertical counter does the same once a frame, counting to EAh and resuming at E5h, which is 262
-lines of NTSC. `hx68k.test.SlotCheck` walks a whole line of master clocks for each width and holds
-the counter to starting at zero, ending at FFh, taking as many counts as the line has, and jumping
-exactly once, from and to the values above.
+lines of NTSC. `hx68k.test.SlotCheck` walks a whole line of master clocks for each width, and a
+whole frame of them for the vertical one, holding each counter to starting at zero, ending at FFh,
+taking as many counts as the line or the frame has, and jumping exactly once, from and to the values
+above. Moving the vertical resume one count fails four of those.
 
 **Still not modelled, and written here rather than guessed at.** The read prefetch, where the VDP
 fetches the word at the read address before a program asks for it and a data port read returns that
