@@ -176,6 +176,83 @@ Established by `hxres.Check.binaries`, which compares nine blob sizes against fi
 
 ---
 
+## The 68000 unpackers
+
+Measured on `samples/bench`, unpacking the same blob, pinned to logical processors 16 to 23:
+
+| | cycles | against the assembly beside it |
+| --- | --- | --- |
+| `md.Unpack.lz4w` | 20564 | -0.3% |
+| SGDK `lz4w_unpack` | 20630 | |
+| `md.Unpack.aplib` | 227202 | +74.8% |
+| SGDK `aplib_unpack` | 129956 | |
+
+### The dispatch structure is the whole of the lz4w difference
+
+Written in Haxe, `lz4w` came out at 35534 cycles, +72.4%. Nine attempts at closing that from the C
+side moved it by under 1% between them: volatile access is worth 5 to 10%, a `"memory"` clobber
+nothing, longword literal copies through a C loop are worse, byte wise header reads nothing, a
+fused 256 case `switch` in C worse, unrolled chains with a computed entry 0.6%.
+
+The reason none of them reach it is arithmetic rather than code generation. A segment header is
+`LLLL MMMM OOOOOOOO`, so a literal copy of L words is followed by a match copy of M+1 words, and
+anything that selects the two copies separately pays for two computed jumps. A computed jump on a
+68000 is `lea target(pc),a1` at 8, `suba.w` at 8 and `jmp (a1)` at 8, so 24 cycles; a two word
+literal copy through `dbra` is 44 cycles and through a computed entry into straight `move.w` is
+also 44. The dispatch costs exactly what it saves, and anything paying for two of them plateaus
+near 35000.
+
+One dispatch has to serve both copies, which means the pair has to index one table, which means
+256 entries. That is why SGDK has 256 of them, and there is no cheaper shape:
+
+- the whole per segment overhead is `moveq`, `moveq`, two `move.b (a0)+`, two `add.w Dn,Dn` and
+  `jmp (a3,d0.w)` at 46 cycles, a `bra.w` at 10, and the match preamble `add.w`, `neg.w`,
+  `lea -2(a1,d1.w),a2` at 20. 76 cycles, then 10 per literal word and 12 per match word.
+- reading the header as one `move.w` saves 12 cycles on the read and loses more than that
+  deriving a table index from it: `lsr.w #6` alone is 18.
+- a table of 16 bit offsets rather than `bra.w` entries needs `add.w`, `move.w (a3,d0.w),d2` and
+  `jmp (a3,d2.w)`, which is 32 cycles, exactly what the `bra.w` table costs.
+
+Literals are copied `move.l` at a time, two words for 20 cycles rather than 24, which is only
+available because each literal count has its own entry point in one of two fallthrough chains: an
+even one ending in `move.l` and an odd one ending in `move.w`.
+
+### It is generated, not transcribed
+
+SGDK writes the table and its chains out: 728 lines. Five gas macros nested two deep produce the
+same 3450 bytes from 144 lines, because `.irp` inside `.macro` substitutes both the macro's
+parameter and the loop's. The separator matters: `Lliteral\literal\()match\match` works and
+`Lliteral\literalmatch\match` does not, since gas reads the parameter name up to the first
+character that cannot be in an identifier and `match` is one. Dropping it is an assembler error
+rather than a wrong table.
+
+Two things are deliberately not SGDK's. The long match chain is reached through a base held in
+`a4` rather than `jmp label(pc,d1.w)`, whose displacement is 8 bit signed and is what forces SGDK
+to carry three copies of the same six instruction preamble to stay in range. And a match sourced
+from the compressed stream, which the packer here never emits, is a `dbra` loop rather than a
+second 128 entry table and its two unrolled chains, which saves about 2 KB for a path no data
+reaches.
+
+### The fixture only covered 16 of the 256 entries
+
+`data/table.dat` is a 100 byte ramp with no repeats in it, so every segment of its lz4w parse is
+`lit=15, mat=0`: one column of one row. Two mutations of the table survived the whole gate on it,
+one widening the odd chain's last copy to a longword and one shortening the long match chain.
+
+`data/spread.dat` is built to reach all 256. Literal words are all distinct, so the only matches
+are the ones put there deliberately, and each is copied from a distance rather than from the words
+just written, because an adjacent copy lets the parser merge two segments into one longer match and
+the `mat` column at zero literals then never appears at all. Constructed naively it reached 239 of
+256; sourcing matches from a distance took it to 253, and forcing pairs of adjacent matches with
+unrelated offsets took it to 256. It also carries long matches of 17, 20, 128, 256 and 257 words,
+which are both ends of the 257 entry chain, and an odd byte count so the ending block carries its
+trailing byte. Both mutations fail on it.
+
+The coverage was measured by decoding the packed bytes out of the generated `art.c` and tallying
+which `(literal, match)` pairs appear, not by reasoning about the parser.
+
+---
+
 ## What is deliberately not reproduced
 
 Nothing yet. Where a rescomp behaviour is judged wrong rather than merely surprising, the
