@@ -9,6 +9,7 @@ import md.Plane;
 import md.Probe;
 import md.Sram;
 import md.Tilemap;
+import md.Trig;
 import md.UInt32;
 import md.Vector;
 import md.hw.Vdp as Ports;
@@ -56,6 +57,10 @@ class Main {
 		Probe.report(Maths.log2(1000));
 		Probe.report(Maths.nextPowerOfTwo(1000));
 		Probe.report(Maths.distance(30, 40));
+		Probe.report(Trig.sin(90));
+		Probe.report(Trig.sin(30));
+		Probe.report(Trig.sin(210));
+		Probe.report(Trig.cos(0));
 
 		Sram.enable();
 		Sram.writeLong(0, 0xCAFEF00D);

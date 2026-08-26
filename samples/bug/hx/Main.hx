@@ -1,7 +1,7 @@
 package;
 
 import md.Probe;
-import md.System;
+import md.sgdk.System;
 
 class Main {
 	@:md.volatile static var total:Int = 0;

@@ -208,7 +208,7 @@ class Run {
 		return "package;\n"
 			+ "\n"
 			+ "import md.Palette;\n"
-			+ "import md.System;\n"
+			+ "import md.sgdk.System;\n"
 			+ "import md.sgdk.Vdp;\n"
 			+ "\n"
 			+ "class Main {\n"

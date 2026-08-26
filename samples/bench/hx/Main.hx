@@ -11,7 +11,7 @@ import md.Psg;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
-import md.System;
+import md.sgdk.System;
 import md.sgdk.Vdp;
 import md.Transfer;
 import md.UInt16;

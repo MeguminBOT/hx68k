@@ -9,7 +9,7 @@ import md.Patterns;
 import md.Plane;
 import md.Probe;
 import md.SpriteTable;
-import md.System;
+import md.sgdk.System;
 import md.Tilemap;
 import md.UInt16;
 import md.Vector;

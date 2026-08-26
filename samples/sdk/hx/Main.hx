@@ -10,7 +10,7 @@ import md.sgdk.Palette;
 import md.sgdk.Tilemap;
 import md.Plane;
 import md.Probe;
-import md.System;
+import md.sgdk.System;
 import md.Transfer;
 import md.UInt16;
 import md.sgdk.Vdp;

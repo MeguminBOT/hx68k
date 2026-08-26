@@ -2,7 +2,7 @@ package;
 
 import md.Palette;
 import md.Pool;
-import md.System;
+import md.sgdk.System;
 import md.sgdk.Vdp;
 
 class Main {

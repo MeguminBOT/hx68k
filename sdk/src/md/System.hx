@@ -1,29 +1,46 @@
 package md;
 
-extern class System {
-	@:native("SYS_doVBlankProcess") static function doVBlankProcess():Bool;
-	@:native("SYS_nextFrame") static function nextFrame():Bool;
-	@:native("SYS_isInVInt") static function inVerticalInterrupt():Bool;
+class System {
+	public static inline final VERSION = 0xA10001;
 
-	@:native("SYS_disableInts") static function disableInterrupts():Void;
-	@:native("SYS_enableInts") static function enableInterrupts():Void;
-	@:native("SYS_setInterruptMaskLevel") static function setInterruptMask(level:UInt16):Void;
-	@:native("SYS_getInterruptMaskLevel") static function interruptMask():UInt16;
+	public static inline final PAL = 0x40;
 
-	@:native("SYS_isNTSC") static function isNtsc():UInt16;
-	@:native("SYS_isPAL") static function isPal():UInt16;
-	@:native("SYS_getFPS") static function framesPerSecond():UInt32;
-	@:native("SYS_getCPULoad") static function cpuLoad():UInt16;
-	@:native("SYS_getStackPointer") static function stackPointer():UInt32;
+	public static inline final EXPANSION = 0x20;
 
-	@:native("SYS_computeChecksum") static function checksum():UInt16;
-	@:native("SYS_isChecksumOk") static function checksumOk():Bool;
+	public static inline final HEADER_CHECKSUM = 0x18E;
 
-	@:native("SYS_setVIntCallback") static function onVerticalInterrupt(handler:Void->Void):Void;
-	@:native("SYS_setHIntCallback") static function onHorizontalInterrupt(handler:Void->Void):Void;
-	@:native("SYS_setExtIntCallback") static function onExternalInterrupt(handler:Void->Void):Void;
-	@:native("SYS_setVBlankCallback") static function onVBlank(handler:Void->Void):Void;
+	public static inline final CHECKED_FROM = 0x200;
 
-	@:native("SYS_reset") static function reset():Void;
-	@:native("SYS_hardReset") static function hardReset():Void;
+	public static inline function version():UInt8 {
+		return Memory.readU8(VERSION);
+	}
+
+	public static inline function isPal():Bool {
+		return (Memory.readU8(VERSION) & PAL) != 0;
+	}
+
+	public static inline function isNtsc():Bool {
+		return (Memory.readU8(VERSION) & PAL) == 0;
+	}
+
+	public static inline function hasExpansion():Bool {
+		return (Memory.readU8(VERSION) & EXPANSION) == 0;
+	}
+
+	public static inline function recorded():UInt16 {
+		return Memory.readU16(HEADER_CHECKSUM);
+	}
+
+	public static function checksum(length:UInt32):UInt16 {
+		final end:Int = length;
+		var total:Int = 0;
+		var at:Int = CHECKED_FROM;
+
+		while (at < end) {
+			total = (total + Memory.readU16(at)) & 0xFFFF;
+			at += 2;
+		}
+
+		return total;
+	}
 }

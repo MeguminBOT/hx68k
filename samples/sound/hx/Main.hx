@@ -3,7 +3,7 @@ package;
 import md.Fm;
 import md.Probe;
 import md.Psg;
-import md.System;
+import md.sgdk.System;
 import md.sgdk.Z80Bus;
 import md.sgdk.Sound;
 

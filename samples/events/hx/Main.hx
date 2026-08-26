@@ -1,7 +1,7 @@
 package;
 
 import md.Probe;
-import md.System;
+import md.sgdk.System;
 import md.Vector;
 
 typedef Handler = Int->Int;
