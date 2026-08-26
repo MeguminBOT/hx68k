@@ -57,6 +57,21 @@ class SoundCheck {
 		check(machine.z80Bus.soundWrites > 0, "the driver wrote to the sound chips "
 			+ machine.z80Bus.soundWrites + " times");
 
+		check(peek(machine, probe + 16) != 0, "XGM_isPlayingPCM (got "
+			+ peek(machine, probe + 16) + ")");
+
+		final beep = [
+			{at: 20, want: 92, where: 8},
+			{at: 24, want: 163, where: 24},
+			{at: 28, want: 88, where: 200},
+			{at: 32, want: 34, where: 1000},
+			{at: 36, want: 0, where: 7000}
+		];
+		for (each in beep)
+			check(peek(machine, probe + each.at) == each.want,
+				"the wav at byte " + each.where + " is " + peek(machine, probe + each.at)
+				+ ", wanting " + each.want);
+
 		heard(machine);
 		sides();
 
