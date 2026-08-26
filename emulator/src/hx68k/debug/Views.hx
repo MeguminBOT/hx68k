@@ -13,7 +13,8 @@ class Views {
 			new Disassembly(debugger),
 			new Stack(debugger),
 			new Video(debugger),
-			new Usage(debugger)
+			new Usage(debugger),
+			new Bandwidth(debugger)
 		];
 	}
 }

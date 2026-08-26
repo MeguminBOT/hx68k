@@ -736,6 +736,29 @@ else
 	exit 1
 fi
 
+# the window draws the same tallies as a panel, so the panel is read back here on the same frame
+PANEL="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 13 --views \
+	| sed -n '/--- slots ---/,/^--- /p')"
+echo "$PANEL" | sed 's/^/  /'
+
+FROM_REPORT="$(echo "$SPEND" | sed -n 's/.*a fill or a copy moved \([0-9]*\) bytes.*/\1/p')"
+FROM_PANEL="$(echo "$PANEL" | sed -n 's/.*by dma  *\([0-9]*\)  .*/\1/p')"
+
+printf "slots %-18s" "the panel agrees"
+if [ -n "$FROM_PANEL" ] && [ "$FROM_PANEL" = "$FROM_REPORT" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  the panel says ${FROM_PANEL:-nothing} bytes where the report says ${FROM_REPORT:-nothing}"
+	exit 1
+fi
+
+printf "slots %-18s" "and draws it full"
+case "$PANEL" in
+	*"205/205  ################"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  the panel never drew a line spending all of its slots"; exit 1 ;;
+esac
+
 echo ""
 echo "--- a state a machine can be put back into ---"
 "$GATE" state "$ROOT"

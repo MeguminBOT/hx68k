@@ -1,5 +1,6 @@
 package hx68k.debug;
 
+import haxe.ds.Vector;
 import hx68k.md.Vdp;
 
 typedef Spent = {
@@ -29,13 +30,20 @@ typedef Spend = {
 class Slots {
 	public final debugger:Debugger;
 
+	final open:Vector<Int> = new Vector<Int>(4);
+
 	public function new(debugger:Debugger) {
 		this.debugger = debugger;
+		for (shape in 0...4) open[shape] = openings((shape & 2) != 0, (shape & 1) != 0);
 	}
 
 	public function frame():Spend {
-		final vdp = debugger.machine.vdp;
 		debugger.machine.runFrame();
+		return read();
+	}
+
+	public function read():Spend {
+		final vdp = debugger.machine.vdp;
 
 		final lines = new Array<Spent>();
 		var wrote = 0;
@@ -51,12 +59,12 @@ class Slots {
 			final shape = vdp.lineShape[line];
 			final blanked = (shape & 1) != 0;
 			final wide = (shape & 2) != 0;
-			final open = openings(wide, blanked);
+			final slots = open[shape & 3];
 			final used = vdp.lineLanded[line] + vdp.lineCarried[line];
 
 			lines.push({
 				line: line,
-				open: open,
+				open: slots,
 				wrote: vdp.lineWrote[line],
 				landed: vdp.lineLanded[line],
 				carried: vdp.lineCarried[line],
@@ -73,7 +81,7 @@ class Slots {
 			if (vdp.lineDeepest[line] > deepest) deepest = vdp.lineDeepest[line];
 			if (used > lines[busiest].landed + lines[busiest].carried) busiest = line;
 			if (!blanked && used > 0) overrun += used;
-			if (used > open) overspent++;
+			if (used > slots) overspent++;
 		}
 
 		return {
