@@ -7,6 +7,7 @@ import hx68k.host.sdl.Window;
 import hx68k.host.sdl.Renderer;
 import hx68k.host.sdl.HostEvent;
 import hx68k.debug.Debugger;
+import hx68k.debug.Gdb;
 import hx68k.map.Elf;
 import hx68k.map.SourceMap;
 import hx68k.debug.View;
@@ -78,6 +79,8 @@ class Console {
 
 	var views:Array<View> = [];
 	var debugger:Null<Debugger> = null;
+	var remote:Null<Gdb> = null;
+	var remotePort:Int = 2159;
 	var apart:Map<String, Detached> = [];
 	var said:Map<String, Array<hx68k.debug.Row>> = [];
 
@@ -323,6 +326,11 @@ class Console {
 	function update():Void {
 		if (!loaded) return;
 
+		if (remote != null) {
+			remote.attend(0);
+			if (remote.ending) serving(false);
+		}
+
 		final started = Clock.stamp();
 
 		last = started;
@@ -333,7 +341,7 @@ class Console {
 
 			var ran = 0;
 			while (ran < CATCH_UP && started >= due) {
-				if (rewind != null) rewind.frame() else machine.runFrame();
+				if (rewind != null) rewind.frame() else emulate();
 				due += period;
 				frames++;
 				ran++;
@@ -346,7 +354,7 @@ class Console {
 
 			if (unlimited) {
 				for (_ in 0...8) {
-					machine.runFrame();
+					emulate();
 					frames++;
 				}
 				due = started;
@@ -391,6 +399,44 @@ class Console {
 			gaveUp = 0;
 			since = now;
 		}
+	}
+
+	function emulate():Void {
+		if (remote == null || !remote.attached) {
+			machine.runFrame();
+			return;
+		}
+
+		if (!remote.halted) remote.untilFrame();
+	}
+
+	function serving(on:Bool):Void {
+		if (!on) {
+			if (remote != null) remote.close();
+			remote = null;
+			tell("the gdb remote is off");
+			return;
+		}
+
+		if (remote != null) return;
+
+		var at = remotePort;
+
+		while (at < remotePort + 16) {
+			try {
+				remote = new Gdb(new Debugger(machine, map()), at);
+				break;
+			} catch (e:Dynamic) {
+				at++;
+			}
+		}
+
+		if (remote == null) {
+			tell("no free port between " + remotePort + " and " + (remotePort + 15));
+			return;
+		}
+
+		tell("gdb remote on 127.0.0.1:" + remote.port + ", target remote to reach it");
 	}
 
 	function idle():Void {
@@ -535,8 +581,8 @@ class Console {
 
 	function sequence():Array<String> {
 		final out = ["open a ROM", "", paused ? "running" : "paused", "flat out",
-			quiet ? "silent" : "sound", "rewind", "", "1x", "2x", "3x", tiled ? "grid" : "floating",
-			"side", PREFERENCES, ""];
+			quiet ? "silent" : "sound", "rewind", "gdb", "", "1x", "2x", "3x",
+			tiled ? "grid" : "floating", "side", PREFERENCES, ""];
 		for (view in views) out.push(view.title());
 		return out;
 	}
@@ -599,6 +645,7 @@ class Console {
 		if (ui.tool("flat out", unlimited)) unlimited = !unlimited;
 		if (ui.tool(quiet ? "silent" : "sound", !quiet)) quiet = !quiet;
 		if (ui.tool("rewind", winding)) winds(!winding);
+		if (ui.tool("gdb", remote != null)) serving(remote == null);
 		ui.gap();
 
 		var wanted = scale;
@@ -1364,6 +1411,8 @@ class Console {
 
 	function rearranged():Void {
 		if (settings.flag("rewind", false)) winds(true);
+		remotePort = settings.whole("gdb.port", 2159);
+		if (settings.flag("gdb", false)) serving(true);
 
 		final open = settings.text("panels", "");
 		if (open != "") {
@@ -1392,6 +1441,8 @@ class Console {
 		settings.set("arrangement", tiled ? "grid" : "floating");
 		settings.setFlag("sound", !quiet);
 		settings.setFlag("rewind", winding);
+		settings.setFlag("gdb", remote != null);
+		settings.setWhole("gdb.port", remotePort);
 		settings.setFlag("watch", watching);
 		settings.setFlag("keep", keepingState);
 
