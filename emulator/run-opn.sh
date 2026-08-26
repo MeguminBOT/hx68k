@@ -23,7 +23,10 @@ fi
 
 # the check is built to C rather than to neko: the same numbers, and fifty times faster, which is
 # what makes a suite of this size something the gate can run
-(cd "$HERE" && haxe fixtures.hxml && haxe opn.hxml) > /dev/null
+if [ "${GATE_BUILT:-}" != "1" ]; then
+	(cd "$HERE" && haxe gate.hxml) > /dev/null
+fi
+(cd "$HERE" && haxe fixtures.hxml) > /dev/null
 
 neko "$HERE/bin/fixtures.n" "$SCRIPTS" > /dev/null
 mkdir -p "$SOUNDS"
@@ -36,7 +39,10 @@ LADDER="$BUILD/jobs-ladder.txt"
 : > "$JOBS"
 : > "$LADDER"
 for script in "$SCRIPTS"/*.txt; do
-	name="$(basename "$script" .txt)"
+	# a thousand basename processes cost twenty seconds on Windows, and cygpath is only wanted for
+	# the fixtures that are actually being rendered again
+	name="${script##*/}"
+	name="${name%.txt}"
 	if [ ! -f "$SOUNDS/$name.pcm" ] || [ "$script" -nt "$SOUNDS/$name.pcm" ]; then
 		case "$name" in
 			discrete-*) into="$LADDER" ;;
@@ -54,8 +60,10 @@ if [ -s "$LADDER" ]; then
 	"$BUILD/opn2.exe" "$SAMPLES" "$(cygpath -m "$LADDER")" ladder
 fi
 
+export GATE_BUILT=1
+
 if [ -n "$1" ]; then
-	"$HERE/bin/opn/OpnCheck.exe" "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
+	"$HERE/gate.sh" opn "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
 else
-	"$HERE/bin/opn/OpnCheck.exe" "$SCRIPTS" "$SOUNDS"
+	"$HERE/gate.sh" opn "$SCRIPTS" "$SOUNDS"
 fi

@@ -571,7 +571,12 @@ class OpnFixtures {
 	}
 
 	static function script(into:String, name:String, lines:Array<String>):Int {
-		File.saveContent(into + "/" + name + ".txt", lines.join("\n") + "\n");
+		final path = into + "/" + name + ".txt";
+		final text = lines.join("\n") + "\n";
+
+		if (sys.FileSystem.exists(path) && File.getContent(path) == text) return 1;
+
+		File.saveContent(path, text);
 		return 1;
 	}
 
