@@ -2,9 +2,10 @@ package;
 
 import md.DmaTarget;
 import md.Fix16;
-import md.Joy;
+
 import md.Maths;
 import md.sgdk.Dma;
+import md.sgdk.Joy;
 import md.sgdk.Palette;
 import md.sgdk.Tilemap;
 import md.Plane;

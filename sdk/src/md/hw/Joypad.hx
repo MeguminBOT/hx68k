@@ -35,6 +35,17 @@ class Joypad {
 		return (~high & 0x3F) | (((~low >> 4) & 0x03) << 6);
 	}
 
+	public static function identify(port:Int):Int {
+		final at = DATA + port * 2;
+
+		Memory.writeU8(at, 0x00);
+		settle(at);
+		final low = Memory.readU8(at);
+
+		Memory.writeU8(at, 0x40);
+		return low & 0x0C;
+	}
+
 	static inline function settle(at:Int):Void {
 		Memory.readU8(at);
 		Memory.readU8(at);

@@ -488,6 +488,16 @@ static const probe_t art_expected[] = {
 	{ "and its last",               0xA6A7 },
 	{ "a VRAM copy carried the fill across", 0x5A5A },
 	{ "and the queue ran the same transfer", 0xA0A1 },
+	/* the native pad, with up, B and A held. A three-button pad reports its six lines with TH
+	   high and swaps A and START in for left and right with TH low, so the eight bits come out
+	   up, down, left, right, B, C, A, start. The two middle lines being pulled low while TH is
+	   low is the pad saying it is there, which is the only kind this can tell apart: neither
+	   emulator counts the TH pulses a six-button pad answers */
+	{ "the first update sees the buttons arrive", 0x51 },
+	{ "the second still has them held", 0x51 },
+	{ "but does not report them as pressed again", 0 },
+	{ "the port has a pad in it",   0x0D },
+	{ "and it is a three-button one", 0x00 },
 };
 
 static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 5 + 105 },
@@ -564,7 +574,7 @@ int main(int argc, char **argv)
 	snprintf(sym, sizeof(sym), "%s/samples/art/rom/out/release/symbol.txt", root);
 	if (file_exists(rom))
 		suite_probe_rom("art: resources through hxres and rescomp", "art", "samples/art",
-			rom, sym, art_expected, COUNT(art_expected), 0);
+			rom, sym, art_expected, COUNT(art_expected), 0x51);
 	else
 		printf("\nart: skipped (rom not built)\n");
 

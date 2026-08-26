@@ -2,6 +2,7 @@ package;
 
 import md.Dma;
 import md.DmaTarget;
+import md.Joy;
 import md.Memory;
 import md.Palette;
 import md.Patterns;
@@ -93,6 +94,17 @@ class Main {
 		Probe.report(readVram(0x8106));
 		Probe.report(readVram(0x8200));
 		Probe.report(readVram(0x8300));
+
+		Joy.init();
+		Joy.update();
+		final arrived = Joy.pressed(0);
+		Joy.update();
+
+		Probe.report(arrived);
+		Probe.report(Joy.read(0));
+		Probe.report(Joy.pressed(0));
+		Probe.report(Joy.portType(0));
+		Probe.report(Joy.padType(0));
 		Probe.done();
 
 		while (true) {
