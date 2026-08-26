@@ -285,6 +285,44 @@ class SlotCheck {
 		same("a colour read shows the slot the next write will use", vdp.readData(), 0x0EEE | 0xF111);
 	}
 
+	static function counter(width:Int, last:Int, resume:Int):Void {
+		final vdp = ready(width, DISPLAY_ON);
+		final name = width == H40 ? "H40" : "H32";
+
+		final seen:Array<Int> = [];
+		var previous = -1;
+
+		for (_ in 0...Vdp.MASTER_PER_LINE) {
+			final now = vdp.horizontal();
+			if (now != previous) seen.push(now);
+			previous = now;
+			vdp.tick(1);
+		}
+
+		same("the " + name + " horizontal counter starts at zero", seen[0], 0);
+		same("and ends at 255", seen[seen.length - 1], 0xFF);
+		same("over as many counts as the line has", seen.length, vdp.countsPerLine());
+
+		var jumps = 0;
+		var from = -1;
+		var to = -1;
+		for (i in 1...seen.length) {
+			if (seen[i] == seen[i - 1] + 1) continue;
+			jumps++;
+			from = seen[i - 1];
+			to = seen[i];
+		}
+
+		same("counting up with one jump in it", jumps, 1);
+		same("from " + last, from, last);
+		same("to " + resume, to, resume);
+	}
+
+	static function counters():Void {
+		counter(H40, Vdp.H_LAST_H40, Vdp.H_RESUME_H40);
+		counter(H32, Vdp.H_LAST_H32, Vdp.H_RESUME_H32);
+	}
+
 	static function main():Void {
 		run();
 	}
@@ -293,6 +331,9 @@ class SlotCheck {
 		Sys.println("");
 		Sys.println("where the external access slots are");
 		counting();
+
+		Sys.println("what the horizontal counter reads across a line");
+		counters();
 
 		Sys.println("what a transfer does with them");
 		dma();

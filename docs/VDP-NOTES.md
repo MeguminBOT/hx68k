@@ -249,6 +249,28 @@ experiences, and both pass with the expectations they already had. A VDP write t
 is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
 Mega Drive does.
 
+## The horizontal counter has a range for each width
+
+The counter is not a pixel count: it counts once every two pixels and it skips a stretch in the
+middle of the blanking, so what a program reads jumps once a line. Both widths have their own pair
+of endpoints, and only H40's was modelled:
+
+| | counts up to | resumes at | counts a line |
+| --- | --- | --- | --- |
+| H40 | B6h | E4h | 211 |
+| H32 | 93h | E9h | 171 |
+
+The vertical counter does the same once a frame, counting to EAh and resuming at E5h, which is 262
+lines of NTSC. `hx68k.test.SlotCheck` walks a whole line of master clocks for each width and holds
+the counter to starting at zero, ending at FFh, taking as many counts as the line has, and jumping
+exactly once, from and to the values above.
+
+**Still not modelled, and written here rather than guessed at.** The read prefetch, where the VDP
+fetches the word at the read address before a program asks for it and a data port read returns that
+buffer rather than memory; and what the vertical counter reads in interlace mode 2, where the line
+count needs nine bits and the counter has eight. The port access ROM passes every suite without
+either, so there is nothing here that would say whether a guess at them was right.
+
 ## The port access ROM, all fifteen suites
 
 Nemesis' VDP Port Access Test ROM reads **100% on both pages**, 9 of 9 by its own count on page one

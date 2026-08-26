@@ -24,6 +24,18 @@ final class Vdp {
 
 	static inline final DMA_COPY = 3;
 
+	public static inline final H_LAST_H40 = 0xB6;
+
+	public static inline final H_RESUME_H40 = 0xE4;
+
+	public static inline final H_LAST_H32 = 0x93;
+
+	public static inline final H_RESUME_H32 = 0xE9;
+
+	public static inline final V_LAST = 0xEA;
+
+	public static inline final V_RESUME = 0xE5;
+
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
 
@@ -379,10 +391,22 @@ final class Vdp {
 
 	public function readCounter():Int {
 		reads++;
-		final v = line <= 0xEA ? line : line - 0xEB + 0xE5;
-		final step = Std.int(dot * 211 / MASTER_PER_LINE);
-		final h = step <= 0xB6 ? step : step - 0xB7 + 0xE4;
-		return ((v & 0xFF) << 8) | (h & 0xFF);
+		final v = line <= V_LAST ? line : line - V_LAST - 1 + V_RESUME;
+		return ((v & 0xFF) << 8) | horizontal();
+	}
+
+	public function horizontal():Int {
+		final wide = (registers[12] & 0x81) == 0x81;
+		final last = wide ? H_LAST_H40 : H_LAST_H32;
+		final resume = wide ? H_RESUME_H40 : H_RESUME_H32;
+		final step = Std.int(dot * countsPerLine() / MASTER_PER_LINE);
+		return (step <= last ? step : step - last - 1 + resume) & 0xFF;
+	}
+
+	public inline function countsPerLine():Int {
+		return (registers[12] & 0x81) == 0x81
+			? H_LAST_H40 + 1 + 0x100 - H_RESUME_H40
+			: H_LAST_H32 + 1 + 0x100 - H_RESUME_H32;
 	}
 
 	public function planeBase():Int {
