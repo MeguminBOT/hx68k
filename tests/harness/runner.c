@@ -455,6 +455,19 @@ static const probe_t art_expected[] = {
 	{ "sprite list holds the sprite", 80 + 128 },
 	{ "the tune is in ROM",         1 },
 	{ "the tune converted to XGM",  0x248E },
+	/* the native tilemap, on plane B, which SGDK's boot leaves at 0xC000 as 64 by 32 cells.
+	   Every value below is worked out from the cell format and the plane geometry rather than
+	   read back from what md.Tilemap produced: a cell is
+	   priority:1 palette:2 flipV:1 flipH:1 index:11, and a plane address is
+	   base + (x + (y << 6)) * 2 */
+	{ "a cell written by index",    400 },
+	{ "a filled cell",              401 | (1 << 13) | 0x8000 | 0x1000 },
+	{ "the last cell of an odd width fill", 401 | (1 << 13) | 0x8000 | 0x1000 },
+	{ "an incrementing fill counts across rows", 300 + 4 + 2 },
+	{ "the address of a plane B cell", 0xC000 + ((3 + (5 << 6)) * 2) },
+	{ "the plane is 64 cells wide", 64 },
+	{ "pattern 1 of the tileset landed", 0x1111 },
+	{ "and so did pattern 15",      0xFFFF },
 };
 
 static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 5 + 105 },

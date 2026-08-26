@@ -5,6 +5,7 @@ import md.Fix16;
 import md.Joy;
 import md.Maths;
 import md.sgdk.Palette;
+import md.sgdk.Tilemap;
 import md.Plane;
 import md.Probe;
 import md.System;
@@ -27,8 +28,8 @@ class Main {
 		Vdp.setBackgroundColour(2);
 		Palette.setColour(1, COLOUR);
 
-		Vdp.setTile(Plane.A, TILE, 3, 4);
-		Vdp.fillTiles(Plane.A, FILL, 10, 10, 2, 2);
+		Tilemap.setCell(Plane.A, TILE, 3, 4);
+		Tilemap.fill(Plane.A, FILL, 10, 10, 2, 2);
 		Vdp.drawText("SDK", 1, 2);
 
 		words[0] = 0xA0A1;
@@ -47,8 +48,8 @@ class Main {
 
 		Probe.report(Vdp.register(7));
 		Probe.report(Palette.colour(1));
-		Probe.report(readVram(Vdp.planeAddress(Plane.A, 3, 4)));
-		Probe.report(readVram(Vdp.planeAddress(Plane.A, 11, 11)));
+		Probe.report(readVram(Tilemap.address(Plane.A, 3, 4)));
+		Probe.report(readVram(Tilemap.address(Plane.A, 11, 11)));
 		Probe.report(readVram(TARGET + 4));
 		Probe.report(Joy.read(0));
 		Probe.report(Joy.portType(0));

@@ -3,12 +3,18 @@ package;
 import md.Int16;
 import md.Native;
 import md.Palette;
+import md.Patterns;
+import md.Plane;
 import md.Probe;
 import md.System;
+import md.Vdp;
 import md.Transfer;
 import md.UInt16;
 import md.Vector;
+import md.Tilemap;
+import md.UInt32;
 import md.sgdk.Palette as SgdkPalette;
+import md.sgdk.Tilemap as SgdkTilemap;
 
 class Main {
 	static inline final CELLS = 256;
@@ -16,9 +22,24 @@ class Main {
 
 	static inline final LOADS = 64;
 
+	static inline final CELL_WRITES = 64;
+
+	static inline final FILLS = 8;
+
+	static inline final FILL_COLUMNS = 40;
+
+	static inline final FILL_ROWS = 28;
+
+	static inline final PATTERN_LOADS = 8;
+
+	static inline final PATTERNS = 16;
+
+	static inline final PATTERN_BASE = 600;
+
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
 	@:md.size(16) static var shades:Vector<UInt16>;
+	@:md.size(128) static var patternWords:Vector<UInt32>;
 
 	static var head:Entity;
 
@@ -28,6 +49,7 @@ class Main {
 
 		build();
 		System.disableInterrupts();
+		Vdp.setEnable(false);
 
 		Probe.mark();
 		final native = Native.arrayPass(seed);
@@ -46,7 +68,20 @@ class Main {
 		Probe.mark();
 		paletteInSgdk();
 		Probe.mark();
+		cellsInHaxe();
+		Probe.mark();
+		cellsInSgdk();
+		Probe.mark();
+		fillInHaxe();
+		Probe.mark();
+		fillInSgdk();
+		Probe.mark();
+		patternsInHaxe();
+		Probe.mark();
+		patternsInSgdk();
+		Probe.mark();
 
+		Vdp.setEnable(true);
 		System.enableInterrupts();
 
 		Probe.report(narrow);
@@ -77,6 +112,12 @@ class Main {
 			shade++;
 		}
 
+		var word = 0;
+		while (word < 128) {
+			patternWords[word] = (word << 24) | (word << 16) | (word << 8) | word;
+			word++;
+		}
+
 		var previous:Entity = null;
 		var made = 0;
 		while (made < ENTITIES) {
@@ -102,6 +143,54 @@ class Main {
 		var n = 0;
 		while (n < LOADS) {
 			SgdkPalette.setColours(0, shades, 16, Transfer.Cpu);
+			n++;
+		}
+	}
+
+	static function cellsInHaxe():Void {
+		var n = 0;
+		while (n < CELL_WRITES) {
+			Tilemap.setCell(Plane.A, n, n & 31, n >> 5);
+			n++;
+		}
+	}
+
+	static function cellsInSgdk():Void {
+		var n = 0;
+		while (n < CELL_WRITES) {
+			SgdkTilemap.setCell(Plane.A, n, n & 31, n >> 5);
+			n++;
+		}
+	}
+
+	static function fillInHaxe():Void {
+		var n = 0;
+		while (n < FILLS) {
+			Tilemap.fill(Plane.A, 1, 0, 0, FILL_COLUMNS, FILL_ROWS);
+			n++;
+		}
+	}
+
+	static function fillInSgdk():Void {
+		var n = 0;
+		while (n < FILLS) {
+			SgdkTilemap.fill(Plane.A, 1, 0, 0, FILL_COLUMNS, FILL_ROWS);
+			n++;
+		}
+	}
+
+	static function patternsInHaxe():Void {
+		var n = 0;
+		while (n < PATTERN_LOADS) {
+			Patterns.set(PATTERN_BASE, patternWords, PATTERNS);
+			n++;
+		}
+	}
+
+	static function patternsInSgdk():Void {
+		var n = 0;
+		while (n < PATTERN_LOADS) {
+			SgdkTilemap.setPatterns(patternWords, PATTERN_BASE, PATTERNS, Transfer.Cpu);
 			n++;
 		}
 	}

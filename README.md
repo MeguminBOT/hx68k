@@ -67,8 +67,10 @@ nothing here is ticked on intent.
 - [x] SGDK bindings that stand alone, and the resource pipeline behind them
 - [x] SGDK bindings that need something running first: the sprite engine, vertical-interrupt
       callbacks, and the XGM driver playing on the Z80 uploaded into the machine
-- [x] The palette, native Haxe over `md.hw`, at 362 cycles a sixteen colour load against SGDK's 707
-- [ ] The other four subsystems: tilemap, sprite engine, DMA queue, sound
+- [x] The palette, native Haxe over `md.hw`, at 327 cycles a sixteen colour load against SGDK's 684
+- [x] The tilemap and the patterns, native, at 164 cycles a cell against SGDK's 334, and faster on
+      fills and pattern uploads as well
+- [ ] The other three subsystems: sprite engine, DMA queue, sound
 - [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
       `rescomp` is not
 
