@@ -93,7 +93,7 @@ class Resources {
 				case _: {
 					native(entry.pos, () -> emit.binary(field.name, sys.io.File.getBytes(file),
 						number(arguments, 1, 2), number(arguments, 2, 2), number(arguments, 3, 0),
-						option(arguments, 4, "true") != "false"));
+						option(arguments, 4, "true") != "false", option(arguments, 5, "NONE")));
 					{line: "", type: "Binary", symbol: field.name};
 				}
 			}

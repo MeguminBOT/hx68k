@@ -504,6 +504,19 @@ static const probe_t art_expected[] = {
 	{ "its last real byte",         (99 * 7) & 0xFF },
 	{ "the first byte of the fill", 0xAA },
 	{ "and the last",               0xAA },
+	/* the same 112 bytes again, compressed by hxres at build time and expanded on the 68000 by
+	   md.Unpack. Both formats have to give the size back and reproduce the bytes exactly, so the
+	   values are the ones above rather than anything the unpacker reported. */
+	{ "aplib gives the size back",  112 },
+	{ "aplib first byte",           (0 * 7) & 0xFF },
+	{ "aplib fourth byte",          (3 * 7) & 0xFF },
+	{ "aplib last real byte",       (99 * 7) & 0xFF },
+	{ "aplib last byte of the fill", 0xAA },
+	{ "lz4w gives the size back",   112 },
+	{ "lz4w first byte",            (0 * 7) & 0xFF },
+	{ "lz4w fourth byte",           (3 * 7) & 0xFF },
+	{ "lz4w last real byte",        (99 * 7) & 0xFF },
+	{ "lz4w last byte of the fill", 0xAA },
 	/* the native tilemap, on plane B, which SGDK's boot leaves at 0xC000 as 64 by 32 cells.
 	   Every value below is worked out from the cell format and the plane geometry rather than
 	   read back from what md.Tilemap produced: a cell is

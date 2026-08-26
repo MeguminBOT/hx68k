@@ -126,8 +126,22 @@ class Emit {
 		return "hxres_frame" + pieces;
 	}
 
-	public function binary(symbol:String, data:Bytes, align:Int, sizeAlign:Int, fill:Int, far:Bool):Void {
-		final padded = evened(sized(data, sizeAlign, fill));
+	public function binary(symbol:String, data:Bytes, align:Int, sizeAlign:Int, fill:Int, far:Bool,
+			squeeze:String):Void {
+		final sizedData = sized(data, sizeAlign, fill);
+
+		final squeezed = switch (squeeze.toUpperCase()) {
+			case "NONE" | "0": sizedData;
+			case "APLIB" | "1": Aplib.pack(sizedData);
+			case "LZ4W" | "FAST" | "2": Lz4w.pack(sizedData);
+			case _: throw new haxe.Exception(squeeze + " is not a compression this knows. "
+				+ "Use NONE, APLIB or LZ4W.");
+		}
+
+		if (squeeze.toUpperCase() != "NONE" && squeeze != "0")
+			declarations.push("#define " + symbol + "_unpacked " + sizedData.length);
+
+		final padded = evened(squeezed);
 		final values = new Array<String>();
 		for (i in 0...padded.length) values.push("0x" + StringTools.hex(padded.get(i), 2));
 

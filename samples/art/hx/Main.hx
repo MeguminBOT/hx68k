@@ -11,7 +11,9 @@ import md.Probe;
 import md.SpriteTable;
 import md.sgdk.System;
 import md.Tilemap;
+import md.Unpack;
 import md.UInt16;
+import md.UInt32;
 import md.Vector;
 import md.sgdk.Sprite;
 import md.sgdk.Vdp;
@@ -21,6 +23,8 @@ class Main {
 	static inline final NATIVE = 400;
 
 	@:md.size(4) static var words:Vector<UInt16>;
+
+	@:md.size(32) static var scratch:Vector<UInt32>;
 
 	@:md.main
 	static function main():Void {
@@ -60,6 +64,22 @@ class Main {
 		Probe.report(Memory.readU8(bytes + 99));
 		Probe.report(Memory.readU8(bytes + 100));
 		Probe.report(Memory.readU8(bytes + 111));
+
+		final room = Memory.addressOf(scratch);
+
+		final grew = Unpack.aplib(Memory.addressOf(Art.squeezed), room);
+		Probe.report(grew);
+		Probe.report(Memory.readU8(room));
+		Probe.report(Memory.readU8(room + 3));
+		Probe.report(Memory.readU8(room + 99));
+		Probe.report(Memory.readU8(room + 111));
+
+		final widened = Unpack.lz4w(Memory.addressOf(Art.wordSqueezed), room);
+		Probe.report(widened);
+		Probe.report(Memory.readU8(room));
+		Probe.report(Memory.readU8(room + 3));
+		Probe.report(Memory.readU8(room + 99));
+		Probe.report(Memory.readU8(room + 111));
 		Probe.report(Tilemap.cell(Plane.B, 3, 5));
 		Probe.report(Tilemap.cell(Plane.B, 10, 3));
 		Probe.report(Tilemap.cell(Plane.B, 14, 4));
