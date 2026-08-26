@@ -68,6 +68,9 @@ class Check {
 		Sys.println("what rescomp makes of the same binary data");
 		binaries(root, scratch, jar);
 
+		Sys.println("what xgmtool makes of the same VGM");
+		tunes(root, scratch);
+
 		Sys.println("what aplib makes of the same bytes");
 		packing(root, scratch);
 
@@ -161,6 +164,65 @@ class Check {
 			final said = laid.map(r -> r.x + "," + r.y + "," + r.width + "," + r.height).join(" ");
 			ok("a set of " + count + " cells iterates as a Java HashSet does", said == ORDERS[count - 1],
 				"got " + said + ", Java gives " + ORDERS[count - 1]);
+		}
+	}
+
+	static function tunes(root:String, scratch:String):Void {
+		final tool = root + "/vendor/SGDK/bin/xgmtool.exe";
+
+		if (!FileSystem.exists(tool)) {
+			Sys.println("  xgmtool comparison skipped: " + tool + " is not there");
+			return;
+		}
+
+		for (each in hxres.music.Corpus.all()) {
+			final stem = scratch + "/" + StringTools.replace(each.name, " ", "_");
+			File.saveBytes(stem + ".vgm", each.data);
+
+			if (FileSystem.exists(stem + ".ref.vgm")) FileSystem.deleteFile(stem + ".ref.vgm");
+			final made = new sys.io.Process(tool, [stem + ".vgm", stem + ".ref.vgm", "-s"]);
+			final said = made.stdout.readAll().toString() + made.stderr.readAll().toString();
+			final code = made.exitCode();
+			made.close();
+
+			if (code != 0 || !FileSystem.exists(stem + ".ref.vgm")) {
+				ok(each.name + " runs through xgmtool", false, "it exited " + code + "
+" + said);
+				continue;
+			}
+
+			final wanted = File.getBytes(stem + ".ref.vgm");
+			var ours:haxe.io.Bytes = null;
+
+			try {
+				final tune = new hxres.music.Vgm(each.data, 0);
+				tune.convertWaits();
+				tune.cleanCommands();
+				tune.cleanSamples();
+				tune.fixKeyCommands();
+				ours = tune.bytes();
+			} catch (e:Dynamic) {
+				ok(each.name + " converts", false, Std.string(e));
+				continue;
+			}
+
+			if (ours.length != wanted.length) {
+				ok(each.name + " is the size xgmtool makes it", false,
+					"xgmtool gives " + wanted.length + " bytes, this gives " + ours.length);
+				continue;
+			}
+
+			var first:Int = -1;
+			for (i in 0...wanted.length) {
+				if (ours.get(i) != wanted.get(i)) {
+					first = i;
+					break;
+				}
+			}
+
+			ok(each.name + " matches xgmtool byte for byte", first < 0,
+				"byte " + first + " is " + hex(ours.get(first)) + " where xgmtool has "
+				+ hex(wanted.get(first)));
 		}
 	}
 
