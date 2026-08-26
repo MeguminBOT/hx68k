@@ -169,6 +169,7 @@ class Savestate {
 
 	static function readVdp(input:BytesInput, vdp:Vdp):Void {
 		readVector(input, vdp.registers);
+		vdp.decode();
 		readVector(input, vdp.cram);
 		readVector(input, vdp.vsram);
 		input.readBytes(vdp.vram, 0, vdp.vram.length);

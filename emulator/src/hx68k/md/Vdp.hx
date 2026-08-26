@@ -64,6 +64,14 @@ final class Vdp {
 	public var spriteOverflow:Bool = false;
 	public var spriteCollision:Bool = false;
 
+	public var wide(default, null):Bool = false;
+	public var interlace(default, null):Int = 0;
+
+	var showing:Bool = false;
+	var slots:Int = SLOTS_H32;
+	var vintOn:Bool = false;
+	var hintOn:Bool = false;
+
 	final memory:Memory;
 
 	var dot:Int = 0;
@@ -130,6 +138,7 @@ final class Vdp {
 		}
 		spriteOverflow = false;
 		spriteCollision = false;
+		decode();
 		fifoHead = 0;
 		queued = 0;
 		stalledFor = 0;
@@ -167,16 +176,26 @@ final class Vdp {
 		}
 	}
 
-	inline function slotsPerLine():Int {
-		return (registers[12] & 0x81) == 0x81 ? SLOTS_H40 : SLOTS_H32;
+	function decode():Void {
+		wide = (registers[12] & 0x81) == 0x81;
+		slots = wide ? SLOTS_H40 : SLOTS_H32;
+		showing = (registers[1] & 0x40) != 0;
+		vintOn = (registers[1] & 0x20) != 0;
+		hintOn = (registers[0] & 0x10) != 0;
+
+		interlace = switch (registers[12] & 0x06) {
+			case 0x02: 1;
+			case 0x06: 2;
+			case _: 0;
+		}
 	}
 
 	inline function blanked():Bool {
-		return (registers[1] & 0x40) == 0 || line >= ACTIVE_LINES;
+		return !showing || line >= ACTIVE_LINES;
 	}
 
 	public function slotIsExternal(at:Int):Bool {
-		return externalSlot(at, (registers[12] & 0x81) == 0x81, blanked());
+		return externalSlot(at, wide, blanked());
 	}
 
 	public static function externalSlot(at:Int, wide:Bool, open:Bool):Bool {
@@ -196,7 +215,7 @@ final class Vdp {
 	}
 
 	function drain():Void {
-		final total = slotsPerLine();
+		final total = slots;
 		final reached = Std.int(dot * total / MASTER_PER_LINE);
 		final now = reached > total ? total : reached;
 
@@ -278,7 +297,7 @@ final class Vdp {
 	}
 
 	function until():Int {
-		final total = slotsPerLine();
+		final total = slots;
 		final last = served + total * 2;
 		var at = served;
 
@@ -352,7 +371,7 @@ final class Vdp {
 		lineCarried[line] = atCarried;
 		lineStalled[line] = atStalled;
 		lineDeepest[line] = atDeepest;
-		lineShape[line] = ((registers[12] & 0x81) == 0x81 ? 2 : 0) | (blanked() ? 1 : 0);
+		lineShape[line] = (wide ? 2 : 0) | (blanked() ? 1 : 0);
 
 		atWrote = 0;
 		atLanded = 0;
@@ -370,12 +389,12 @@ final class Vdp {
 	}
 
 	public inline function interlaced():Bool {
-		return (registers[12] & 0x06) == 0x06;
+		return interlace == 2;
 	}
 
 	public function irqLevel():Int {
-		if (vint && (registers[1] & 0x20) != 0) return VINT_LEVEL;
-		if (hint && (registers[0] & 0x10) != 0) return HINT_LEVEL;
+		if (vint && vintOn) return VINT_LEVEL;
+		if (hint && hintOn) return HINT_LEVEL;
 		return 0;
 	}
 
@@ -387,6 +406,7 @@ final class Vdp {
 		if (!pending && (value & 0xC000) == 0x8000) {
 			final index = (value >> 8) & 0x1F;
 			if (index < 11 || (registers[1] & 0x04) != 0) registers[index] = value & 0xFF;
+			if (index == 0 || index == 1 || index == 12) decode();
 			code = code & 0x3C;
 			return;
 		}
@@ -458,7 +478,6 @@ final class Vdp {
 	}
 
 	public function horizontal():Int {
-		final wide = (registers[12] & 0x81) == 0x81;
 		final last = wide ? H_LAST_H40 : H_LAST_H32;
 		final resume = wide ? H_RESUME_H40 : H_RESUME_H32;
 		final step = Std.int(dot * countsPerLine() / MASTER_PER_LINE);
@@ -466,7 +485,7 @@ final class Vdp {
 	}
 
 	public inline function countsPerLine():Int {
-		return (registers[12] & 0x81) == 0x81
+		return wide
 			? H_LAST_H40 + 1 + 0x100 - H_RESUME_H40
 			: H_LAST_H32 + 1 + 0x100 - H_RESUME_H32;
 	}
