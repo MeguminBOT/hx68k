@@ -604,6 +604,54 @@ class SlotCheck {
 			interruptsAt(DISPLAY_ON | TALL | VINT_ON), Vdp.LINES_V30);
 	}
 
+	static function walked(vdp:Vdp):Array<Int> {
+		final seen:Array<Int> = [];
+		var previous = -1;
+
+		for (_ in 0...Vdp.MASTER_PER_LINE * vdp.lines) {
+			final now = (vdp.readCounter() >> 8) & 0xFF;
+			if (now != previous) seen.push(now);
+			previous = now;
+			vdp.tick(1);
+		}
+
+		return seen;
+	}
+
+	static function verticalPal():Void {
+		final vdp = ready(H40, DISPLAY_ON);
+		vdp.standard(true);
+
+		final seen = walked(vdp);
+
+		same("a PAL frame counts as many times as it has lines", seen.length, Vdp.LINES_PAL);
+		same("starting at zero", seen[0], 0);
+		same("and ending at 255", seen[seen.length - 1], 0xFF);
+
+		same("its counter runs past 255 and round again, so the last before the long jump is 2",
+			seen[258], Vdp.V_LAST_PAL & 0xFF);
+		same("and it comes back at CAh", seen[259], Vdp.V_RESUME_PAL & 0xFF);
+	}
+
+	static function interlacedCounter():Void {
+		final vdp = ready(H40, DISPLAY_ON);
+		set(vdp, 12, H40 | 0x06);
+
+		final seen = walked(vdp);
+
+		var odd = 0;
+		var even = 0;
+		for (value in seen) if ((value & 1) != 0) odd++ else even++;
+
+		same("interlace leaves the counter with as many readings as before", seen.length,
+			Vdp.LINES_NTSC);
+		same("the lower half of the count reads back doubled, and so even", even, 128);
+		same("and the upper half odd, since the ninth bit it lost lands in bit 0",
+			odd, Vdp.LINES_NTSC - 128);
+		same("the first reading is still zero", seen[0], 0);
+		same("and the last still 255", seen[seen.length - 1], 0xFF);
+	}
+
 	static function vertical():Void {
 		final vdp = ready(H40, DISPLAY_ON);
 
@@ -633,7 +681,7 @@ class SlotCheck {
 
 		same("counting up with one jump in it", jumps, 1);
 		same("from " + Vdp.V_LAST, from, Vdp.V_LAST);
-		same("to " + Vdp.V_RESUME, to, Vdp.V_RESUME);
+		same("to " + (vdp.vResume & 0xFF), to, vdp.vResume & 0xFF);
 	}
 
 	static function counters():Void {
@@ -671,6 +719,8 @@ class SlotCheck {
 		heights();
 
 		Sys.println("what the counters read across a line and a frame");
+		verticalPal();
+		interlacedCounter();
 		counters();
 
 		Sys.println("what a transfer does with them");

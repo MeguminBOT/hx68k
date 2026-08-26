@@ -36,9 +36,12 @@ final class Vdp {
 
 	public static inline final H_RESUME_H32 = 0xE9;
 
-	public static inline final V_LAST = 0xEA;
+	public static inline final V_LAST = 0x0EA;
+	public static inline final V_RESUME_NINE = 0x1E5;
 
-	public static inline final V_RESUME = 0xE5;
+	public static inline final V_LAST_PAL = 0x102;
+	public static inline final V_RESUME_PAL = 0x1CA;
+
 
 	public static inline final VINT_LEVEL = 6;
 	public static inline final HINT_LEVEL = 4;
@@ -79,6 +82,8 @@ final class Vdp {
 	public var activeLines(default, null):Int = LINES_V28;
 
 	public var pal(default, null):Bool = false;
+	public var vLast(default, null):Int = V_LAST;
+	public var vResume(default, null):Int = V_RESUME_NINE;
 	public var lines(default, null):Int = LINES_NTSC;
 	public var masterHz(default, null):Int = MASTER_HZ;
 
@@ -416,6 +421,8 @@ final class Vdp {
 		pal = wanted;
 		lines = wanted ? LINES_PAL : LINES_NTSC;
 		masterHz = wanted ? MASTER_HZ_PAL : MASTER_HZ;
+		vLast = wanted ? V_LAST_PAL : V_LAST;
+		vResume = wanted ? V_RESUME_PAL : V_RESUME_NINE;
 	}
 
 	public inline function doubled():Bool {
@@ -524,8 +531,9 @@ final class Vdp {
 	}
 
 	function counter():Int {
-		final v = line <= V_LAST ? line : line - V_LAST - 1 + V_RESUME;
-		return ((v & 0xFF) << 8) | horizontal();
+		final counted = (line <= vLast ? line : line - vLast - 1 + vResume) & 0xFF;
+		final eight = interlace != 0 ? ((counted << 1) & 0xFE) | ((counted >> 7) & 1) : counted;
+		return (eight << 8) | horizontal();
 	}
 
 	public function horizontal():Int {

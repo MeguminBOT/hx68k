@@ -418,6 +418,39 @@ The port access ROM passes all fifteen suites through the reordering, which is t
 be true: its first suite is the FIFO buffer size and its third is a transfer through the FIFO, and
 what a CRAM or VSRAM read exposes depends on which slot the next write will use.
 
+## The vertical counter in PAL, and under interlace
+
+**PAL has its own endpoints, and the NTSC pair is provably wrong for it rather than merely
+unchecked.** A counter walk over a 313 line frame with NTSC's endpoints ends at 50 instead of 255,
+which is not a matter of opinion. The pair here is **102h last, 1CAh resume**, inferred rather than
+read off a document, and this is the reasoning:
+
+- the frame is 313 lines, established from the vertical blanking table two sections up
+- a walk has to start at 0, end at FFh, and jump exactly once, which is what the NTSC pair is held
+  to and what a counter that reads a 9 bit position through 8 bits does
+- (102h + 1) + (200h - 1CAh) is 259 + 54, which is 313
+- SGDK's blank rollback adjustment tests the PAL counter against CAh, where it tests NTSC's against
+  DFh, a little below its E5h resume. CAh is the resume above, read back the same way
+
+That is corroboration and arithmetic, not a measurement, so it is marked inferred. What it produces
+is a counter that reads 0 to FFh, then 0, 1, 2 again, then CAh to FFh: 313 readings, the last of
+them FFh.
+
+**Under interlace the counter loses its lowest bit and gains the ninth.** Sega's overview: "During
+interlace mode, the LSB of the vertical position is replaced by the new MSB." The new MSB exists
+because interlace doubles the vertical position, a field covering every other line of a frame twice
+as tall, so the position needs nine bits where the counter has eight.
+
+The first attempt here got it wrong in a way worth recording, because the mistake is easy: this
+model already carries a ninth bit, the one that tells the blanking tail from the visible part, and
+that is not the bit the sentence means. Taking that one gave 132 readings a frame where there should
+be 262. The right position is the count doubled, so the reading is `((c << 1) & FEh) | (c >> 7)`,
+which is a bijection on 0 to 255: the lower half of the count comes back doubled and even, the upper
+half comes back odd. 262 readings, first 0, last FFh, exactly as without interlace.
+
+Sonic 2's two player mode is interlace mode 2 and its frames at 1302 and 2000 are unchanged by it,
+so nothing it draws depends on reading the counter there.
+
 ## The two television standards, and how 313 was settled
 
 | | lines a frame | processor clock | master clock | frames a second |
