@@ -481,6 +481,10 @@ echo "--- the frontend layout model, held to the 1280x720 floor ---"
 "$GATE" layout
 
 echo ""
+echo "--- the SN76489, driven through its one port with nothing else in the machine ---"
+"$GATE" psg
+
+echo ""
 echo "--- the VDP's access slots and its write FIFO, with no ROM under them ---"
 "$GATE" slot
 

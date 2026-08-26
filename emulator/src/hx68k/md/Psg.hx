@@ -6,7 +6,7 @@ import haxe.ds.Vector;
 final class Psg {
 	public static inline final CLOCK = 3579545;
 
-	static inline final DIVIDER = 16;
+	public static inline final DIVIDER = 16;
 
 	static inline final WHITE = 0x0009;
 	static inline final PERIODIC = 0x0001;
@@ -25,14 +25,14 @@ final class Psg {
 
 	var latched:Int = 0;
 	var noise:Int = 0;
-	var shift:Int = 0x8000;
+	public var shift(default, null):Int = 0x8000;
 	var spare:Int = 0;
 	var total:Int = 0;
 	var counted:Int = 0;
 
 	public function new() {
 		for (i in 0...16) {
-			volumes[i] = i == 15 ? 0 : Std.int(LOUDEST * Math.pow(10, -0.1 * i));
+			volumes[i] = i == 15 ? 0 : Math.round(LOUDEST * Math.pow(10, -0.1 * i));
 		}
 
 		reset();
@@ -94,8 +94,8 @@ final class Psg {
 		for (channel in 0...3) {
 			if (--counter[channel] > 0) continue;
 
-			counter[channel] = tone[channel] < 2 ? 1 : tone[channel];
-			if (tone[channel] >= 2) output[channel] = output[channel] > 0 ? 0 : 1;
+			counter[channel] = tone[channel] < 1 ? 1 : tone[channel];
+			if (tone[channel] >= 1) output[channel] = output[channel] > 0 ? 0 : 1;
 			else output[channel] = 1;
 		}
 
@@ -108,7 +108,7 @@ final class Psg {
 			case 0: 0x10;
 			case 1: 0x20;
 			case 2: 0x40;
-			case _: tone[2] < 2 ? 1 : tone[2];
+			case _: tone[2] < 1 ? 1 : tone[2];
 		}
 
 		final feedback = (noise & 0x04) != 0 ? WHITE : PERIODIC;

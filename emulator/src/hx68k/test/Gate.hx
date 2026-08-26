@@ -20,6 +20,7 @@ class Gate {
 			case "map": hx68k.map.MapTool.run(rest);
 			case "opn": OpnCheck.run(rest);
 			case "pattern": PatternCheck.run(rest);
+			case "psg": PsgCheck.run();
 			case "render": RenderCheck.run(rest);
 			case "rom": hx68k.md.RomCheck.run(rest);
 			case "settings": SettingsCheck.run(rest);
@@ -40,6 +41,6 @@ class Gate {
 	static function usage():Void {
 		Sys.println("usage: gate <program> [arguments]");
 		Sys.println("  bench debug disassembly fifo game layout map opn pattern render");
-		Sys.println("  rom settings slot sound sst state view widget z80");
+		Sys.println("  psg rom settings slot sound sst state view widget z80");
 	}
 }
