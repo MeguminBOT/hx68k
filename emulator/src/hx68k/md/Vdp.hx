@@ -72,6 +72,8 @@ final class Vdp {
 	public var spriteOverflow:Bool = false;
 	public var spriteCollision:Bool = false;
 
+	public var prefetched(default, null):Int = 0;
+
 	public var latched(default, null):Bool = false;
 	public var external:Bool = false;
 
@@ -163,6 +165,7 @@ final class Vdp {
 		latched = false;
 		external = false;
 		held = 0;
+		prefetched = 0;
 		decode();
 		fifoHead = 0;
 		queued = 0;
@@ -472,6 +475,7 @@ final class Vdp {
 		address = (address & 0x3FFF) | ((value & 0x03) << 14);
 		code = (code & 0x03) | ((value >> 2) & 0x3C);
 		pending = false;
+		if ((code & 0x01) == 0) prefetch();
 		if ((code & 0x20) != 0) startDma();
 	}
 
@@ -491,15 +495,30 @@ final class Vdp {
 	public function readData():Int {
 		reads++;
 		pending = false;
+
 		final value = switch (code & 0x0F) {
-			case 0x00: readVram(address);
-			case 0x0C: (exposed() & 0xFF00) | vram.get((address ^ 1) & 0xFFFF);
-			case 0x08: (cram[(address >> 1) & 63] & 0x0EEE) | (exposed() & 0xF111);
-			case 0x04: (vsram[(address >> 1) % vsram.length] & 0x07FF) | (exposed() & 0xF800);
+			case 0x00: prefetched;
+			case 0x0C: (exposed() & 0xFF00) | prefetched;
+			case 0x08: prefetched | (exposed() & 0xF111);
+			case 0x04: prefetched | (exposed() & 0xF800);
 			case _: 0;
 		}
+
 		address = (address + registers[15]) & 0xFFFF;
+		prefetch();
 		return value;
+	}
+
+	function prefetch():Void {
+		while (queued > 0) pop();
+
+		prefetched = switch (code & 0x0F) {
+			case 0x00: readVram(address);
+			case 0x0C: vram.get((address ^ 1) & 0xFFFF);
+			case 0x08: cram[(address >> 1) & 63] & 0x0EEE;
+			case 0x04: vsram[(address >> 1) % vsram.length] & 0x07FF;
+			case _: prefetched;
+		}
 	}
 
 	inline function exposed():Int {

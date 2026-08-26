@@ -467,6 +467,48 @@ class SlotCheck {
 		return open;
 	}
 
+	static function reading(vdp:Vdp, at:Int):Void {
+		vdp.writeControl(at & 0x3FFF);
+		vdp.writeControl((at >> 14) & 0x03);
+	}
+
+	static function writingTo(vdp:Vdp, at:Int):Void {
+		vdp.writeControl(0x4000 | (at & 0x3FFF));
+		vdp.writeControl((at >> 14) & 0x03);
+	}
+
+	static function prefetching():Void {
+		final vdp = ready(H40, DISPLAY_OFF);
+
+		writingTo(vdp, 0x1000);
+		vdp.writeData(0xAAAA);
+		vdp.writeData(0xBBBB);
+		for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+
+		reading(vdp, 0x1000);
+		same("a read comes back with the word at the address it was set to",
+			vdp.readData(), 0xAAAA);
+		same("and the next with the one after it", vdp.readData(), 0xBBBB);
+
+		reading(vdp, 0x1000);
+		writingTo(vdp, 0x1000);
+		vdp.writeData(0xCCCC);
+		for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+		reading(vdp, 0x1000);
+		same("a word written after the read was set up is seen by a read set up again",
+			vdp.readData(), 0xCCCC);
+
+		final queued = ready(H40, DISPLAY_OFF);
+		writingTo(queued, 0x3000);
+		queued.writeData(0x4444);
+		ok("a word can still be sitting in the FIFO", queued.queued > 0, "the queue was empty");
+
+		reading(queued, 0x3000);
+		same("and setting a read drains it first, so the read sees it",
+			queued.readData(), 0x4444);
+		same("which leaves the queue empty", queued.queued, 0);
+	}
+
 	static function latching():Void {
 		final free = ready(H40, DISPLAY_ON);
 		final first = free.readCounter();
@@ -703,6 +745,9 @@ class SlotCheck {
 		standards();
 
 		waiting();
+
+		Sys.println("what a read of the data port comes back with");
+		prefetching();
 
 		Sys.println("what stops the HV counter and what the trigger raises");
 		latching();

@@ -418,6 +418,27 @@ The port access ROM passes all fifteen suites through the reordering, which is t
 be true: its first suite is the FIFO buffer size and its third is a transfer through the FIFO, and
 what a CRAM or VSRAM read exposes depends on which slot the next write will use.
 
+## A read drains the write FIFO before it happens
+
+**The port access ROM does discriminate on this, and an earlier note here said it did not.** Adding
+a read prefetch that took its value while writes were still queued dropped page two's third suite
+from 100% to 81.5%, and the page from 100% to 96.6%. Draining the queue first puts all fifteen
+suites back at 100%.
+
+So the rule is the documented one: the FIFO must be empty before a read can be performed. Setting a
+read command commits whatever is still queued, and only then does the VDP fetch. A word written and
+still sitting in the queue is therefore seen by a read set up immediately afterwards, which is what
+four checks in `SlotCheck` hold, and taking the drain out fails two of them as well as the ROM.
+
+**The prefetch buffer itself is not observable here, and that is said plainly rather than left to be
+assumed.** The VDP fetches the word at the read address when the command is set and a data port read
+returns that buffer, which is the documented mechanism and is what this now does. But a mutation
+that removes it entirely, reading memory live instead, passes every check in this repository and all
+fifteen suites of the ROM. The reason is that the only way to change memory between setting a read
+and performing it is another control write, and that replaces the read command. So the buffer is
+modelled because the documentation describes it, not because anything here has caught it, and the
+sentence a later reader needs is: do not treat it as verified.
+
 ## The vertical counter in PAL, and under interlace
 
 **PAL has its own endpoints, and the NTSC pair is provably wrong for it rather than merely
@@ -544,11 +565,9 @@ whole frame of them for the vertical one, holding each counter to starting at ze
 taking as many counts as the line or the frame has, and jumping exactly once, from and to the values
 above. Moving the vertical resume one count fails four of those.
 
-**Still not modelled, and written here rather than guessed at.** The read prefetch, where the VDP
-fetches the word at the read address before a program asks for it and a data port read returns that
-buffer rather than memory; and what the vertical counter reads in interlace mode 2, where the line
-count needs nine bits and the counter has eight. The port access ROM passes every suite without
-either, so there is nothing here that would say whether a guess at them was right.
+**Both of the things this paragraph used to list as unmodelled are now in**, and one of its claims
+was wrong: the port access ROM does not pass every suite regardless of the read prefetch. See the
+sections above on the read draining the FIFO and on the counter under interlace.
 
 ## The port access ROM, all fifteen suites
 
