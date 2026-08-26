@@ -404,7 +404,7 @@ final class Vdp {
 		masterHz = wanted ? MASTER_HZ_PAL : MASTER_HZ;
 	}
 
-	public inline function interlaced():Bool {
+	public inline function doubled():Bool {
 		return interlace == 2;
 	}
 
@@ -478,7 +478,7 @@ final class Vdp {
 		if (vint) value |= 0x0080;
 		if (queued == FIFO_DEPTH) value |= 0x0100;
 		if (dmaMode != 0) value |= 0x0002;
-		if (interlaced() && (frame & 1) != 0) value |= 0x0010;
+		if (interlace != 0 && (frame & 1) != 0) value |= 0x0010;
 		if (spriteOverflow) value |= 0x0040;
 		if (spriteCollision) value |= 0x0020;
 

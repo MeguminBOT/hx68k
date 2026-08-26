@@ -388,6 +388,41 @@ class SlotCheck {
 		same("where NTSC V28 is 36", Vdp.LINES_NTSC - Vdp.LINES_V28 - 2, 36);
 	}
 
+	static function sameText(what:String, got:String, wanted:String):Void {
+		ok(what, got == wanted, "wanted " + wanted + ", got " + got);
+	}
+
+	static function fieldBit(mode:Int):String {
+		final vdp = ready(H40, DISPLAY_ON);
+		set(vdp, 12, H40 | mode);
+
+		var out = "";
+
+		for (_ in 0...4) {
+			out += (vdp.readStatus() & 0x0010) != 0 ? "1" : "0";
+			final was = vdp.frame;
+			while (vdp.frame == was) vdp.tick(8);
+		}
+
+		return out;
+	}
+
+	static function shaped(mode:Int):Vdp {
+		final vdp = ready(H40, DISPLAY_ON);
+		set(vdp, 12, H40 | mode);
+		return vdp;
+	}
+
+	static function interlacing():Void {
+		sameText("a progressive frame never reports an odd field", fieldBit(0x00), "0000");
+		sameText("interlace mode 1 reports every other one", fieldBit(0x02), "0101");
+		sameText("and so does mode 2", fieldBit(0x06), "0101");
+
+		ok("mode 1 doubles nothing", !shaped(0x02).doubled(), "it doubled");
+		ok("and mode 2 doubles every vertical measurement", shaped(0x06).doubled(), "it did not");
+		ok("a progressive frame doubles nothing either", !shaped(0x00).doubled(), "it doubled");
+	}
+
 	static function headed(field:String):Bool {
 		final rom = haxe.io.Bytes.alloc(Machine.REGION_AT + Machine.REGION_LENGTH);
 		for (i in 0...Machine.REGION_LENGTH) {
@@ -469,6 +504,9 @@ class SlotCheck {
 
 		Sys.println("which television standard the machine is on");
 		standards();
+
+		Sys.println("which of the three interlace settings is running");
+		interlacing();
 
 		Sys.println("what a cartridge header says the standard is");
 		headers();

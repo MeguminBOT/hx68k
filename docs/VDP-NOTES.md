@@ -390,6 +390,29 @@ of the VDP kept turning at 224, so a program setting V30 got its vertical interr
 early and a blanking flag that disagreed with its own picture. Four checks in `SlotCheck` walk to
 the line where the flag first sets and where the interrupt first fires, in both heights.
 
+## The three interlace settings, and why only one of them changes the picture
+
+Register 12 holds a three-way setting rather than a flag: bits 2 and 1 are 00 for progressive, 01
+for interlace mode 1, 11 for interlace mode 2. 10 is prohibited and is treated as progressive here.
+
+**Mode 2 doubles every vertical measurement**: 8 by 16 patterns of 64 bytes, a plane cell covering
+sixteen of the doubled lines, VSRAM read in doubled units, sprites biased by 256 and sized in
+doubled lines. **Mode 1 doubles nothing.** It renders exactly what a progressive frame renders and
+differs only in that the two fields are offset by half a scanline on the television, which a
+framebuffer does not have. So in this emulator the whole of mode 1 is one thing: the odd field is
+reported in status bit 4, alternating with the frame, where before that bit only moved in mode 2.
+
+That is why `Vdp.doubled()` is named for what it asks rather than being called `interlaced()`. Two
+questions were being answered by one boolean: whether the fields alternate, which both modes do,
+and whether the geometry doubles, which only mode 2 does.
+
+**Still not modelled, with the documentation for it written down here rather than guessed at.** Sega's
+overview says that during interlace "the LSB of the vertical position is replaced by the new MSB",
+the counter having eight bits where interlace needs nine. Reproducing that needs the doubled
+vertical position as a counter, and this model keeps `line` undoubled and doubles inside the
+renderer instead, so there is no ninth bit to promote. Nothing here reads the vertical counter
+during interlace, so there is nothing that would say whether a guess at it was right.
+
 ## The horizontal counter has a range for each width
 
 The counter is not a pixel count: it counts once every two pixels and it skips a stretch in the

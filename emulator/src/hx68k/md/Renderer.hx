@@ -33,7 +33,7 @@ final class Renderer {
 
 	public function line(vdp:Vdp, y:Int):Void {
 		if (mixed != vdp.colours) mix(vdp);
-		interlaced = vdp.interlaced();
+		interlaced = vdp.doubled();
 		field = interlaced ? vdp.frame & 1 : 0;
 		width = wide(vdp) ? 320 : 256;
 		height = vdp.activeLines;
