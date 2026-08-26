@@ -7,18 +7,30 @@ LOG="$HERE/.build.log"
 
 mkdir -p "$HERE"
 
+# a compiler warning on code this repository wrote is a failure rather than something to read past.
+# A local shadowing a generated resource symbol compiles to 's32 x = (s32)x;', which gcc reports as
+# -Wuninitialized and which nothing else notices until an observable comes back wrong.
+# Musashi is vendored and is compiled as it arrives, so its own warnings are not ours to answer for.
 build() {
 	local name="$1"
 	local script="$2"
 	shift 2
 	printf "building %-16s" "$name"
-	if "$script" "$@" > "$LOG" 2>&1; then
-		echo "ok"
-	else
+	if ! "$script" "$@" > "$LOG" 2>&1; then
 		echo "FAILED"
 		cat "$LOG"
 		exit 1
 	fi
+
+	local ours
+	ours="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" | grep "warning:" | grep -v "/\.build/musashi/" || true)"
+	if [ -n "$ours" ]; then
+		echo "FAILED"
+		echo "  the build warned, and a warning here is a failure:"
+		echo "$ours" | sed 's/^/  /' | head -20
+		exit 1
+	fi
+	echo "ok"
 }
 
 codegen() {
