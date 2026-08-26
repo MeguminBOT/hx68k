@@ -81,7 +81,7 @@ class Usage implements View {
 		out.push(Row.said("the z80, whose share is what decides how fast a sound driver runs", Label));
 		out.push(new Row([
 			label("states a frame"), value(commas(statesPerFrame)),
-			label("of"), value(commas(Std.int(Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC / 15)))
+			label("of"), value(commas(Std.int(Vdp.MASTER_PER_LINE * machine.vdp.lines / Machine.MASTER_PER_Z80)))
 		]));
 		out.push(new Row([
 			label("held in reset"), value(commas(machine.stoppedFor)),
@@ -119,8 +119,8 @@ class Usage implements View {
 		lastStates = machine.z80Bus.states;
 	}
 
-	static inline function perFrame():Int {
-		return Std.int(hx68k.md.Vdp.MASTER_PER_LINE * hx68k.md.Vdp.LINES_NTSC / Machine.MASTER_PER_68K);
+	inline function perFrame():Int {
+		return Std.int(hx68k.md.Vdp.MASTER_PER_LINE * machine.vdp.lines / Machine.MASTER_PER_68K);
 	}
 
 	function memory(what:String, taken:Int, whole:Int):Row {

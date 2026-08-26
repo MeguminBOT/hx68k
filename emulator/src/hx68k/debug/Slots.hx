@@ -25,6 +25,7 @@ typedef Spend = {
 	final busiest:Int;
 	final overrun:Int;
 	final overspent:Int;
+	final frame:Int;
 }
 
 class Slots {
@@ -55,7 +56,7 @@ class Slots {
 		var overrun = 0;
 		var overspent = 0;
 
-		for (line in 0...Vdp.LINES_NTSC) {
+		for (line in 0...vdp.lines) {
 			final shape = vdp.lineShape[line];
 			final blanked = (shape & 1) != 0;
 			final wide = (shape & 2) != 0;
@@ -93,7 +94,8 @@ class Slots {
 			deepest: deepest,
 			busiest: busiest,
 			overrun: overrun,
-			overspent: overspent
+			overspent: overspent,
+			frame: Vdp.MASTER_PER_LINE * vdp.lines
 		};
 	}
 
@@ -140,7 +142,7 @@ class Slots {
 		out.push("a fill or a copy moved " + spend.carried + " bytes, and the fifo got "
 			+ spend.deepest + " of " + Vdp.FIFO_DEPTH + " deep");
 		out.push("the 68000 waited " + spend.stalled + " master clocks on a full fifo, which is "
-			+ share(spend.stalled, Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC) + " of the frame");
+			+ share(spend.stalled, spend.frame) + " of the frame");
 		out.push("line " + busiest.line + " was the busiest, spending "
 			+ (busiest.landed + busiest.carried) + " of its " + busiest.open + " slots");
 		out.push(spend.overspent == 0

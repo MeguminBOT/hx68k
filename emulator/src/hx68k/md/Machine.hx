@@ -52,9 +52,31 @@ class Machine implements Bus implements Memory {
 		for (i in 0...buttons.length) buttons[i] = 0;
 	}
 
+	public static inline final REGION_AT = 0x1F0;
+	public static inline final REGION_LENGTH = 16;
+
 	public function load(path:String):Void {
 		rom = sys.io.File.getBytes(path);
+		vdp.standard(palByHeader(rom));
+		sound.standard(vdp.masterHz);
 		reset();
+	}
+
+	public static function palByHeader(rom:Bytes):Bool {
+		if (rom.length < REGION_AT + REGION_LENGTH) return false;
+
+		var europe = false;
+		var elsewhere = false;
+
+		for (i in 0...REGION_LENGTH) {
+			switch (rom.get(REGION_AT + i)) {
+				case "E".code, "e".code, "8".code: europe = true;
+				case "J".code, "j".code, "U".code, "u".code, "1".code, "4".code: elsewhere = true;
+				case _:
+			}
+		}
+
+		return europe && !elsewhere;
 	}
 
 	public function reset():Void {
@@ -318,7 +340,7 @@ class Machine implements Bus implements Memory {
 
 	function io(at:Int):Int {
 		final offset = at & 0x1F;
-		if (offset <= 1) return 0xA0;
+		if (offset <= 1) return vdp.pal ? 0xE0 : 0xA0;
 		if (offset >= 2 && offset <= 6) return pad((offset >> 1) - 1);
 		if (offset >= 8 && offset <= 12) return padControl[(offset >> 1) - 4];
 		return 0x00;

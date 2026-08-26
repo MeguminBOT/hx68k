@@ -38,6 +38,8 @@ final class Sound {
 	var ymClocks:Int = 0;
 	var samples:Float = 0;
 
+	public var masterHz(default, null):Int = Vdp.MASTER_HZ;
+
 	var perMaster:Float = RATE / Vdp.MASTER_HZ;
 
 	var fmLeft:Int = 0;
@@ -68,12 +70,17 @@ final class Sound {
 		psgClocks = 0;
 		samples = 0;
 		bend = 1;
-		perMaster = RATE / Vdp.MASTER_HZ;
+		perMaster = RATE / masterHz;
 		waiting = 0;
 		wentLeft = 0;
 		wentRight = 0;
 		heldLeft = 0;
 		heldRight = 0;
+	}
+
+	public function standard(hz:Int):Void {
+		masterHz = hz;
+		perMaster = RATE * bend / masterHz;
 	}
 
 	public inline function tick(master:Int):Void {
@@ -124,7 +131,7 @@ final class Sound {
 	inline function aim():Void {
 		final off = (WANTED - (waiting > held ? waiting : held)) * BEND / WANTED;
 		bend = 1 + (off > BEND ? BEND : (off < -BEND ? -BEND : off));
-		perMaster = RATE * bend / Vdp.MASTER_HZ;
+		perMaster = RATE * bend / masterHz;
 	}
 
 	inline function catchUp():Void {
@@ -142,7 +149,7 @@ final class Sound {
 
 	public function steerBy(much:Float):Void {
 		bend = much;
-		perMaster = RATE * bend / Vdp.MASTER_HZ;
+		perMaster = RATE * bend / masterHz;
 	}
 
 	public function steer(downstream:Int):Void {

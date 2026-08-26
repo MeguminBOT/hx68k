@@ -67,8 +67,6 @@ class Console {
 	static inline final MINIMUM_WIDTH = 640;
 	static inline final MINIMUM_HEIGHT = 480;
 
-	static inline final NATIVE = Vdp.MASTER_HZ / (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC);
-
 	static inline final SPIN = 0.0015;
 
 	static final VALUED = ["--scale", "--measure"];
@@ -204,7 +202,7 @@ class Console {
 		final interval = Sdl.rendererVsync(renderer);
 		Sys.println("drawing through " + Std.string(Sdl.rendererName(renderer))
 			+ ", swap interval " + interval + ", display " + Math.round(refresh * 100) / 100 + " Hz");
-		Sys.println("the machine runs at " + Math.round(NATIVE * 100) / 100
+		Sys.println("the machine runs at " + Math.round(native() * 100) / 100
 			+ " Hz on its own clock, which is neither the display's nor the sound device's");
 
 		Sdl.setWindowMinimumSize(window, MINIMUM_WIDTH, MINIMUM_HEIGHT);
@@ -336,7 +334,7 @@ class Console {
 		last = started;
 
 		if (!paused) {
-			final period = (Vdp.MASTER_PER_LINE * Vdp.LINES_NTSC) / Vdp.MASTER_HZ;
+			final period = 1.0 / native();
 			if (due < 0) due = started;
 
 			var ran = 0;
@@ -378,10 +376,11 @@ class Console {
 			final over = now - since;
 			exactly = frames / over;
 			frames = 0;
-			sixtyEight = share(machine.cycles - cyclesLast, Vdp.MASTER_HZ / 7, over);
-			eighty = share(machine.z80Bus.states - statesLast, Vdp.MASTER_HZ / 15, over);
+			final hz = machine.vdp.masterHz;
+			sixtyEight = share(machine.cycles - cyclesLast, hz / Machine.MASTER_PER_68K, over);
+			eighty = share(machine.z80Bus.states - statesLast, hz / Machine.MASTER_PER_Z80, over);
 
-			taken = share(machine.requestedFor - requestedLast, Vdp.MASTER_HZ, over);
+			taken = share(machine.requestedFor - requestedLast, hz, over);
 
 			cyclesLast = machine.cycles;
 			statesLast = machine.z80Bus.states;
@@ -399,6 +398,10 @@ class Console {
 			gaveUp = 0;
 			since = now;
 		}
+	}
+
+	function native():Float {
+		return machine.vdp.masterHz / (Vdp.MASTER_PER_LINE * machine.vdp.lines);
 	}
 
 	function emulate():Void {

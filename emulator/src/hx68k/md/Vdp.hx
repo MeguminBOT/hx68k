@@ -6,9 +6,11 @@ import haxe.ds.Vector;
 @:allow(hx68k.md.Savestate)
 final class Vdp {
 	public static inline final MASTER_HZ = 53693175;
+	public static inline final MASTER_HZ_PAL = 53203424;
 
 	public static inline final MASTER_PER_LINE = 3420;
 	public static inline final LINES_NTSC = 262;
+	public static inline final LINES_PAL = 313;
 
 	public static inline final LINES_V28 = 224;
 	public static inline final LINES_V30 = 240;
@@ -54,12 +56,12 @@ final class Vdp {
 	public var writes(default, null):Int = 0;
 	public var reads(default, null):Int = 0;
 
-	public final lineWrote:Vector<Int> = new Vector<Int>(LINES_NTSC);
-	public final lineLanded:Vector<Int> = new Vector<Int>(LINES_NTSC);
-	public final lineCarried:Vector<Int> = new Vector<Int>(LINES_NTSC);
-	public final lineStalled:Vector<Int> = new Vector<Int>(LINES_NTSC);
-	public final lineDeepest:Vector<Int> = new Vector<Int>(LINES_NTSC);
-	public final lineShape:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineWrote:Vector<Int> = new Vector<Int>(LINES_PAL);
+	public final lineLanded:Vector<Int> = new Vector<Int>(LINES_PAL);
+	public final lineCarried:Vector<Int> = new Vector<Int>(LINES_PAL);
+	public final lineStalled:Vector<Int> = new Vector<Int>(LINES_PAL);
+	public final lineDeepest:Vector<Int> = new Vector<Int>(LINES_PAL);
+	public final lineShape:Vector<Int> = new Vector<Int>(LINES_PAL);
 
 	public var colours(default, null):Int = 0;
 
@@ -69,6 +71,10 @@ final class Vdp {
 	public var wide(default, null):Bool = false;
 	public var interlace(default, null):Int = 0;
 	public var activeLines(default, null):Int = LINES_V28;
+
+	public var pal(default, null):Bool = false;
+	public var lines(default, null):Int = LINES_NTSC;
+	public var masterHz(default, null):Int = MASTER_HZ;
 
 	var showing:Bool = false;
 	var slots:Int = SLOTS_H32;
@@ -157,7 +163,7 @@ final class Vdp {
 		atCarried = 0;
 		atStalled = 0;
 		atDeepest = 0;
-		for (i in 0...LINES_NTSC) {
+		for (i in 0...LINES_PAL) {
 			lineWrote[i] = 0;
 			lineLanded[i] = 0;
 			lineCarried[i] = 0;
@@ -386,10 +392,16 @@ final class Vdp {
 		served = 0;
 		line++;
 		if (line == activeLines) vint = true;
-		if (line >= LINES_NTSC) {
+		if (line >= lines) {
 			line = 0;
 			frame++;
 		}
+	}
+
+	public function standard(wanted:Bool):Void {
+		pal = wanted;
+		lines = wanted ? LINES_PAL : LINES_NTSC;
+		masterHz = wanted ? MASTER_HZ_PAL : MASTER_HZ;
 	}
 
 	public inline function interlaced():Bool {
@@ -460,7 +472,7 @@ final class Vdp {
 		reads++;
 		pending = false;
 
-		var value = 0x3400 | (queued == 0 ? 0x0200 : 0x0000);
+		var value = 0x3400 | (queued == 0 ? 0x0200 : 0x0000) | (pal ? 0x0001 : 0x0000);
 		if (line >= activeLines) value |= 0x0008;
 		if (dot >= ACTIVE_TICKS) value |= 0x0004;
 		if (vint) value |= 0x0080;

@@ -1,5 +1,6 @@
 package hx68k.test;
 
+import hx68k.md.Machine;
 import hx68k.md.Memory;
 import hx68k.md.Vdp;
 
@@ -363,6 +364,51 @@ class SlotCheck {
 		return -1;
 	}
 
+	static function hundredths(hz:Int, lines:Int):Int {
+		return Math.round(hz * 100.0 / (Vdp.MASTER_PER_LINE * lines));
+	}
+
+	static function standards():Void {
+		final ntsc = ready(H40, DISPLAY_ON);
+		same("a machine is NTSC until told otherwise", ntsc.lines, Vdp.LINES_NTSC);
+		ok("and says so in the status", (ntsc.readStatus() & 0x0001) == 0, "the PAL bit was set");
+
+		final pal = ready(H40, DISPLAY_ON);
+		pal.standard(true);
+		same("a PAL machine runs 313 lines", pal.lines, Vdp.LINES_PAL);
+		ok("and says so in the status", (pal.readStatus() & 0x0001) != 0, "the PAL bit was clear");
+
+		same("NTSC is 59.92 frames a second, in hundredths",
+			hundredths(Vdp.MASTER_HZ, Vdp.LINES_NTSC), 5992);
+		same("and PAL is 49.70", hundredths(Vdp.MASTER_HZ_PAL, Vdp.LINES_PAL), 4970);
+
+		same("a PAL frame is 87 lines of vertical blanking in V28, as the documentation tallies it",
+			Vdp.LINES_PAL - Vdp.LINES_V28 - 2, 87);
+		same("and 71 in V30", Vdp.LINES_PAL - Vdp.LINES_V30 - 2, 71);
+		same("where NTSC V28 is 36", Vdp.LINES_NTSC - Vdp.LINES_V28 - 2, 36);
+	}
+
+	static function headed(field:String):Bool {
+		final rom = haxe.io.Bytes.alloc(Machine.REGION_AT + Machine.REGION_LENGTH);
+		for (i in 0...Machine.REGION_LENGTH) {
+			rom.set(Machine.REGION_AT + i, i < field.length ? field.charCodeAt(i) : " ".code);
+		}
+		return Machine.palByHeader(rom);
+	}
+
+	static function headers():Void {
+		ok("a cartridge naming Europe alone is PAL", headed("E"), "it came back NTSC");
+		ok("and one naming Europe and nowhere else, padded", headed("E             "),
+			"it came back NTSC");
+		ok("a cartridge naming Japan, the Americas and Europe is not", !headed("JUE"),
+			"it came back PAL");
+		ok("nor is one naming the Americas alone", !headed("U"), "it came back PAL");
+		ok("nor Japan alone", !headed("J"), "it came back PAL");
+		ok("a header of spaces is not", !headed("    "), "it came back PAL");
+		ok("a ROM too short to hold a header is not",
+			!Machine.palByHeader(haxe.io.Bytes.alloc(16)), "it came back PAL");
+	}
+
 	static function heights():Void {
 		same("V28 leaves the active display after 224 lines",
 			blanksAt(DISPLAY_ON), Vdp.LINES_V28);
@@ -420,6 +466,12 @@ class SlotCheck {
 		Sys.println("");
 		Sys.println("where the external access slots are");
 		counting();
+
+		Sys.println("which television standard the machine is on");
+		standards();
+
+		Sys.println("what a cartridge header says the standard is");
+		headers();
 
 		Sys.println("where the active display ends, in each height");
 		heights();
