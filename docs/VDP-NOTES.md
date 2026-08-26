@@ -249,6 +249,62 @@ experiences, and both pass with the expectations they already had. A VDP write t
 is the behaviour, not a nuisance; a scenario that assumed otherwise was assuming something no
 Mega Drive does.
 
+## The port access ROM, all fifteen suites
+
+Nemesis' VDP Port Access Test ROM reads **100% on both pages**, 9 of 9 by its own count on page one
+and 6 of 6 on page two, from 60.9% and 86.9% and 1 of 9. Three changes did it, and each of them is
+one sentence of hardware that everything else follows from.
+
+### Reading CRAM or VSRAM exposes the FIFO slot the next write will use
+
+The bits CRAM and VSRAM do not store, nine of sixteen and eleven of sixteen, come from the VDP's
+write FIFO: specifically the data field of **the slot the next write will go into**, which still
+holds whatever was written into it four writes ago, because nothing clears an entry when it is
+popped. Not the last write, not the entry at the head, not a separate latch.
+
+That one sentence took seven of page one's nine suites to 100% in a single change:
+
+| suite | before | after |
+| --- | --- | --- |
+| 1, FIFO Buffer Size | 36.9% | 100% |
+| 4, DMA Fill FIFO Usage | 82.3% | 100% |
+| 5, FIFO Write to invalid target | 55.2% | 100% |
+| 7, VRAM Byteswapping | 66.3% | 100% |
+| 8, CRAM Byteswapping | 53% | 100% |
+| 9, VSRAM Byteswapping | 55.2% | 100% |
+| page 2, all six | 86.9% | 100% |
+
+**The variants that were tried and are wrong** are worth keeping, because each is the obvious
+reading of the same sentence: a latch filled on every commit rather than on every push gives page
+one 59.2%; filled on push, VRAM writes only, 59.4%; filled on push, any target, 59.7%; the head of
+the queue, 60.8%; the entry most recently pushed, 60.9%. Every one of them is at or below where it
+started. The slot the next write will use is 87.5%, and nothing else is close.
+
+Every write to the data port takes a slot, whatever its target and whether or not the target is
+valid, which is why suite 5 moves with the rest. It follows from the FIFO being in front of the
+target rather than behind it.
+
+### A 68000 to VDP transfer goes through the FIFO like any other write
+
+Suite 3, DMA Transfer using FIFO, is named after the thing it tests, and it sat at 49.3% and then
+37.5% while a transfer wrote straight to video memory. A transfer reads a word over the 68000's
+bus and pushes it into the same four entry FIFO; the FIFO drains one entry an external access slot.
+The read costs no slot of its own, so the rate is unchanged at one word a slot, and the FIFO sits
+full for the length of the transfer. **Suite 3 went to 100%.**
+
+Two consequences fall out of it and both are what hardware does. The length register counts words
+read into the FIFO rather than words written to video memory, so it reaches zero four words early
+and the 68000 is released with four still in flight. And a CRAM read during a transfer exposes what
+the transfer is carrying, which is exactly what suite 3 is looking at.
+
+### An 8-bit VRAM read returns one byte and the FIFO's high byte over it
+
+Read target 0Ch returns the byte at the address with bit 0 inverted, in the low half, and the high
+half comes from the same exposed FIFO slot. Suite 6, 8-bit VRAM Read target 0100b, was at 53.4%
+under every earlier reading and goes to **100%** with this one. The byte at the address without the
+inversion gives 52.9%, and putting the FIFO in the low half instead gives 5.5% and 2.9%, so the
+suite separates the four sharply.
+
 ### A fill takes a slot a byte, a copy takes two, and neither freezes the 68000
 
 The VRAM fill and the VRAM copy were the last two things in this VDP that happened in no time at
@@ -287,12 +343,13 @@ and the demo comes up two frames later than it did.
 drew before, digest and all, so the two frames are the entire difference and the gate's checkpoint
 moved by two rather than its expected value changing.
 
-**What the port access ROM says about all of it: nothing.** Page one stays at 60.9% and page two at
-86.9%, and suite 4, the VRAM fill, stays at 82.3%. Two further guesses were tried against it and
-both left every suite where it was, so neither went in: incrementing the unused source address
-registers as a fill runs, which no program can observe because the VDP's registers cannot be read,
-and clearing the FIFO empty bit while a DMA is in flight. Whatever suites 1, 3 and 5 are measuring
-is not the rate a DMA runs at.
+**What the port access ROM said about all of it at the time: nothing.** Page one stayed at 60.9%
+and page two at 86.9%, and suite 4, the VRAM fill, at 82.3%. Two further guesses were tried against
+it and both left every suite where it was, so neither went in: incrementing the unused source
+address registers as a fill runs, which no program can observe because the VDP's registers cannot
+be read, and clearing the FIFO empty bit while a DMA is in flight. What suites 1, 3 and 5 were
+measuring was not the rate a DMA runs at, and the section above this one is what they were
+measuring.
 
 ### A transfer takes one external access slot a word, and freezes the 68000
 

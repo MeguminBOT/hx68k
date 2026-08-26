@@ -484,8 +484,7 @@ echo ""
 echo "--- the VDP's access slots and its write FIFO, with no ROM under them ---"
 "$GATE" slot
 
-# a tracked progress metric rather than a gate, the way the 68000 conformance number was until C1
-# finished: the timing half of the VDP is not written, so this cannot reach the top yet.
+# every one of the fifteen suites passes, so this is a gate rather than a tracked metric now
 echo ""
 echo "--- the VDP against Nemesis' port access ROM ---"
 "$GATE" fifo "$ROOT"

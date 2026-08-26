@@ -8,6 +8,8 @@ class Main {
 	static inline final BACKGROUND = 0x0E80;
 	static inline final TILE = 0x0100;
 	static inline final PATTERN = 0x1234;
+	static inline final TRAIL = 0x0200;
+	static inline final SHOWN = 0xF111;
 
 	@:md.main
 	static function main():Void {
@@ -15,6 +17,12 @@ class Main {
 		Vdp.colour(0, BACKGROUND);
 
 		Vdp.tilemap(TILE, PATTERN);
+
+		Vdp.address(Vdp.VRAM_WRITE, TRAIL);
+		Vdp.write(SHOWN);
+		Vdp.write(0);
+		Vdp.write(0);
+		Vdp.write(0);
 
 		Joypad.open(0);
 

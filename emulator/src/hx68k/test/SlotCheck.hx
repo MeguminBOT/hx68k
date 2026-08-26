@@ -131,10 +131,10 @@ class SlotCheck {
 	static function carried(vdp:Vdp, length:Int):Int {
 		for (_ in 0...Vdp.MASTER_PER_LINE) {
 			vdp.tick(1);
-			if (!vdp.running()) break;
+			if (!vdp.running() && vdp.queued == 0) break;
 		}
 
-		return length - (vdp.registers[19] | (vdp.registers[20] << 8));
+		return length - (vdp.registers[19] | (vdp.registers[20] << 8)) - vdp.queued;
 	}
 
 	static function transferring(width:Int, display:Int, words:Int):Int {
@@ -254,6 +254,37 @@ class SlotCheck {
 		same("and every byte arrived where it was sent", wrong, 0);
 	}
 
+	static function through():Void {
+		final vdp = ready(H40, DISPLAY_ON);
+		asked(vdp, 1000, 0, 0);
+
+		vdp.writeControl(0x4000);
+		vdp.writeControl(0x0080);
+
+		for (_ in 0...Vdp.MASTER_PER_LINE) vdp.tick(1);
+		same("a transfer keeps the queue full while it runs", vdp.queued, Vdp.FIFO_DEPTH);
+		ok("and is still running", vdp.running(), "it stopped");
+	}
+
+	static function exposure():Void {
+		final vdp = ready(H40, DISPLAY_OFF);
+
+		vdp.writeControl(0xC000);
+		vdp.writeControl(0x0000);
+		vdp.writeData(0x0EEE);
+
+		for (word in 0...Vdp.FIFO_DEPTH) {
+			vdp.writeControl(0x4000);
+			vdp.writeControl(0x0000);
+			vdp.writeData(word == 0 ? 0xF111 : 0x0000);
+			for (_ in 0...64) vdp.tick(1);
+		}
+
+		vdp.writeControl(0x0000);
+		vdp.writeControl(0x0020);
+		same("a colour read shows the slot the next write will use", vdp.readData(), 0x0EEE | 0xF111);
+	}
+
 	static function main():Void {
 		run();
 	}
@@ -265,6 +296,7 @@ class SlotCheck {
 
 		Sys.println("what a transfer does with them");
 		dma();
+		through();
 
 		Sys.println("what a VRAM fill does with them");
 		fill();
@@ -275,6 +307,7 @@ class SlotCheck {
 		copied();
 
 		Sys.println("what the write FIFO does with them");
+		exposure();
 		holding();
 		blanking();
 		landing();

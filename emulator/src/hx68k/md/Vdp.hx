@@ -53,7 +53,6 @@ final class Vdp {
 	var vint:Bool = false;
 	var hint:Bool = false;
 	var hintCounter:Int = 0;
-	var latch:Int = 0;
 
 	final fifoCode:Vector<Int> = new Vector<Int>(FIFO_DEPTH);
 	final fifoAddress:Vector<Int> = new Vector<Int>(FIFO_DEPTH);
@@ -96,7 +95,11 @@ final class Vdp {
 		vint = false;
 		hint = false;
 		hintCounter = 0;
-		latch = 0;
+		for (i in 0...FIFO_DEPTH) {
+			fifoCode[i] = 0;
+			fifoAddress[i] = 0;
+			fifoValue[i] = 0;
+		}
 		fifoHead = 0;
 		queued = 0;
 		stalledFor = 0;
@@ -149,6 +152,7 @@ final class Vdp {
 
 		while (served < now && (queued > 0 || dmaMode != 0)) {
 			served++;
+			if (dmaMode == DMA_TRANSFER) feed();
 			if (!slotIsExternal(served)) continue;
 			if (queued > 0) pop() else step();
 		}
@@ -166,18 +170,19 @@ final class Vdp {
 
 	function step():Void {
 		switch (dmaMode) {
-			case DMA_TRANSFER: carryWord();
 			case DMA_FILL: fillByte();
 			case DMA_COPY: copyByte();
 			case _:
 		}
 	}
 
-	function carryWord():Void {
-		commit(code, address, memory.readWord(dmaBank | ((dmaWord << 1) & 0x1FFFE)));
-		address = (address + registers[15]) & 0xFFFF;
-		advanceSource();
-		countDown();
+	function feed():Void {
+		while (queued < FIFO_DEPTH && dmaLeft > 0) {
+			enqueue(code, address, memory.readWord(dmaBank | ((dmaWord << 1) & 0x1FFFE)));
+			address = (address + registers[15]) & 0xFFFF;
+			advanceSource();
+			countDown();
+		}
 	}
 
 	function fillByte():Void {
@@ -235,6 +240,14 @@ final class Vdp {
 		return when > dot ? when - dot : 0;
 	}
 
+	inline function enqueue(atCode:Int, at:Int, value:Int):Void {
+		final slot = (fifoHead + queued) % FIFO_DEPTH;
+		fifoCode[slot] = atCode;
+		fifoAddress[slot] = at;
+		fifoValue[slot] = value;
+		queued++;
+	}
+
 	function push(value:Int):Int {
 		var held = 0;
 
@@ -243,11 +256,7 @@ final class Vdp {
 			pop();
 		}
 
-		final at = (fifoHead + queued) % FIFO_DEPTH;
-		fifoCode[at] = code;
-		fifoAddress[at] = address;
-		fifoValue[at] = value;
-		queued++;
+		enqueue(code, address, value);
 		stalledFor += held;
 
 		address = (address + registers[15]) & 0xFFFF;
@@ -341,13 +350,17 @@ final class Vdp {
 		pending = false;
 		final value = switch (code & 0x0F) {
 			case 0x00: readVram(address);
-			case 0x0C: (vram.get(address & 0xFFFF) << 8) | vram.get((address ^ 1) & 0xFFFF);
-			case 0x08: (cram[(address >> 1) & 63] & 0x0EEE) | (latch & 0xF111);
-			case 0x04: (vsram[(address >> 1) % vsram.length] & 0x07FF) | (latch & 0xF800);
+			case 0x0C: (exposed() & 0xFF00) | vram.get((address ^ 1) & 0xFFFF);
+			case 0x08: (cram[(address >> 1) & 63] & 0x0EEE) | (exposed() & 0xF111);
+			case 0x04: (vsram[(address >> 1) % vsram.length] & 0x07FF) | (exposed() & 0xF800);
 			case _: 0;
 		}
 		address = (address + registers[15]) & 0xFFFF;
 		return value;
+	}
+
+	inline function exposed():Int {
+		return fifoValue[(fifoHead + queued) % FIFO_DEPTH];
 	}
 
 	public function readStatus():Int {
@@ -403,7 +416,6 @@ final class Vdp {
 	function commit(atCode:Int, at:Int, value:Int):Void {
 		switch (atCode & 0x0F) {
 			case 0x01:
-				latch = value;
 				writeVram(at, value);
 			case 0x03:
 				cram[(at >> 1) & 63] = value & 0x0EEE;

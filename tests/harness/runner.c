@@ -434,14 +434,16 @@ static void suite_probe_rom(const char *label, const char *name, const char *dir
 }
 
 static const probe_t hardware_expected[] = {
-	{ "colour 0 read back over the last VRAM write", 0x1E90 },
+	{ "colour 0 read back over the fifth write behind it", 0x0E80 | 0xF111 },
 	{ "a word through VRAM",        0x1234 },
 	{ "the pad reports start and right", 0x88 },
 };
 
 static const probe_t art_expected[] = {
-	{ "image palette colour 1",     0x000A },
-	{ "image palette colour 2",     0x0040 },
+	/* bit 4 in each is not the colour: it is what the FIFO slot the next write will use still
+	   holds, which a CRAM read exposes in the bits CRAM does not store */
+	{ "image palette colour 1",     0x000A | 0x0010 },
+	{ "image palette colour 2",     0x0040 | 0x0010 },
 	{ "image tilemap entry",        16 },
 	{ "sprite list holds the sprite", 80 + 128 },
 	{ "the tune is in ROM",         1 },

@@ -17,6 +17,8 @@ class FifoCheck {
 
 	static inline final FAILED = 0xDA0000;
 
+	static var failures:Int = 0;
+
 	static function main():Void {
 		run(Sys.args());
 	}
@@ -46,6 +48,11 @@ class FifoCheck {
 				hx68k.debug.Screenshot.save(machine.vdp.renderer, file);
 				Sys.println("  wrote " + file);
 			}
+		}
+
+		if (failures > 0) {
+			Sys.println("  " + failures + " suites the ROM says are wrong");
+			Sys.exit(1);
 		}
 	}
 
@@ -107,6 +114,7 @@ class FifoCheck {
 		}
 
 		Sys.println("  page " + page + ": " + share(green, red) + " over " + band + " suites");
+		if (red > 0) failures++;
 	}
 
 	static function share(green:Int, red:Int):String {

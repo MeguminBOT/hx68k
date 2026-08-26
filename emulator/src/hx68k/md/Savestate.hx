@@ -148,7 +148,6 @@ class Savestate {
 		out.writeInt32(vdp.address);
 		out.writeInt32(vdp.code);
 		out.writeInt32(vdp.hintCounter);
-		out.writeInt32(vdp.latch);
 		out.writeByte((vdp.pending ? 1 : 0) | (vdp.filling ? 2 : 0) | (vdp.vint ? 4 : 0) | (vdp.hint ? 8 : 0)
 			| (vdp.dmaFetched ? 16 : 0));
 
@@ -181,7 +180,6 @@ class Savestate {
 		vdp.address = input.readInt32();
 		vdp.code = input.readInt32();
 		vdp.hintCounter = input.readInt32();
-		vdp.latch = input.readInt32();
 
 		final bits = input.readByte();
 		vdp.pending = (bits & 1) != 0;
