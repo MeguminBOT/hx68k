@@ -3,8 +3,10 @@ package;
 import md.Int16;
 import md.Native;
 import md.Dma;
+import md.Fm;
 import md.DmaTarget;
 import md.Palette;
+import md.Psg;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
@@ -17,7 +19,9 @@ import md.SpriteTable;
 import md.Tilemap;
 import md.UInt32;
 import md.sgdk.Dma as SgdkDma;
+import md.sgdk.Fm as SgdkFm;
 import md.sgdk.Palette as SgdkPalette;
+import md.sgdk.Psg as SgdkPsg;
 import md.sgdk.SpriteTable as SgdkSpriteTable;
 import md.sgdk.Tilemap as SgdkTilemap;
 
@@ -46,6 +50,8 @@ class Main {
 	static inline final SPRITES = 40;
 
 	static inline final DMA_FRAMES = 8;
+
+	static inline final SOUND_WRITES = 64;
 
 	@:md.size(256) static var narrowCells:Vector<Int16>;
 	@:md.size(256) static var wideCells:Vector<Int>;
@@ -102,6 +108,14 @@ class Main {
 		dmaInHaxe();
 		Probe.mark();
 		dmaInSgdk();
+		Probe.mark();
+		psgInHaxe();
+		Probe.mark();
+		psgInSgdk();
+		Probe.mark();
+		fmInHaxe();
+		Probe.mark();
+		fmInSgdk();
 		Probe.mark();
 
 		Vdp.setEnable(true);
@@ -283,6 +297,40 @@ class Main {
 			SgdkDma.flush();
 			SgdkDma.wait();
 			frame++;
+		}
+	}
+
+	static function psgInHaxe():Void {
+		var n = 0;
+		while (n < SOUND_WRITES) {
+			Psg.setAttenuation(n & 3, n & 0x0F);
+			Psg.setTone(n & 3, n * 5);
+			n++;
+		}
+	}
+
+	static function psgInSgdk():Void {
+		var n = 0;
+		while (n < SOUND_WRITES) {
+			SgdkPsg.setAttenuation(n & 3, n & 0x0F);
+			SgdkPsg.setTone(n & 3, n * 5);
+			n++;
+		}
+	}
+
+	static function fmInHaxe():Void {
+		var n = 0;
+		while (n < SOUND_WRITES) {
+			Fm.setRegister(0, 0x40 + (n & 3), n & 0x7F);
+			n++;
+		}
+	}
+
+	static function fmInSgdk():Void {
+		var n = 0;
+		while (n < SOUND_WRITES) {
+			SgdkFm.setRegister(0, 0x40 + (n & 3), n & 0x7F);
+			n++;
 		}
 	}
 

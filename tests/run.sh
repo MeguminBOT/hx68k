@@ -168,7 +168,7 @@ build "sound rom" "$ROOT/samples/sound/build.sh"
 echo ""
 echo "--- generated code against the C written beside it, in 68000 cycles ---"
 build "bench rom" "$ROOT/samples/bench/build.sh"
-"$GATE" bench 	"$ROOT/samples/bench/rom/out/release/rom.bin" 	"$ROOT/samples/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c
+"$GATE" bench 	"$ROOT/samples/bench/rom/out/release/rom.bin" 	"$ROOT/samples/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c psg:haxe psg:c fm:haxe fm:c
 
 echo ""
 echo "--- source map (Haxe line to 68000 address) ---"

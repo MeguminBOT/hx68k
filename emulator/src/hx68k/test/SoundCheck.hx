@@ -9,6 +9,8 @@ class SoundCheck {
 
 	static inline final CHUNK = 256;
 
+	static inline final SETTLE_LIMIT = 20000000;
+
 	static var checks = 0;
 	static var failures = 0;
 
@@ -30,6 +32,10 @@ class SoundCheck {
 		final elf = new Elf(haxe.io.Path.join([root, "samples/sound/rom/out/release/rom.out"]));
 		final done = address(elf, "hx_probe_done");
 		final probe = address(elf, "hx_probe");
+		final counted = address(elf, "hx_probe_count");
+
+		settled(machine, counted);
+		chips(machine);
 
 		var frames = 0;
 		while (frames < FRAMES && machine.readWord(done) == 0) {
@@ -42,9 +48,12 @@ class SoundCheck {
 			+ StringTools.hex(machine.z80.pc, 4));
 		check(busy(machine), "the z80 driver is somewhere inside its own eight kilobytes");
 
-		check(peek(machine, probe) == 1, "Z80_isDriverReady (got " + peek(machine, probe) + ")");
-		check(peek(machine, probe + 4) > 0, "a driver is loaded (got " + peek(machine, probe + 4) + ")");
-		check(peek(machine, probe + 8) == 1, "XGM_isPlaying (got " + peek(machine, probe + 8) + ")");
+		check(peek(machine, probe + 4) == 1, "Z80_isDriverReady (got "
+			+ peek(machine, probe + 4) + ")");
+		check(peek(machine, probe + 8) > 0, "a driver is loaded (got "
+			+ peek(machine, probe + 8) + ")");
+		check(peek(machine, probe + 12) == 1, "XGM_isPlaying (got "
+			+ peek(machine, probe + 12) + ")");
 		check(machine.z80Bus.soundWrites > 0, "the driver wrote to the sound chips "
 			+ machine.z80Bus.soundWrites + " times");
 
@@ -54,6 +63,46 @@ class SoundCheck {
 		Sys.println("");
 		Sys.println(checks + " sound checks, " + failures + " failures");
 		Sys.exit(failures == 0 ? 0 : 1);
+	}
+
+	static function settled(machine:Machine, counted:Int):Void {
+		var steps = 0;
+
+		while (machine.readWord(counted) == 0 && steps < SETTLE_LIMIT) {
+			machine.step();
+			steps++;
+		}
+
+		check(machine.readWord(counted) == 1, "the rom set both sound chips up, in " + steps
+			+ " instructions");
+	}
+
+	static function chips(machine:Machine):Void {
+		final psg = machine.sound.psg;
+		final ym = machine.sound.ym;
+
+		check(psg.tone[0] == 0x1A5, "a PSG tone written as a whole (got " + psg.tone[0] + ")");
+		check(psg.attenuation[0] == 2, "and its attenuation (got " + psg.attenuation[0] + ")");
+		check(psg.tone[1] == 254, "a PSG tone asked for in hertz (got " + psg.tone[1] + ")");
+		check(psg.attenuation[1] == 7, "and its attenuation (got " + psg.attenuation[1] + ")");
+		check(psg.noise == 6, "the noise channel took its type and rate (got "
+			+ psg.noise + ")");
+		check(psg.attenuation[3] == 5, "and its attenuation (got " + psg.attenuation[3] + ")");
+		check(psg.attenuation[2] == 0x0F, "the channel nothing asked for stayed silent");
+
+		check(ym.registers[0x100 + 0xB1] == 0x33, "an FM algorithm and feedback (got "
+			+ ym.registers[0x100 + 0xB1] + ")");
+		check(ym.registers[0x100 + 0xB5] == 0x80, "panned left only (got "
+			+ ym.registers[0x100 + 0xB5] + ")");
+		check(ym.registers[0x100 + 0xA5] == 0x2A, "a block and the high three bits of a note");
+		check(ym.registers[0x100 + 0xA1] == 0xA9, "and the low eight, written second");
+		check(ym.registers[0x100 + 0x45] == 0x1C, "slot 3's total level, at the offset the "
+			+ "chip orders slots in (got " + ym.registers[0x100 + 0x45] + ")");
+		check(ym.registers[0x100 + 0x35] == 0x39, "and its detune and multiple (got "
+			+ ym.registers[0x100 + 0x35] + ")");
+		check(ym.registers[0x28] == 0xF5, "all four slots keyed on for channel 5 (got "
+			+ ym.registers[0x28] + ")");
+		check(ym.registers[0x100 + 0x4D] == 0x7F, "a slot nothing asked for stayed quiet");
 	}
 
 	static function heard(machine:Machine):Void {

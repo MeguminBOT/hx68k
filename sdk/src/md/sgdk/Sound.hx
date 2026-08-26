@@ -1,5 +1,7 @@
-package md;
+package md.sgdk;
 
+import md.Int8;
+import md.UInt16;
 import md.res.Music;
 
 extern class Sound {
