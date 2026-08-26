@@ -34,7 +34,10 @@ class DisassemblyCheck {
 	];
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		var filter:String = null;
 		var showFail = 0;
 

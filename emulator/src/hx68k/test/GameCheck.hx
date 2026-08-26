@@ -5,7 +5,10 @@ import hx68k.md.Renderer;
 
 class GameCheck {
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 1) {
 			Sys.println("usage: game <rom> [frames]");
 			Sys.exit(2);

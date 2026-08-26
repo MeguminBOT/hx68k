@@ -246,6 +246,10 @@ class WidgetCheck {
 	}
 
 	static function main():Void {
+		run();
+	}
+
+	public static function run():Void {
 		Sys.println("");
 		Sys.println("the focus stack, and what escape means at each level");
 		escaping();

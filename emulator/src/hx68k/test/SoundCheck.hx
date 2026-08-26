@@ -13,7 +13,10 @@ class SoundCheck {
 	static var failures = 0;
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 1) {
 			Sys.println("usage: sound <repository root>");
 			Sys.exit(2);

@@ -7,5 +7,4 @@ if [ ! -d "../vendor/SingleStepTests-z80/v1bin" ]; then
 	echo "run: cd emulator && haxe z80convert.hxml && neko bin/z80convert.n"
 	exit 0
 fi
-haxe z80.hxml
-neko bin/z80.n "$@"
+./gate.sh z80 "$@"

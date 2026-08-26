@@ -6,12 +6,15 @@ import hx68k.md.Machine;
 
 class DebugTool {
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 1) {
 			Sys.println("usage: debug <rom.bin> [<rom.out> <generated-source>]"
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
-				+ " [--trace n] [--profile frames] [--view] [--raster frames] [--read Class.static]"
-				+ " [--stack] [--views] [--settle frames] [--hits n]");
+				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
+				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]");
 			Sys.exit(2);
 		}
 
@@ -22,7 +25,7 @@ class DebugTool {
 		var rastered = 0;
 		var read = "";
 		var settle = 10;
-		var hits = 1;
+		var hits:Array<Int> = [1];
 		var expected:Array<Int> = [];
 
 		final viewing = args.indexOf("--view") >= 0;
@@ -41,7 +44,7 @@ class DebugTool {
 				case "--profile": profiled = count(args, i);
 				case "--raster": rastered = count(args, i);
 				case "--read": read = value(args, i);
-				case "--hits": hits = count(args, i);
+				case "--hits": hits = value(args, i).split(",").map(text -> Std.parseInt(text));
 				case "--settle": settle = count(args, i);
 				case _: i--;
 			}
@@ -66,13 +69,15 @@ class DebugTool {
 
 		final debugger = new Debugger(machine, map);
 
-		if (showing) Sys.exit(views(debugger, stop, settle, hits));
-		if (walking) Sys.exit(stack(debugger, stop, settle, hits));
-		if (read != "") Sys.exit(readName(debugger, stop, read, settle, hits));
-		if (viewing) Sys.exit(view(debugger, stop, settle, hits));
-		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, hits));
-		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, hits));
-		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, hits) : hunt(debugger, stop, watch, expected));
+		final once = hits[hits.length - 1];
+
+		if (showing) Sys.exit(views(debugger, stop, settle, once));
+		if (walking) Sys.exit(stack(debugger, stop, settle, once));
+		if (read != "") Sys.exit(readNames(debugger, stop, read.split(","), settle, hits));
+		if (viewing) Sys.exit(view(debugger, stop, settle, once));
+		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, once));
+		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, once));
+		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, once) : hunt(debugger, stop, watch, expected));
 	}
 
 	static function show(value:Int, width:Int, signed:Bool):String {
@@ -129,9 +134,25 @@ class DebugTool {
 		return ((debugger.machine.readWord(at) << 16) | debugger.machine.readWord(at + 2)) & 0xFFFFFF;
 	}
 
-	static function readName(debugger:Debugger, stop:String, name:String, settle:Int, hits:Int):Int {
-		if (!reach(debugger, stop, settle, hits)) return 1;
+	static function readNames(debugger:Debugger, stop:String, names:Array<String>, settle:Int,
+			hits:Array<Int>):Int {
+		var worst = 0;
+		var reached = 0;
 
+		for (want in hits) {
+			if (!reachRange(debugger, stop, settle, reached, want)) return 1;
+			reached = want;
+
+			for (name in names) {
+				final code = readName(debugger, name);
+				if (code > worst) worst = code;
+			}
+		}
+
+		return worst;
+	}
+
+	static function readName(debugger:Debugger, name:String):Int {
 		final entry = debugger.map == null ? null : debugger.map.staticNamed(name);
 		if (entry != null) {
 			final value = debugger.valueOf(name);
@@ -295,8 +316,12 @@ class DebugTool {
 	}
 
 	static function reach(debugger:Debugger, stop:String, settle:Int, hits:Int = 1):Bool {
+		return reachRange(debugger, stop, settle, 0, hits);
+	}
+
+	static function reachRange(debugger:Debugger, stop:String, settle:Int, from:Int, to:Int):Bool {
 		if (stop == "") {
-			for (_ in 0...settle) debugger.machine.runFrame();
+			if (from == 0) for (_ in 0...settle) debugger.machine.runFrame();
 			return true;
 		}
 
@@ -306,15 +331,17 @@ class DebugTool {
 			return false;
 		}
 
-		for (hit in 0...hits) {
-			if (hit > 0) debugger.step();
+		var at = from;
+		while (at < to) {
+			if (at > 0) debugger.step();
 			if (!debugger.runTo(address)) {
-				Sys.println("reached " + stop + " " + hit + " times, not " + hits);
+				Sys.println("reached " + stop + " " + at + " times, not " + to);
 				return false;
 			}
+			at++;
 		}
 
-		Sys.println("at " + stop + (hits > 1 ? ", call " + hits : "") + ", frame "
+		Sys.println("at " + stop + (to > 1 ? ", call " + to : "") + ", frame "
 			+ debugger.machine.vdp.frame + " line " + debugger.machine.vdp.line);
 		return true;
 	}

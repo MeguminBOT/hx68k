@@ -35,7 +35,10 @@ class PatternCheck {
 	static var failures:Int = 0;
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		final root = args.length > 0 ? args[0] : ".";
 		final rom = Path.join([root, "vendor/240pTestSuite/240p.bin"]);
 

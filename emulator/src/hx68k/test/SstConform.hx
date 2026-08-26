@@ -17,8 +17,11 @@ typedef Score = {
 class SstConform {
 	static inline final SUITE = "../vendor/SingleStepTests-m68000/v1";
 
-	static function main() {
-		final args = Sys.args();
+	static function main():Void {
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		var filter:String = null;
 		var verbose = false;
 		var showFail = 0;
@@ -81,7 +84,7 @@ class SstConform {
 			+ pct(total.state, covered) + ", cycles " + pct(total.cycles, covered)
 			+ ", bus " + pct(total.trans, covered) + ")");
 
-		if (Sys.args().indexOf("--ci") >= 0 && covered > 0 && total.all < covered) Sys.exit(1);
+		if (args.indexOf("--ci") >= 0 && covered > 0 && total.all < covered) Sys.exit(1);
 	}
 
 	static function pad(s:String, n:Int):String return StringTools.rpad(s, " ", n);

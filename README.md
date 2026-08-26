@@ -275,8 +275,7 @@ exits nonzero on failure.
 
 ```
 cd samples/conformance && ./build.sh debug
-cd emulator && haxe map.hxml
-neko emulator/bin/map.n samples/conformance/rom/out/debug/rom.out samples/conformance/rom/src 0x000D58
+./emulator/gate.sh map samples/conformance/rom/out/debug/rom.out samples/conformance/rom/src 0x000D58
 ```
 
 With no address it checks every function it recorded; with `--statics` it lists each Haxe static

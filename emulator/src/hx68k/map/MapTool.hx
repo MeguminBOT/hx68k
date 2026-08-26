@@ -2,7 +2,10 @@ package hx68k.map;
 
 class MapTool {
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 2) {
 			Sys.println("usage: map <rom.out> <generated-source-directory>"
 				+ " [address|symbol ...] [--statics] [--locals [symbol]]");

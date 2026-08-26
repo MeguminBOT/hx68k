@@ -24,6 +24,10 @@ class RenderCheck {
 	static var failures = 0;
 
 	static function main():Void {
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		backdrop();
 		opaqueTile();
 		flippedTile();
@@ -34,7 +38,6 @@ class RenderCheck {
 		spritesPerLine();
 		shadowedLine();
 
-		final args = Sys.args();
 		if (args.length > 0) drawnText(args[0]);
 
 		Sys.println("");

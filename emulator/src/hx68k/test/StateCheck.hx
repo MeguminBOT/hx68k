@@ -14,7 +14,10 @@ class StateCheck {
 	static var failures = 0;
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		final root = args.length > 0 ? args[0] : ".";
 
 		roundTrip(Path.join([root, "samples/spike/rom/out/release/rom.bin"]), "spike");

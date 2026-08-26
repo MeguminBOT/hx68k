@@ -259,7 +259,11 @@ class SettingsCheck {
 	}
 
 	static function main():Void {
-		where = Sys.args().length > 0 ? Sys.args()[0] : ".settings";
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
+		where = args.length > 0 ? args[0] : ".settings";
 		if (!sys.FileSystem.exists(where)) sys.FileSystem.createDirectory(where);
 
 		Sys.println("");

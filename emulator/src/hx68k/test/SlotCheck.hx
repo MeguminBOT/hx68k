@@ -162,6 +162,10 @@ class SlotCheck {
 	}
 
 	static function main():Void {
+		run();
+	}
+
+	public static function run():Void {
 		Sys.println("");
 		Sys.println("where the external access slots are");
 		counting();

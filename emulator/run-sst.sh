@@ -6,5 +6,4 @@ if [ ! -d "../vendor/SingleStepTests-m68000/v1" ]; then
 	echo "SingleStepTests suite missing; skipping 68000 conformance."
 	exit 0
 fi
-haxe conform.hxml
-neko bin/conform.n "$@"
+./gate.sh sst "$@"

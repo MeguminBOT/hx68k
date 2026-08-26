@@ -13,7 +13,10 @@ class Bench {
 	static inline final TOLERANCE = 1.0;
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 3) {
 			Sys.println("usage: bench <rom.bin> <rom.out> <group:kind> ...");
 			Sys.exit(2);
@@ -31,7 +34,7 @@ class Bench {
 			Sys.exit(2);
 		}
 
-		final measured = run(machine, mark, done);
+		final measured = intervals(machine, mark, done);
 		final labels = args.slice(2);
 
 		if (measured.length != labels.length) {
@@ -54,7 +57,7 @@ class Bench {
 		return found == null ? null : found & 0xFFFFFF;
 	}
 
-	static function run(machine:Machine, mark:Int, done:Int):Array<Int> {
+	static function intervals(machine:Machine, mark:Int, done:Int):Array<Int> {
 		final intervals = [];
 		var opened = -1;
 		var steps = 0;

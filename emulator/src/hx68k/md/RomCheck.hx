@@ -22,7 +22,10 @@ typedef Job = {
 
 class RomCheck {
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		if (args.length < 2) {
 			Sys.println("usage: rom <observables file> <repository root>");
 			Sys.exit(2);
@@ -36,7 +39,7 @@ class RomCheck {
 		}
 
 		var failed = 0;
-		for (job in jobs) failed += run(job, root);
+		for (job in jobs) failed += compare(job, root);
 		Sys.exit(failed == 0 ? 0 : 1);
 	}
 
@@ -80,7 +83,7 @@ class RomCheck {
 		return jobs;
 	}
 
-	static function run(job:Job, root:String):Int {
+	static function compare(job:Job, root:String):Int {
 		final machine = new Machine();
 		machine.vdp.rendering = false;
 		machine.load(haxe.io.Path.join([root, job.rom]));

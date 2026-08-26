@@ -224,6 +224,10 @@ class LayoutCheck {
 	}
 
 	static function main():Void {
+		run();
+	}
+
+	public static function run():Void {
 		Sys.println("--- the layout model, with no window anywhere near it ---");
 
 		for (scale in 1...4) {

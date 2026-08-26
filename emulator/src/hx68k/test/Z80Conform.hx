@@ -8,7 +8,10 @@ class Z80Conform {
 	static inline final SUITE = "../vendor/SingleStepTests-z80/v1bin";
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 		final filter = args.length > 0 && args[0].charAt(0) != "-" ? args[0] : null;
 		final verbose = args.indexOf("-f") >= 0;
 

@@ -11,7 +11,10 @@ class OpnCheck {
 	static inline final SETTLE = 200;
 
 	static function main():Void {
-		final args = Sys.args();
+		run(Sys.args());
+	}
+
+	public static function run(args:Array<String>):Void {
 
 		if (args.length < 2) {
 			Sys.println("usage: opn <scripts> <references>        every fixture, counted by group");
@@ -145,7 +148,7 @@ class OpnCheck {
 		final steps = parse(File.getContent(script));
 		final theirs = samplesOf(File.getBytes(reference));
 
-		final mine = run(steps, theirs.length, held, StringTools.startsWith(name, "discrete-"));
+		final mine = render(steps, theirs.length, held, StringTools.startsWith(name, "discrete-"));
 
 		final count = mine.length < theirs.length ? mine.length : theirs.length;
 		if (count <= SETTLE) {
@@ -232,7 +235,7 @@ class OpnCheck {
 		}
 	}
 
-	static function run(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>,
+	static function render(steps:Array<Step>, count:Int, held:Null<Array<Array<Int>>>,
 			discrete:Bool):Array<Int> {
 		final chip = new Ym2612();
 		chip.discrete = discrete;

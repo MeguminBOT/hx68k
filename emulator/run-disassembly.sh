@@ -6,5 +6,4 @@ if [ ! -d "../vendor/SingleStepTests-m68000/v1" ]; then
 	echo "SingleStepTests suite missing; skipping disassembly conformance."
 	exit 0
 fi
-haxe disassembly.hxml
-neko bin/disassembly.n "$@"
+./gate.sh disassembly "$@"

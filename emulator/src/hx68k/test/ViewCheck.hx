@@ -24,6 +24,10 @@ class ViewCheck {
 	static var failures = 0;
 
 	static function main():Void {
+		run();
+	}
+
+	public static function run():Void {
 		layout();
 		planeCell();
 		planeAddressing();
