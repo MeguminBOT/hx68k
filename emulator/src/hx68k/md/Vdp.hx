@@ -52,6 +52,13 @@ final class Vdp {
 	public var writes(default, null):Int = 0;
 	public var reads(default, null):Int = 0;
 
+	public final lineWrote:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineLanded:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineCarried:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineStalled:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineDeepest:Vector<Int> = new Vector<Int>(LINES_NTSC);
+	public final lineShape:Vector<Int> = new Vector<Int>(LINES_NTSC);
+
 	public var colours(default, null):Int = 0;
 
 	public var spriteOverflow:Bool = false;
@@ -85,6 +92,12 @@ final class Vdp {
 
 	var fifoHead:Int = 0;
 	var served:Int = 0;
+
+	var atWrote:Int = 0;
+	var atLanded:Int = 0;
+	var atCarried:Int = 0;
+	var atStalled:Int = 0;
+	var atDeepest:Int = 0;
 
 	public function new(memory:Memory) {
 		this.memory = memory;
@@ -127,6 +140,19 @@ final class Vdp {
 		dmaByte = 0;
 		dmaFetched = false;
 		served = 0;
+		atWrote = 0;
+		atLanded = 0;
+		atCarried = 0;
+		atStalled = 0;
+		atDeepest = 0;
+		for (i in 0...LINES_NTSC) {
+			lineWrote[i] = 0;
+			lineLanded[i] = 0;
+			lineCarried[i] = 0;
+			lineStalled[i] = 0;
+			lineDeepest[i] = 0;
+			lineShape[i] = 0;
+		}
 		writes = 0;
 		reads = 0;
 	}
@@ -134,7 +160,11 @@ final class Vdp {
 	public inline function tick(master:Int):Void {
 		dot += master;
 		if (queued > 0 || dmaMode != 0) drain();
-		if (dot >= next) events();
+
+		if (dot >= next) {
+			events();
+			if (queued > 0 || dmaMode != 0) drain();
+		}
 	}
 
 	inline function slotsPerLine():Int {
@@ -146,10 +176,12 @@ final class Vdp {
 	}
 
 	public function slotIsExternal(at:Int):Bool {
-		final open = blanked();
+		return externalSlot(at, (registers[12] & 0x81) == 0x81, blanked());
+	}
+
+	public static function externalSlot(at:Int, wide:Bool, open:Bool):Bool {
 		if (at < 14) return open;
 
-		final wide = (registers[12] & 0x81) == 0x81;
 		final tail = wide ? 174 : 142;
 
 		if (at < tail) {
@@ -165,7 +197,8 @@ final class Vdp {
 
 	function drain():Void {
 		final total = slotsPerLine();
-		final now = Std.int(dot * total / MASTER_PER_LINE);
+		final reached = Std.int(dot * total / MASTER_PER_LINE);
+		final now = reached > total ? total : reached;
 
 		while (served < now && (queued > 0 || dmaMode != 0)) {
 			served++;
@@ -203,6 +236,7 @@ final class Vdp {
 	}
 
 	function fillByte():Void {
+		atCarried++;
 		vram.set((address ^ 1) & 0xFFFF, dmaByte);
 		address = (address + registers[15]) & 0xFFFF;
 		countDown();
@@ -216,6 +250,7 @@ final class Vdp {
 		}
 
 		dmaFetched = false;
+		atCarried++;
 		vram.set(address & 0xFFFF, dmaByte);
 		address = (address + registers[15]) & 0xFFFF;
 		advanceSource();
@@ -239,6 +274,7 @@ final class Vdp {
 		commit(fifoCode[fifoHead], fifoAddress[fifoHead], fifoValue[fifoHead]);
 		fifoHead = (fifoHead + 1) % FIFO_DEPTH;
 		queued--;
+		atLanded++;
 	}
 
 	function until():Int {
@@ -263,6 +299,7 @@ final class Vdp {
 		fifoAddress[slot] = at;
 		fifoValue[slot] = value;
 		queued++;
+		if (queued > atDeepest) atDeepest = queued;
 	}
 
 	function push(value:Int):Int {
@@ -275,6 +312,7 @@ final class Vdp {
 
 		enqueue(code, address, value);
 		stalledFor += held;
+		atStalled += held;
 
 		address = (address + registers[15]) & 0xFFFF;
 		return held;
@@ -309,6 +347,19 @@ final class Vdp {
 	}
 
 	function endOfLine():Void {
+		lineWrote[line] = atWrote;
+		lineLanded[line] = atLanded;
+		lineCarried[line] = atCarried;
+		lineStalled[line] = atStalled;
+		lineDeepest[line] = atDeepest;
+		lineShape[line] = ((registers[12] & 0x81) == 0x81 ? 2 : 0) | (blanked() ? 1 : 0);
+
+		atWrote = 0;
+		atLanded = 0;
+		atCarried = 0;
+		atStalled = 0;
+		atDeepest = 0;
+
 		served = 0;
 		line++;
 		if (line == ACTIVE_LINES) vint = true;
@@ -355,6 +406,7 @@ final class Vdp {
 
 	public function writeData(value:Int):Int {
 		writes++;
+		atWrote++;
 		pending = false;
 
 		if (filling) return startFill(value);

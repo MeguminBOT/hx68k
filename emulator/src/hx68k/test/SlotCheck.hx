@@ -24,6 +24,8 @@ class SlotCheck {
 
 	static inline final A_WRITE = 4 * 7;
 
+	static inline final BUS_CYCLE = 4 * 7;
+
 	static var failures:Int = 0;
 	static var checks:Int = 0;
 
@@ -166,48 +168,65 @@ class SlotCheck {
 	}
 
 	static function dma():Void {
-		final blank = transferring(H40, DISPLAY_OFF, 1000);
-		ok("a blanked H40 line carries about 205 words of a transfer",
-			blank >= 200 && blank <= 210, "it carried " + blank);
+		same("a blanked H40 line carries 205 words of a transfer",
+			transferring(H40, DISPLAY_OFF, 1000), 205);
+		same("an active H40 line carries 18", transferring(H40, DISPLAY_ON, 1000), 18);
+		same("a blanked H32 line carries 167", transferring(H32, DISPLAY_OFF, 1000), 167);
+		same("an active H32 line carries 16", transferring(H32, DISPLAY_ON, 1000), 16);
 
-		final active = transferring(H40, DISPLAY_ON, 1000);
-		ok("an active H40 line carries about 18",
-			active >= 15 && active <= 20, "it carried " + active);
-
-		final narrow = transferring(H32, DISPLAY_OFF, 1000);
-		ok("a blanked H32 line carries about 167",
-			narrow >= 162 && narrow <= 172, "it carried " + narrow);
-
-		final short = transferring(H40, DISPLAY_OFF, 40);
-		same("a transfer shorter than a line carries all of it", short, 40);
+		same("a transfer shorter than a line carries all of it",
+			transferring(H40, DISPLAY_OFF, 40), 40);
 	}
 
 	static function fill():Void {
-		final blank = filling(H40, DISPLAY_OFF, 1000);
-		ok("a blanked H40 line carries about 204 bytes of a fill, the first slot going to its word",
-			blank >= 199 && blank <= 209, "it carried " + blank);
+		same("a blanked H40 line carries 204 bytes of a fill, the first slot going to its word",
+			filling(H40, DISPLAY_OFF, 1000), 204);
+		same("an active H40 line carries 17", filling(H40, DISPLAY_ON, 1000), 17);
+		same("a blanked H32 line carries 166", filling(H32, DISPLAY_OFF, 1000), 166);
+		same("an active H32 line carries 15", filling(H32, DISPLAY_ON, 1000), 15);
+	}
 
-		final active = filling(H40, DISPLAY_ON, 1000);
-		ok("an active H40 line carries about 17",
-			active >= 14 && active <= 20, "it carried " + active);
+	static function over(vdp:Vdp, length:Int, lines:Int):Int {
+		var master = Vdp.MASTER_PER_LINE * lines;
 
-		final narrow = filling(H32, DISPLAY_OFF, 1000);
-		ok("a blanked H32 line carries about 166",
-			narrow >= 161 && narrow <= 171, "it carried " + narrow);
+		while (master > 0) {
+			final now = master < BUS_CYCLE ? master : BUS_CYCLE;
+			vdp.tick(now);
+			master -= now;
+		}
+
+		return length - (vdp.registers[19] | (vdp.registers[20] << 8)) - vdp.queued;
+	}
+
+	static function sustained():Void {
+		final filled = ready(H40, DISPLAY_OFF);
+		asked(filled, 4000, 0, 0x80);
+		filled.writeControl(0x4000);
+		filled.writeControl(0x0080);
+		filled.writeData(0xAA55);
+		same("ten blanked H40 lines fill 204 bytes and then 205 nine times over",
+			over(filled, 4000, 10), 204 + 205 * 9);
+
+		final moved = ready(H40, DISPLAY_OFF);
+		asked(moved, 4000, 0, 0);
+		moved.writeControl(0x4000);
+		moved.writeControl(0x0080);
+		same("and transfer 205 words on every one of them", over(moved, 4000, 10), 2050);
+
+		final copied = ready(H40, DISPLAY_OFF);
+		asked(copied, 4000, 0x4000, 0xC0);
+		copied.writeControl(0x4000);
+		copied.writeControl(0x00C0);
+		same("and copy a byte every second slot, ten lines being 1025 of them",
+			over(copied, 4000, 10), 1025);
 	}
 
 	static function copy():Void {
-		final blank = copying(H40, DISPLAY_OFF, 1000);
-		ok("a blanked H40 line carries about 102 bytes of a copy, which reads before it writes",
-			blank >= 97 && blank <= 107, "it carried " + blank);
-
-		final active = copying(H40, DISPLAY_ON, 1000);
-		ok("an active H40 line carries about 9",
-			active >= 6 && active <= 12, "it carried " + active);
-
-		final narrow = copying(H32, DISPLAY_OFF, 1000);
-		ok("a blanked H32 line carries about 83",
-			narrow >= 78 && narrow <= 88, "it carried " + narrow);
+		same("a blanked H40 line carries 102 bytes of a copy, which reads before it writes",
+			copying(H40, DISPLAY_OFF, 1000), 102);
+		same("an active H40 line carries 9", copying(H40, DISPLAY_ON, 1000), 9);
+		same("a blanked H32 line carries 83", copying(H32, DISPLAY_OFF, 1000), 83);
+		same("an active H32 line carries 8", copying(H32, DISPLAY_ON, 1000), 8);
 	}
 
 	static function landed():Void {
@@ -379,6 +398,9 @@ class SlotCheck {
 		Sys.println("what a VRAM copy does with them");
 		copy();
 		copied();
+
+		Sys.println("what a dma keeps up over a run of lines");
+		sustained();
 
 		Sys.println("what the write FIFO does with them");
 		exposure();
