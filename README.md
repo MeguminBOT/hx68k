@@ -35,18 +35,20 @@ cd samples/spike && ./build.sh             Haxe to a ROM
 ```
 
 `build` takes target names, so `haxelib run hx68k build sst z80 opn` builds those three and
-`build --all` builds all twenty-one. `--debug` carries debug information through. The shell scripts
+`build --all` builds all thirty-one. `--debug` carries debug information through. The shell scripts
 `emulator/build.sh` and `emulator/run-window.sh` call the same thing, so the SDL3 and miniaudio
 paths live in one place.
 
-Requires Haxe 4.3+, `git` and `curl`, and for now a JVM: SGDK pads and checksums every ROM with a
-`.jar`, and compiles images and music with another. Removing that is on the list below. The m68k
-toolchain comes with SGDK, so there is nothing else to install.
+Requires Haxe 4.3+, `git` and `curl`. A JVM is needed only by the two samples that carry
+resources: `rescomp.jar` compiles their images and music. Padding and checksums no longer need one.
+The m68k toolchain comes with SGDK, so there is nothing else to install.
 
 ## What works today
 
-Everything ticked has a test behind it that runs in `./tests/run.sh`. Everything unticked is not
-started or not finished, and nothing here is ticked on intent.
+Everything ticked has a test behind it that runs in `./tests/run.sh`, except the Window entries,
+which need a running window: their models are gated headlessly and what the window itself was
+measured doing is written down in `docs/`. Everything unticked is not started or not finished, and
+nothing here is ticked on intent.
 
 ### Compiler, Haxe to 68000 C
 
@@ -63,55 +65,71 @@ started or not finished, and nothing here is ticked on intent.
 
 - [x] `md.hw.*` raw hardware, one volatile access per call
 - [x] SGDK bindings that stand alone, and the resource pipeline behind them
-- [ ] SGDK bindings that need a running Z80 (partly done)
-- [ ] Native Haxe replacements for the SGDK subsystems, gated on beating them
+- [x] SGDK bindings that need something running first: the sprite engine, vertical-interrupt
+      callbacks, and the XGM driver playing on the Z80 uploaded into the machine
+- [ ] Native Haxe replacements for the SGDK subsystems, gated on beating them. Nothing started
+- [ ] The last of the Java: `sizebnd` is gone and its replacement is byte for byte the same ROM,
+      `rescomp` is not
 
 ### Emulator
 
 - [x] 68000 core, 317,500 tests at 100% on final state, cycle counts and bus transactions
 - [x] Z80 core, 1,604,000 tests at 100% on state, cycles and pins
 - [x] YM2612, 1032 of 1032 fixtures bit identical to Nuked-OPN2
-- [x] SN76489 including the noise LFSR
+- [x] SN76489 including the noise LFSR, held to 38 checks from its documentation
 - [x] Bus, memory map, Z80 arbitration, the SSF2 mapper, pads
-- [x] VDP renderer: planes, window, sprites, priority, shadow and highlight, H40/H32, V28/V30
-- [x] Sound to the speakers in stereo, resampled, at about 70 ms
-- [x] A commercial ROM boots, plays and draws its title screen
-- [ ] VDP timing: no FIFO, no `!DTACK` stall, no external access slots, no DMA cost. Blocked on
-      test ROMs that are not vendored
+- [x] VDP renderer: planes, window, sprites, priority, shadow and highlight, H40/H32, V28/V30,
+      interlace mode 2, sprite masking and the per-line and per-dot limits
+- [x] VDP timing: the four entry write FIFO with its `!DTACK` stall, the external access slots a
+      line offers, and all twelve documented DMA rates, exactly rather than to a tolerance
+- [x] Both HV counters, walked across a line of each width and across a whole frame
+- [x] Sound to the speakers in stereo, resampled, at about 30 ms
+- [x] A commercial ROM boots, plays and draws, held to seven frames out to 5,000
+- [x] Five hardware test ROMs in the gate: Nemesis' port access ROM at 100% on both pages, his
+      sprite masking ROM 9 of 9 in both widths, the 240p suite's seven patterns, and two
+      self-checking 68000 ROMs
+- [ ] The VDP read prefetch, and what the vertical counter reads in interlace mode 2. Both are
+      parked: nothing here can say whether a guess at them is right
 - [ ] The price of bus contention. Arbitration is modelled, its cost is not
 - [ ] SRAM and EEPROM
 
 ### Debugger
 
-- [x] Break on a Haxe function or a Haxe line, step by instruction or by line
-- [x] Read a Haxe static, a local or a parameter by name, through DWARF
+- [x] Break on a Haxe function, a Haxe line, or a symbol the Haxe map never heard of
+- [x] Step by instruction or by line, and stop on the nth time round
+- [x] Read a Haxe static, a local or a parameter by name, through DWARF 4 and DWARF 5
 - [x] Backtrace in Haxe names, with no frame pointer to walk
 - [x] Disassembler, held to the same fixtures as the core, 100% on all three axes
 - [x] Instruction trace beside the Haxe that produced it
 - [x] Frame profiler by Haxe function and by scanline
 - [x] VDP viewers: layout, palettes, sprites, plane cells, VRAM use
 - [x] Raster overlay: where the beam was when the code touched the VDP
-- [x] Savestates and rewind
-- [ ] Hot reload, and a GDB stub
+- [x] What each scanline spent the VDP's access slots on, and what the FIFO cost the 68000
+- [x] Savestates, rewind, and scrubbing back and forward through the ring
+- [x] A gdb remote, so the `m68k-elf-gdb` SGDK already ships debugs a machine running here
+- [ ] An evaluator for DWARF expressions of more than one operation. gcc writes a `bool` that way,
+      and such a variable is reported unreadable rather than guessed at
 
 ### Window
 
 - [x] SDL3 and miniaudio called directly, no framework in between
 - [x] The machine paced by its own clock, independent of the display and the sound device
-- [x] Debugger panels, dockable, each poppable into a window of its own
-- [ ] Savestate and rewind on keys, and any configuration at all
+- [x] Debugger panels, dockable, each poppable into a window of its own, in a grid or floating
+- [x] A settings file, a window that edits it, and every key rebindable
+- [x] Savestate and rewind on keys, with a timeline under the toolbar to scrub the ring
+- [x] The gdb remote served from the window, so gdb reaches the machine on screen
+- [x] Hot reload: the ROM file is watched and loaded again when it changes
 
 ### Not started
 
 - [ ] CI, hardware verification on a flashcart, packaging for haxelib
 - [ ] The game framework: states, sprites, input and collision, built for this hardware
 - [ ] Other 68000 machines: Neo Geo, then arcade boards
-- [ ] Dropping the Java dependency: SGDK's `sizebnd` pads and checksums every ROM, and its
-      `rescomp` compiles images and music. Both are `.jar` files today
 
 The hardware behind the emulator is written up in [docs/68000-NOTES.md](docs/68000-NOTES.md),
-[docs/Z80-NOTES.md](docs/Z80-NOTES.md) and [docs/YM2612-NOTES.md](docs/YM2612-NOTES.md): what the
-fixtures taught, and what is inferred rather than measured.
+[docs/Z80-NOTES.md](docs/Z80-NOTES.md), [docs/VDP-NOTES.md](docs/VDP-NOTES.md),
+[docs/YM2612-NOTES.md](docs/YM2612-NOTES.md) and [docs/PSG-NOTES.md](docs/PSG-NOTES.md): what the
+fixtures and the test ROMs taught, and what is inferred rather than measured.
 
 ## In more detail
 
@@ -122,7 +140,7 @@ fixed-capacity vectors, fixed point, enums as tagged unions, pattern matching as
 inheritance with vtables only where something is overridden, interfaces as fat pointers, function
 pointers with no heap behind them, and text and constant tables that never leave ROM. The ROM boots
 and runs correctly on an emulated 68000, and the suite checks the generated C and the map file as
-well as the running program. 64 checks, 0 failures.
+well as the running program. 96 checks, 0 failures.
 
 Given a 68000 address, the map tool names the Haxe file, line and function it came from: 122 of 122
 probes, none wrong. The debugger stands on that chain, and it works: a bug planted in a sample is
@@ -242,14 +260,16 @@ Around it, a machine: the memory map, the VDP as memory and interrupt source, th
 bus and its share of the master clock, and the clock itself. Six sample ROMs boot on it and
 reproduce every observable the Musashi harness recorded running the same ROM, and a seventh runs
 only here: the one that waits for the sound driver to answer. The per-pixel renderer draws planes,
-window and sprites with their priority order, checked by seventeen scenarios written from the
-hardware documentation.
+window and sprites with their priority order, checked by 29 scenarios written from the hardware
+documentation.
 
-It runs in a window. `./emulator/run-window.sh <rom.bin>` builds an hxcpp host on lime, with nothing
-above lime used, and puts the framebuffer on the screen through one texture and one quad. The
-machine is paced off its own clock at the 59.92 frames a second the VDP's constants give, not off
-whatever the monitor happens to do. Compiled, the cores run about 400 frames a second where 60 is
-wanted, so the picture is not what costs.
+It runs in a window. `./emulator/run-window.sh <rom.bin>` builds an hxcpp host that calls SDL3 and
+miniaudio directly, with no framework in between, and puts the framebuffer on the screen through one
+texture and one quad. The machine is paced off its own clock at the 59.92 frames a second the VDP's
+constants give, not off whatever the monitor happens to do. Compiled, the cores run about 435 frames
+a second where 60 is wanted, so the picture is not what costs. An earlier version of this host was
+built on lime, and `CLAUDE.md` records the four things that were true underneath it that this
+repository's own code gave no sign of.
 
 A commercial ROM runs on it: Sonic the Hedgehog 2 boots, uploads its sound driver to the Z80,
 plays it, and draws its title screen. Nothing about the game was written for this emulator and
@@ -259,8 +279,32 @@ The Z80 is held to the same standard and meets it: all 1,604 opcode groups, **1,
 1,604,000 tests passing on final state, T-state count and the pin log**, prefixes and undocumented
 flags included.
 
-See [docs/68000-NOTES.md](docs/68000-NOTES.md)
-and [docs/Z80-NOTES.md](docs/Z80-NOTES.md) for the hardware behaviours the fixtures revealed.
+**The VDP is held to the hardware's own test ROMs.** Nemesis' port access ROM passes all fifteen of
+its suites, 100% of the pixels on both pages, which is what settled how a CRAM or VSRAM read exposes
+the write FIFO and what an 8-bit VRAM read returns. His sprite masking ROM passes 9 of 9 in both
+widths, which is what named the four sprite rules. The 240p suite's seven patterns are walked
+through its own menus and held to what they drew. Every documented DMA rate now comes out of the
+access slot positions rather than being written in, exactly rather than to a tolerance, and
+`hx68k.debug.Slots` says what each of a frame's scanlines spent its slots on.
+
+**gdb can drive it.** `hx68k.debug.Gdb` speaks the remote serial protocol, so the `m68k-elf-gdb`
+SGDK already ships debugs a machine running here, reading DWARF from `rom.out` itself and reaching
+the machine only through the stub. The gate runs the protocol against itself with no gdb involved,
+then runs the real thing against the planted-bug sample and holds what it prints to what the
+debugger here reads a different way.
+
+```
+Breakpoint 2, Main_accumulate (n=4) at src/Main.c:23
+$2 = 1
+#0  Main_accumulate (n=4) at src/Main.c:23
+#1  0x0000049a in Main_main () at src/Main.c:7
+#2  0x000004c0 in main (hardReset=1 '\001') at src/hx_entry.c:8
+```
+
+See [docs/68000-NOTES.md](docs/68000-NOTES.md), [docs/Z80-NOTES.md](docs/Z80-NOTES.md),
+[docs/VDP-NOTES.md](docs/VDP-NOTES.md), [docs/YM2612-NOTES.md](docs/YM2612-NOTES.md) and
+[docs/PSG-NOTES.md](docs/PSG-NOTES.md) for the hardware behaviours the fixtures and the test ROMs
+revealed.
 
 ## Test
 
@@ -268,8 +312,9 @@ and [docs/Z80-NOTES.md](docs/Z80-NOTES.md) for the hardware behaviours the fixtu
 ./tests/run.sh
 ```
 
-Builds both sample ROMs and the headless 68000 harness, boots them, asserts on the results, and
-exits nonzero on failure.
+Builds every sample ROM and the headless 68000 harness, boots them on both emulators, runs the
+conformance suites, the hardware test ROMs and a commercial ROM where one is present, and exits
+nonzero on any failure. About seventy seconds.
 
 ## Map a 68000 address back to Haxe
 
@@ -294,11 +339,11 @@ Produces `samples/spike/rom/out/rom.bin`.
 
 ```
 compiler/    Reflaxe backend, Haxe -> C99 -> m68k
-sdk/         md.hw raw hardware, SGDK bindings later
-samples/     spike, conformance, hardware, bench roms
+sdk/         md.hw raw hardware, the SGDK bindings above it, and the resource pipeline
+samples/     art, bench, bug, conformance, events, hardware, sdk, sound, spike
 tests/       headless 68000 harness, built on Musashi, that answers are checked against
-emulator/    cycle-accurate cores + SingleStepTests conformance
-vendor/      third-party reference sources
+emulator/    cycle-accurate cores, the debugger, and the window
+vendor/      third-party reference sources and the window's build dependencies
 docs/
 ```
 
@@ -316,6 +361,9 @@ docs/
 | Nuked-OPN2 | LGPL-2.1 | The FM reference; porting it would make that module LGPL |
 | SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
 | Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
+| VDPFIFOTesting, Sprite Masking Test | test ROMs | What the VDP's ports and sprites are held to |
+| 240p Test Suite | test ROM | What the renderer's patterns are held to |
+| Flamewing's BCD verifier, an illegal opcode ROM | test ROMs | Two the 68000 core is held to |
 
 Nothing above is patched in place. The harness copies Musashi into `tests/harness/.build/` before
 patching it, and anything else needing modification does the same.
