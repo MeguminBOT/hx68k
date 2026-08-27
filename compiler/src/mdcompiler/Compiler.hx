@@ -402,8 +402,15 @@ void md_interrupts_off(void);
 		}
 	}
 
+	static function originOf(c:ClassType):ClassType {
+		return switch(c.kind) {
+			case KGenericInstance(origin, _): origin.get();
+			case _: c;
+		}
+	}
+
 	function poolCapacity(c:ClassType):Null<Int> {
-		final entry = c.meta.extract(":md.pool")[0];
+		final entry = originOf(c).meta.extract(":md.pool")[0];
 		if(entry == null) return null;
 		if(entry.params.length != 1) Context.error("@:md.pool takes one capacity.", entry.pos);
 		return switch(entry.params[0].expr) {
@@ -1247,6 +1254,13 @@ void md_interrupts_off(void);
 		if(classType.isExtern) return null;
 
 		if(classType.isInterface) return null;
+
+		if(classType.params.length > 0) {
+			if(!classType.meta.has(":generic"))
+				Context.error("A class with a type parameter needs @:generic on this target, so that "
+					+ "each instantiation is compiled as its own type.", classType.pos);
+			return null;
+		}
 
 		if(classType.superClass != null) addModuleTypeForCompilation(TClassDecl(classType.superClass.t));
 
