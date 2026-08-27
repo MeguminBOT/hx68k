@@ -64,64 +64,65 @@ class Resources {
 
 			final arguments = entry.params.map(p -> constant(p));
 			final file = source(arguments[0], entry.pos);
+			final symbol = emit.name + "_" + field.name;
 
 			return switch (kind) {
 				case "image": {
 					native(entry.pos, () -> {
 						final picture = read(file, true);
 						final patterns = Patterns.of(picture, Optimisation.Every, Ordering.Row, false);
-						emit.image(field.name, picture, patterns,
+						emit.image(symbol, picture, patterns,
 							Cells.of(picture, patterns, 0, Optimisation.Every, Ordering.Row));
 					});
-					{line: "", type: "Image", symbol: '(&${field.name})', bytes: -1};
+					{line: "", type: "Image", symbol: '(&${symbol})', bytes: -1};
 				}
 				case "palette": {
-					native(entry.pos, () -> emit.palette(field.name, read(file, false)));
-					{line: "", type: "Palette", symbol: '(&${field.name})', bytes: -1};
+					native(entry.pos, () -> emit.palette(symbol, read(file, false)));
+					{line: "", type: "Palette", symbol: '(&${symbol})', bytes: -1};
 				}
 				case "tileset": {
 					native(entry.pos, () -> {
 						final picture = read(file, true);
-						emit.tileset(field.name, Patterns.of(picture,
+						emit.tileset(symbol, Patterns.of(picture,
 							optimisation(option(arguments, 1, "ALL"), entry.pos), Ordering.Row,
 							false));
 					});
-					{line: "", type: "TileSet", symbol: '(&${field.name})', bytes: -1};
+					{line: "", type: "TileSet", symbol: '(&${symbol})', bytes: -1};
 				}
 				case "sprite": {
 					if (arguments.length < 3)
 						Context.error("A sprite needs its frame size: @:sprite(file, width, height).", entry.pos);
-					native(entry.pos, () -> emit.sprite(field.name, new Frames(read(file, true),
+					native(entry.pos, () -> emit.sprite(symbol, new Frames(read(file, true),
 						Std.parseInt(arguments[1]), Std.parseInt(arguments[2]),
 						Std.parseInt(option(arguments, 4, "0")), Aim.Balanced, cuts)));
-					{line: "", type: "SpriteDefinition", symbol: '(&${field.name})', bytes: -1};
+					{line: "", type: "SpriteDefinition", symbol: '(&${symbol})', bytes: -1};
 				}
 				case "music": {
 					var bytes = 0;
-					native(entry.pos, () -> bytes = emit.binary(field.name,
+					native(entry.pos, () -> bytes = emit.binary(symbol,
 						hxres.music.Xgc.compile(sys.io.File.getBytes(file),
 							number(arguments, 1, -1)),
 						256, 256, 0, true, "NONE"));
-					{line: "", type: "Music", symbol: field.name, bytes: bytes};
+					{line: "", type: "Music", symbol: symbol, bytes: bytes};
 				}
 				case "sound": {
 					final driver = option(arguments, 1, "PCM");
 					var bytes = 0;
-					native(entry.pos, () -> bytes = emit.binary(field.name,
+					native(entry.pos, () -> bytes = emit.binary(symbol,
 						hxres.Sounds.convert(sys.io.File.getBytes(file), driver,
 							number(arguments, 2, 0)),
 						hxres.Sounds.alignOf(driver), hxres.Sounds.alignOf(driver),
 						hxres.Sounds.fillOf(driver),
 						option(arguments, 3, "false") != "false", "NONE"));
-					{line: "", type: "Sound", symbol: field.name, bytes: bytes};
+					{line: "", type: "Sound", symbol: symbol, bytes: bytes};
 				}
 				case _: {
 					var bytes = 0;
-					native(entry.pos, () -> bytes = emit.binary(field.name,
+					native(entry.pos, () -> bytes = emit.binary(symbol,
 						sys.io.File.getBytes(file),
 						number(arguments, 1, 2), number(arguments, 2, 2), number(arguments, 3, 0),
 						option(arguments, 4, "true") != "false", option(arguments, 5, "NONE")));
-					{line: "", type: "Binary", symbol: field.name, bytes: bytes};
+					{line: "", type: "Binary", symbol: symbol, bytes: bytes};
 				}
 			}
 		}

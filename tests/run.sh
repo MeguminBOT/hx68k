@@ -93,6 +93,12 @@ build "pal rom" "$ROOT/samples/pal/build.sh"
 
 # the backend writes rom_header.c itself, which is how -D md-pal reaches the cartridge header:
 # SGDK's makefile only copies its own template when the file is not already there
+# a generated type carries its package into its C name, so nothing in md.* can collide with a
+# framework, a game or a hand-written struct. The default package keeps its bare name on purpose.
+codegen "package prefix" "$ROOT/samples/spike/rom/src/Main.c" 'md_Boot_begin\('
+missing "no bare prefix" "$ROOT/samples/spike/rom/src/Main.c" '[^_A-Za-z]Boot_begin\('
+codegen "default bare"  "$ROOT/samples/spike/rom/src/Main.c" 'Main_ramp\('
+
 codegen "pal region" "$ROOT/samples/pal/rom/src/rom_header.c" '"E {15}"'
 codegen "ntsc region" "$ROOT/samples/spike/rom/src/rom_header.c" '"JUE {13}"' 
 build "art rom"     "$ROOT/samples/art/build.sh"
@@ -104,6 +110,8 @@ build "bare rom"    "$ROOT/samples/bare/build.sh"
 missing "no sgdk header" "$ROOT/samples/bare/rom/src/hx.h" '#include <genesis.h>'
 codegen "own typedefs"  "$ROOT/samples/bare/rom/src/hx.h" 'typedef unsigned short u16;'
 codegen "own resources" "$ROOT/samples/art/rom/src/hx.h" '\} SpriteDefinition;'
+# a resource symbol carries the name of the class that declared it, for the same reason
+codegen "resource prefix" "$ROOT/samples/art/rom/src/art.h" 'extern const u8 art_table\['
 codegen "own rom header" "$ROOT/samples/bare/rom/src/rom_header.c" '\} ROMHeader;'
 
 # the header layout is SGDK's and the boot came from there, so the copyright field keeps its

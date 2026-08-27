@@ -10,6 +10,8 @@ import reflaxe.data.ClassFuncData;
 import reflaxe.data.ClassVarData;
 import reflaxe.data.EnumOptionData;
 import reflaxe.input.ClassHierarchyTracker;
+import reflaxe.output.DataAndFileInfo;
+import reflaxe.output.StringOrBytes;
 
 using StringTools;
 using reflaxe.helpers.BaseTypeHelper;
@@ -71,6 +73,8 @@ class Compiler extends DirectToStringCompiler {
 
 		final main = getMainModule();
 		if(main != null) addModuleTypeForCompilation(main);
+
+		declaredTypes = [];
 
 		setExtraFile(HEADER, "");
 		appendToExtraFile(HEADER, "#ifndef _HX_H_\n#define _HX_H_\n\n"
@@ -162,6 +166,19 @@ void md_interrupts_off(void);
 			+ "\tu16 maxNumTile;\n"
 			+ "\tu16 maxNumSprite;\n"
 			+ "} SpriteDefinition;\n";
+	}
+
+	public override function generateOutputIterator():Iterator<DataAndFileInfo<StringOrBytes>> {
+		final inner = super.generateOutputIterator();
+
+		return {
+			hasNext: () -> inner.hasNext(),
+			next: () -> {
+				final one = inner.next();
+				return new DataAndFileInfo(one.data, one.baseType, qualified(one.baseType),
+					one.overrideDirectory);
+			}
+		};
 	}
 
 	public override function onCompileEnd() {
@@ -258,7 +275,44 @@ void md_interrupts_off(void);
 	}
 
 	function classPrefix(c:ClassType):String {
-		return safe(c.globalName());
+		return qualified(c);
+	}
+
+	static final RESERVED_TYPES:Map<String, Bool> = [
+		"Palette" => true, "TileSet" => true, "TileMap" => true, "Image" => true,
+		"FrameVDPSprite" => true, "AnimationFrame" => true, "Animation" => true,
+		"SpriteDefinition" => true, "ROMHeader" => true,
+		"u8" => true, "u16" => true, "u32" => true, "s8" => true, "s16" => true, "s32" => true,
+		"bool" => true, "fix16" => true, "fix32" => true
+	];
+
+	var declaredTypes:Map<String, String> = [];
+
+	function reserve(name:String, owner:BaseType):Void {
+		final from = owner.pack.length == 0 ? owner.name : owner.pack.join(".") + "." + owner.name;
+
+		if(RESERVED_TYPES.exists(name))
+			Context.error("'" + from + "' is emitted as the C type '" + name + "', which hx.h "
+				+ "already declares. Rename it, or move it into a package: a type in package 'p' "
+				+ "is emitted as 'p_" + owner.name + "'.", owner.pos);
+
+		final was = declaredTypes.get(name);
+		if(was != null && was != from)
+			Context.error("'" + from + "' and '" + was + "' are both emitted as the C type '"
+				+ name + "'. Rename one of them.", owner.pos);
+
+		declaredTypes.set(name, from);
+	}
+
+	static function qualified(t:BaseType):String {
+		final parts = t.pack.copy();
+		final module = t.module.split(".").pop();
+		final name = reflaxe.helpers.BaseTypeHelper.removeNameSpecialSuffixes(t.name);
+
+		if(module != null && module != name) parts.push(module);
+		parts.push(name);
+
+		return safe(parts.join("_"));
 	}
 
 	function noteInclude(t:BaseType) {
@@ -496,6 +550,7 @@ void md_interrupts_off(void);
 		final name = classPrefix(c);
 		if(interfaceTypes.exists(name)) return name;
 		interfaceTypes.set(name, true);
+		reserve(name, c);
 
 		final vt = name + "__vt";
 		appendToExtraFile(HEADER, 'typedef struct $name $name;\ntypedef struct $vt $vt;\n', P_TYPEDEFS);
@@ -1205,7 +1260,10 @@ void md_interrupts_off(void);
 
 		final body = [];
 
-		if(hasInstances) emitStruct(prefix, instanceVars, slots.length > 0);
+		if(hasInstances) {
+			reserve(prefix, classType);
+			emitStruct(prefix, instanceVars, slots.length > 0);
+		}
 		if(slots.length > 0 && slots[slots.length - 1].owner == classType) emitVtableType(prefix, slots);
 		if(capacity != null) {
 			if(capacity <= 0) Context.error("@:md.pool capacity must be positive.", classType.pos);
@@ -1243,7 +1301,7 @@ void md_interrupts_off(void);
 	}
 
 	function enumPrefix(e:EnumType):String {
-		return safe(e.globalName());
+		return qualified(e);
 	}
 
 	function enumTag(e:TypedExpr, pos:haxe.macro.Expr.Position):String {
@@ -1272,6 +1330,7 @@ void md_interrupts_off(void);
 
 	public function compileEnumImpl(enumType:EnumType, constructs:Array<EnumOptionData>):Null<String> {
 		final prefix = enumPrefix(enumType);
+		reserve(prefix, enumType);
 
 		if(enumIsSimple(enumType)) {
 			final values = [];
