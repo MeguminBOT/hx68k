@@ -62,7 +62,7 @@ class Font {
 	public static function write(text:String, x:UInt16, y:UInt16):Void {
 		if (offPlane(x, y)) return;
 
-		final left:Int = room(x, 0xFFFF);
+		final left:Int = room(x, md.Text.length(text));
 		if (left <= 0) return;
 
 		Ports.autoIncrement(2);

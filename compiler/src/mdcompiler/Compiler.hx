@@ -75,6 +75,8 @@ class Compiler extends DirectToStringCompiler {
 		setExtraFile(HEADER, "");
 		appendToExtraFile(HEADER, "#ifndef _HX_H_\n#define _HX_H_\n\n#include <genesis.h>", P_PROLOGUE);
 		appendToExtraFile(HEADER, "extern s32 hx_bounds_hits;\n", P_GLOBALS);
+		appendToExtraFile(HEADER, "static inline s32 hx_text_length(const char* text)\n{\n"
+			+ "\t const char* at = text;\n\t while(*at) at++;\n\t return (s32)(at - text);\n}\n", P_PROTOS);
 		if(Context.defined("md-debug"))
 			appendToExtraFile(HEADER, "static inline s32 hx_bounds(s32 index, s32 capacity)\n{\n"
 				+ "\tif((u32)index >= (u32)capacity) { hx_bounds_hits++; return 0; }\n"
@@ -983,7 +985,6 @@ void md_interrupts_off(void);
 		}
 		if(cf == null) return null;
 
-		final target = compileExpressionOrError(args[0]);
 		final capacity = vectorCapacity(args[0]);
 
 		if(cf.name == "length") {
@@ -991,6 +992,8 @@ void md_interrupts_off(void);
 				Context.error("This vector is a pointer here, so it has no length. Pass the length alongside it.", pos);
 			return capacity;
 		}
+
+		final target = compileExpressionOrError(args[0]);
 
 		final field = vectorField(args[0]);
 		if(cf.name == "get" && field != null) {
@@ -1026,7 +1029,7 @@ void md_interrupts_off(void);
 
 		final target = compileExpressionOrError(args[0]);
 		return switch(cf.name) {
-			case "length": "((s32)strlen(" + target + "))";
+			case "length": "hx_text_length(" + target + ")";
 			case "charAt": "((s32)(u8)(" + target + ")[" + compileExpressionOrError(args[1]) + "])";
 			case "address" | "pointer": "((s32)(" + target + "))";
 			case "of": "((const char*)(" + target + "))";
@@ -1198,12 +1201,92 @@ void md_interrupts_off(void);
 
 	function block(expr:TypedExpr):String {
 		final list = expr.unwrapBlock();
+		final live = [for(_ in list) true];
+
+		for(held in list) remember(held);
+
+		var i = list.length;
+		while(i-- > 0) if(unread(list[i], list, live, i + 1)) {
+			remember(list[i]);
+			live[i] = false;
+		}
+
 		final out = [];
-		for(e in list) {
-			final s = statement(e);
+		for(at in 0...list.length) {
+			if(!live[at]) continue;
+			final s = statement(list[at]);
 			if(s != null && s.length > 0) out.push(s);
 		}
-		return out.join("\n");
+		return out.join("
+");
+	}
+
+	function remember(expr:TypedExpr):Void {
+		switch(expr.expr) {
+			case TVar(v, init) if(init != null): {
+				final field = vectorField(init);
+				if(field != null) vectorFields.set(v.id, field);
+			}
+			case _:
+		}
+	}
+
+	function unread(expr:TypedExpr, list:Array<TypedExpr>, live:Array<Bool>, from:Int):Bool {
+		final held = switch(expr.expr) {
+			case TVar(v, init) if(init != null && settled(init)): v;
+			case _: null;
+		}
+		if(held == null) return false;
+
+		for(i in from...list.length) if(live[i] && reads(list[i], held.id)) return false;
+		return true;
+	}
+
+	static function settled(expr:TypedExpr):Bool {
+		var quiet = switch(expr.expr) {
+			case TCall(_, _) | TNew(_, _, _) | TThrow(_) | TReturn(_) | TBreak | TContinue: false;
+			case TBinop(OpAssign, _, _) | TBinop(OpAssignOp(_), _, _): false;
+			case TUnop(OpIncrement, _, _) | TUnop(OpDecrement, _, _): false;
+			case TVar(_, _) | TFunction(_) | TWhile(_, _, _) | TFor(_, _, _): false;
+			case _: true;
+		}
+		if(quiet) haxe.macro.TypedExprTools.iter(expr, child -> {
+			if(!settled(child)) quiet = false;
+		});
+		return quiet;
+	}
+
+	function reads(expr:TypedExpr, id:Int):Bool {
+		switch(expr.expr) {
+			case TLocal(v): return v.id == id;
+			case TCall(callee, args) if(dropsTarget(callee, args)): {
+				for(i in 1...args.length) if(reads(args[i], id)) return true;
+				return false;
+			}
+			case _:
+		}
+		var found = false;
+		haxe.macro.TypedExprTools.iter(expr, child -> {
+			if(reads(child, id)) found = true;
+		});
+		return found;
+	}
+
+	function dropsTarget(callee:TypedExpr, args:Array<TypedExpr>):Bool {
+		final cf = switch(callee.expr) {
+			case TField(_, FStatic(cRef, cfRef)) if(cRef.get().name == "VectorTools"
+				&& cRef.get().pack.join(".") == "md"): cfRef.get();
+			case _: null;
+		}
+		if(cf == null || args.length == 0) return false;
+		if(cf.name == "length") return true;
+		if(cf.name != "get" || args.length < 2) return false;
+
+		final field = vectorField(args[0]);
+		if(field == null) return false;
+		final rom = romValues(field);
+		final constant = constantIndex(args[1]);
+		return rom != null && constant != null && constant >= 0 && constant < rom.length;
 	}
 
 	function statement(expr:TypedExpr):Null<String> {
