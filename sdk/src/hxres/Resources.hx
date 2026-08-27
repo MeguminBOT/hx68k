@@ -68,7 +68,9 @@ class Resources {
 				case "tileset": {
 					native(entry.pos, () -> {
 						final picture = read(file, true);
-						emit.tileset(field.name, Patterns.of(picture, Optimisation.Every, Ordering.Row, false));
+						emit.tileset(field.name, Patterns.of(picture,
+							optimisation(option(arguments, 1, "ALL"), entry.pos), Ordering.Row,
+							false));
 					});
 					{line: "", type: "TileSet", symbol: '(&${field.name})'};
 				}
@@ -107,6 +109,18 @@ class Resources {
 		}
 
 		return null;
+	}
+
+	static function optimisation(named:String, pos:Position):Optimisation {
+		return switch (named.toUpperCase()) {
+			case "ALL" | "1": Optimisation.Every;
+			case "DUPLICATE" | "2": Optimisation.Duplicates;
+			case "NONE" | "0": Optimisation.Nothing;
+			case _:
+				Context.error(named + " is not an optimisation level. Use ALL, DUPLICATE or NONE.",
+					pos);
+				Optimisation.Every;
+		}
 	}
 
 	static function native(pos:Position, work:Void->Void):Void {
