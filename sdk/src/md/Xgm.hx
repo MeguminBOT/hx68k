@@ -1,9 +1,9 @@
 package md;
 
 import md.res.Music;
-import md.res.Sound as Sampled;
+import md.res.Sample;
 
-class Sound {
+class Xgm {
 	public static inline final XGM = 4;
 
 	public static inline final SAMPLE_TABLE = 0xA01C00;
@@ -18,7 +18,7 @@ class Sound {
 
 	public static inline final RESUME = 0x20;
 
-	public static inline final SILENT = 0xFFFF00;
+	public static inline final NO_SAMPLE = 0xFFFF00;
 
 	static inline final ADDRESS = 0x00;
 
@@ -45,7 +45,7 @@ class Sound {
 		Z80Bus.loadDriver(XGM, Memory.addressOf(Drivers.xgmDriver), Drivers.xgmDriverLength);
 
 		Z80Bus.request();
-		silence(0, Memory.addressOf(Drivers.xgmSilence), Drivers.xgmSilenceLength);
+		pointSample(0, Memory.addressOf(Drivers.xgmSilence), Drivers.xgmSilenceLength);
 		Z80Bus.release();
 		System.enableInterrupts();
 
@@ -55,7 +55,7 @@ class Sound {
 		Z80Bus.usesProtection((Z80Bus.PARAMETERS + PROTECT) & 0xFFFF);
 	}
 
-	static function silence(slot:Int, at:Int, length:Int):Void {
+	static function pointSample(slot:Int, at:Int, length:Int):Void {
 		final entry:Int = SAMPLE_TABLE + (slot * 4);
 		Memory.writeU8(entry, (at >> 8) & 0xFF);
 		Memory.writeU8(entry + 1, (at >> 16) & 0xFF);
@@ -78,7 +78,7 @@ class Sound {
 			var at:Int = (Memory.loadU8(song + offset) << 8)
 				| (Memory.loadU8(song + offset + 1) << 16);
 
-			at = at == SILENT ? quiet : at + song + TABLE_BYTES;
+			at = at == NO_SAMPLE ? quiet : at + song + TABLE_BYTES;
 
 			final entry:Int = SAMPLE_TABLE + offset + 4;
 			Memory.writeU8(entry, (at >> 8) & 0xFF);
@@ -105,9 +105,9 @@ class Sound {
 		System.disableInterrupts();
 		final was:Bool = Z80Bus.requestAndReport();
 
-		point(Memory.addressOf(Drivers.xgmStop));
-		command(PLAY);
-		nextFrame(3, true);
+		setMusicAddress(Memory.addressOf(Drivers.xgmStop));
+		sendCommand(PLAY);
+		setPendingFrames(3);
 
 		if (!was) Z80Bus.release();
 		System.enableInterrupts();
@@ -119,8 +119,8 @@ class Sound {
 		System.disableInterrupts();
 		final was:Bool = Z80Bus.requestAndReport();
 
-		command(PAUSE);
-		nextFrame(0, true);
+		sendCommand(PAUSE);
+		setPendingFrames(0);
 
 		if (!was) Z80Bus.release();
 		System.enableInterrupts();
@@ -133,8 +133,8 @@ class Sound {
 		final was:Bool = Z80Bus.requestAndReport();
 
 		if ((Memory.readU8(Z80Bus.COMMAND) & PLAY) == 0) {
-			command(RESUME);
-			nextFrame(0, true);
+			sendCommand(RESUME);
+			setPendingFrames(0);
 		}
 
 		if (!was) Z80Bus.release();
@@ -154,13 +154,13 @@ class Sound {
 		return on;
 	}
 
-	public static function setSample(id:Int, sample:Sampled, length:Int):Void {
+	public static function setSample(id:Int, sample:Sample, length:Int):Void {
 		loadDriver();
 
 		System.disableInterrupts();
 		final was:Bool = Z80Bus.requestAndReport();
 
-		silence(id, Memory.addressOf(sample), length);
+		pointSample(id, Memory.addressOf(sample), length);
 
 		if (!was) Z80Bus.release();
 		System.enableInterrupts();
@@ -185,7 +185,7 @@ class Sound {
 		playSample(0, 0x0F, channel);
 	}
 
-	public static function playingSample(channels:UInt16):Int {
+	public static function samplesPlaying(channels:UInt16):Int {
 		loadDriver();
 
 		System.disableInterrupts();
@@ -219,7 +219,7 @@ class Sound {
 		step = System.isPal() ? 50 : 60;
 	}
 
-	public static function frame():Void {
+	public static function advance():Void {
 		if (Z80Bus.loadedDriver() != XGM) return;
 
 		var left:Int = counted;
@@ -234,11 +234,11 @@ class Sound {
 		counted = left - (wanted : Int);
 
 		final was:Bool = Z80Bus.requestAndReport();
-		nextFrame(due, false);
+		addPendingFrames(due);
 		if (!was) Z80Bus.release();
 	}
 
-	static inline function point(at:Int):Void {
+	static inline function setMusicAddress(at:Int):Void {
 		final where:Int = Z80Bus.PARAMETERS + ADDRESS;
 		Memory.writeU8(where, at & 0xFF);
 		Memory.writeU8(where + 1, (at >> 8) & 0xFF);
@@ -246,17 +246,28 @@ class Sound {
 		Memory.writeU8(where + 3, (at >> 24) & 0xFF);
 	}
 
-	static inline function command(what:Int):Void {
+	static inline function sendCommand(what:Int):Void {
 		Memory.writeU8(Z80Bus.COMMAND, (Memory.readU8(Z80Bus.COMMAND) & 0x0F) | what);
 	}
 
 	static inline function start(data:Int):Void {
-		point(data);
-		command(PLAY);
-		nextFrame(0, true);
+		setMusicAddress(data);
+		sendCommand(PLAY);
+		setPendingFrames(0);
 	}
 
-	static function nextFrame(count:Int, set:Bool):Void {
+	static inline function setPendingFrames(count:Int):Void {
+		holdPending();
+		Memory.writeU8(Z80Bus.PARAMETERS + PENDING, count);
+	}
+
+	static inline function addPendingFrames(count:Int):Void {
+		holdPending();
+		final pending:Int = Z80Bus.PARAMETERS + PENDING;
+		Memory.writeU8(pending, Memory.readU8(pending) + count);
+	}
+
+	static function holdPending():Void {
 		final modifying:Int = Z80Bus.PARAMETERS + MODIFYING;
 
 		while (true) {
@@ -266,9 +277,5 @@ class Sound {
 			Z80Bus.release();
 			Z80Bus.linger();
 		}
-
-		final pending:Int = Z80Bus.PARAMETERS + PENDING;
-		if (set) Memory.writeU8(pending, count);
-		else Memory.writeU8(pending, Memory.readU8(pending) + count);
 	}
 }

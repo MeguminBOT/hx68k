@@ -33,17 +33,17 @@ class Joy {
 
 	public static inline final PAD_NOTHING = 0x0F;
 
-	@:md.size(3) static var held:Vector<UInt16>;
+	@:md.size(3) static var latest:Vector<UInt16>;
 
-	@:md.size(3) static var before:Vector<UInt16>;
+	@:md.size(3) static var previous:Vector<UInt16>;
 
 	public static function init():Void {
 		var port = 0;
 
 		while (port < PORTS) {
 			Port.open(port);
-			held[port] = 0;
-			before[port] = 0;
+			latest[port] = 0;
+			previous[port] = 0;
 			port++;
 		}
 	}
@@ -52,25 +52,25 @@ class Joy {
 		var port = 0;
 
 		while (port < PORTS) {
-			before[port] = held[port];
-			held[port] = Port.read(port);
+			previous[port] = latest[port];
+			latest[port] = Port.read(port);
 			port++;
 		}
 	}
 
-	public static inline function read(port:UInt16):UInt16 {
-		return held[port];
+	public static inline function held(port:UInt16):UInt16 {
+		return latest[port];
 	}
 
 	public static inline function pressed(port:UInt16):UInt16 {
-		return held[port] & ~before[port];
+		return latest[port] & ~previous[port];
 	}
 
 	public static inline function released(port:UInt16):UInt16 {
-		return before[port] & ~held[port];
+		return previous[port] & ~latest[port];
 	}
 
-	public static inline function now(port:UInt16):UInt16 {
+	public static inline function live(port:UInt16):UInt16 {
 		return Port.read(port);
 	}
 

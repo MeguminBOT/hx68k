@@ -871,7 +871,7 @@ puts on the pin.
 
 ## The vertical blank flag while the display is off, which nothing here has reproduced
 
-`md.Vdp.waitVSync` waits for the flag to clear and then for it to set again, so that it returns at
+`md.Vdp.waitFrame` waits for the flag to clear and then for it to set again, so that it returns at
 the start of the next blank rather than partway through the one already running. SGDK guards the
 first of those two loops on the display being enabled, and that guard only makes sense if the flag
 is held set for as long as the display is off: without it, a wait entered with the display disabled

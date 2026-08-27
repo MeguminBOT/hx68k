@@ -55,7 +55,7 @@ class Vdp {
 		write(value);
 	}
 
-	public static inline function tilemap(at:Int, value:Int):Void {
+	public static inline function writeAt(at:Int, value:Int):Void {
 		address(VRAM_WRITE, at);
 		write(value);
 	}

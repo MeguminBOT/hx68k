@@ -114,7 +114,7 @@ class Resources {
 						hxres.Sounds.alignOf(driver), hxres.Sounds.alignOf(driver),
 						hxres.Sounds.fillOf(driver),
 						option(arguments, 3, "false") != "false", "NONE"));
-					{line: "", type: "Sound", symbol: symbol, bytes: bytes};
+					{line: "", type: "Sample", symbol: symbol, bytes: bytes};
 				}
 				case _: {
 					var bytes = 0;

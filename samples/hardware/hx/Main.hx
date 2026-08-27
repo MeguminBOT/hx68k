@@ -16,7 +16,7 @@ class Main {
 		Vdp.register(7, 0);
 		Vdp.colour(0, BACKGROUND);
 
-		Vdp.tilemap(TILE, PATTERN);
+		Vdp.writeAt(TILE, PATTERN);
 
 		Vdp.address(Vdp.VRAM_WRITE, TRAIL);
 		Vdp.write(SHOWN);

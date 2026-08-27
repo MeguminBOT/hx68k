@@ -43,7 +43,7 @@ class Maths {
 		return result | (left >> 1);
 	}
 
-	public static function distance(dx:Int, dy:Int):UInt32 {
+	public static function approximateDistance(dx:Int, dy:Int):UInt32 {
 		final across:Int = dx < 0 ? -dx : dx;
 		final down:Int = dy < 0 ? -dy : dy;
 		final least:Int = across < down ? across : down;

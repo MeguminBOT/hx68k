@@ -21,7 +21,7 @@ class Dma {
 		return waiting < DEPTH;
 	}
 
-	public static inline function clear():Void {
+	public static inline function discard():Void {
 		waiting = 0;
 	}
 

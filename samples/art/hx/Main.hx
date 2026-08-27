@@ -165,7 +165,7 @@ class Main {
 		Joy.update();
 
 		Probe.report(arrived);
-		Probe.report(Joy.read(0));
+		Probe.report(Joy.held(0));
 		Probe.report(Joy.pressed(0));
 		Probe.report(Joy.portType(0));
 		Probe.report(Joy.padType(0));

@@ -1,4 +1,4 @@
 package md.res;
 
 @:md.type("const u8*")
-extern class Sound {}
+extern class Sample {}

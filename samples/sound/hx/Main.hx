@@ -5,8 +5,8 @@ import md.Fm;
 import md.Memory;
 import md.Probe;
 import md.Psg;
-import md.Sound;
 import md.System;
+import md.Xgm;
 import md.Z80Bus;
 
 class Main {
@@ -35,9 +35,9 @@ class Main {
 
 		Probe.report(SETTLED);
 
-		Sound.play(Tunes.song);
-		Sound.setSample(64, Tunes.beep, 7168);
-		Sound.playSample(64, 6, 1);
+		Xgm.play(Tunes.song);
+		Xgm.setSample(64, Tunes.beep, 7168);
+		Xgm.playSample(64, 6, 1);
 
 		var frame = 0;
 		while (frame < 8) {
@@ -47,8 +47,8 @@ class Main {
 
 		Probe.report(Z80Bus.driverReady() ? 1 : 0);
 		Probe.report(Z80Bus.loadedDriver());
-		Probe.report(Sound.playing() ? 1 : 0);
-		Probe.report(Sound.playingSample(0x0F));
+		Probe.report(Xgm.playing() ? 1 : 0);
+		Probe.report(Xgm.samplesPlaying(0x0F));
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 8));
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 24));
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 200));
@@ -64,6 +64,6 @@ class Main {
 
 	@:md.vertical
 	static function onVertical():Void {
-		Sound.frame();
+		Xgm.advance();
 	}
 }

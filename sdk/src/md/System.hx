@@ -27,7 +27,7 @@ class System {
 		return (Memory.readU8(VERSION) & EXPANSION) == 0;
 	}
 
-	public static inline function recorded():UInt16 {
+	public static inline function headerChecksum():UInt16 {
 		return Memory.readU16(HEADER_CHECKSUM);
 	}
 
@@ -44,11 +44,11 @@ class System {
 	}
 
 	public static function doVBlankProcess():Void {
-		Vdp.waitVSync();
+		Vdp.waitFrame();
 		Dma.flush();
 	}
 
-	public static function checksum(length:UInt32):UInt16 {
+	public static function computeChecksum(length:UInt32):UInt16 {
 		final end:Int = length;
 		var total:Int = 0;
 		var at:Int = CHECKED_FROM;

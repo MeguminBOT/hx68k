@@ -44,20 +44,20 @@ class SpriteTable {
 
 	public static function setBase(where:UInt16):Void {
 		at = where;
-		Vdp.setRegister(5, where >> 9);
+		Vdp.setRegister(VdpRegister.Sprites, where >> 9);
 	}
 
 	public static inline function base():UInt16 {
 		return at;
 	}
 
-	public static function set(index:UInt16, x:Int16, y:Int16, shape:UInt16, what:UInt16,
+	public static function set(index:UInt16, x:Int16, y:Int16, shape:UInt16, attribute:UInt16,
 			next:UInt16):Void {
 		final where:Int = slot(index);
 
 		Memory.writeU16(where, y + ORIGIN);
 		Memory.writeU16(where + 2, (shape << 8) | next);
-		Memory.writeU16(where + 4, what);
+		Memory.writeU16(where + 4, attribute);
 		Memory.writeU16(where + 6, x + ORIGIN);
 	}
 
@@ -73,8 +73,8 @@ class SpriteTable {
 		Memory.writeU16(where, (shape << 8) | (Memory.readU16(where) & 0x7F));
 	}
 
-	public static inline function setAttribute(index:UInt16, what:UInt16):Void {
-		Memory.writeU16(slot(index) + 4, what);
+	public static inline function setAttribute(index:UInt16, attribute:UInt16):Void {
+		Memory.writeU16(slot(index) + 4, attribute);
 	}
 
 	public static inline function setNext(index:UInt16, next:UInt16):Void {
@@ -82,8 +82,8 @@ class SpriteTable {
 		Memory.writeU16(where, (Memory.readU16(where) & 0xFF00) | (next & 0x7F));
 	}
 
-	public static inline function entry(index:UInt16, word:UInt16):UInt16 {
-		return Memory.readU16(slot(index) + word * 2);
+	public static inline function word(index:UInt16, which:UInt16):UInt16 {
+		return Memory.readU16(slot(index) + which * 2);
 	}
 
 	public static function chain(index:UInt16, count:UInt16):Void {

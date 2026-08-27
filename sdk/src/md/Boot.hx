@@ -72,7 +72,7 @@ class Boot {
 	}
 
 	public static inline function waitVertical():Void {
-		Vdp.waitVSync();
+		Vdp.waitFrame();
 	}
 
 	static function wipe(code:Int, at:Int, words:Int):Void {

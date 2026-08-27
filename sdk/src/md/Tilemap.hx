@@ -88,7 +88,7 @@ class Tilemap {
 			}
 		}
 
-		Vdp.setRegister(16, value);
+		Vdp.setRegister(VdpRegister.PlaneSize, value);
 	}
 
 	public static function setWindowColumns(count:UInt16):Void {
@@ -106,15 +106,15 @@ class Tilemap {
 		switch (plane) {
 			case Plane.A:
 				baseA = at;
-				Vdp.setRegister(2, at >> 10);
+				Vdp.setRegister(VdpRegister.PlaneA, at >> 10);
 
 			case Plane.B:
 				baseB = at;
-				Vdp.setRegister(4, at >> 13);
+				Vdp.setRegister(VdpRegister.PlaneB, at >> 13);
 
 			case Plane.Window:
 				baseWindow = at;
-				Vdp.setRegister(3, at >> 10);
+				Vdp.setRegister(VdpRegister.Window, at >> 10);
 		}
 	}
 
@@ -145,7 +145,7 @@ class Tilemap {
 	}
 
 	public static inline function setCell(plane:Plane, cell:UInt16, x:UInt16, y:UInt16):Void {
-		Ports.tilemap(address(plane, x, y), cell);
+		Ports.writeAt(address(plane, x, y), cell);
 	}
 
 	public static function cell(plane:Plane, x:UInt16, y:UInt16):UInt16 {
@@ -277,7 +277,7 @@ class Tilemap {
 
 		var i:Int = 0;
 		while (i < height) {
-			Ports.tilemap(at, from[i]);
+			Ports.writeAt(at, from[i]);
 			at += stride;
 			i++;
 		}

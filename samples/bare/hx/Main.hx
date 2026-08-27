@@ -77,7 +77,7 @@ class Main {
 		Probe.report(Maths.sqrt(Fix16.of(16)));
 		Probe.report(Maths.log2(1000));
 		Probe.report(Maths.nextPowerOfTwo(1000));
-		Probe.report(Maths.distance(30, 40));
+		Probe.report(Maths.approximateDistance(30, 40));
 		Probe.report(Trig.sin(90));
 		Probe.report(Trig.sin(30));
 		Probe.report(Trig.sin(210));
@@ -141,12 +141,12 @@ class Main {
 
 		Joy.init();
 		Joy.update();
-		reached += Joy.read(0);
+		reached += Joy.held(0);
 
 		SpriteTable.clear();
 		SpriteTable.update(1);
 
-		Dma.clear();
+		Dma.discard();
 		Dma.flush();
 
 		Z80Bus.request();

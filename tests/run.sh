@@ -1005,7 +1005,7 @@ fi
 
 printf "raster %-17s" "named the waiter"
 case "$RASTER" in
-	*"Vdp.waitVSync"*) echo "ok" ;;
+	*"Vdp.waitFrame"*) echo "ok" ;;
 	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;
 esac
 

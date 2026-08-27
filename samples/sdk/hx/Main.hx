@@ -64,7 +64,7 @@ class Main {
 		Probe.report(readVram(Tilemap.address(Plane.A, 11, 11)));
 		Probe.report(readVram(TARGET + 4));
 		Probe.report(readVram(QUEUED + 4));
-		Probe.report(Joy.read(0));
+		Probe.report(Joy.held(0));
 		Probe.report(Joy.portType(0));
 		Probe.report(Joy.padType(0));
 		Probe.report(System.isNtsc() ? 1 : 0);
