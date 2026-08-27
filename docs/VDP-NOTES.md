@@ -868,3 +868,26 @@ palette build, and which palette entry a pixel takes is untouched by this.
 **Still not settled.** Whether the encoder on the way out of the VDP, and the model of console
 around it, shift these further before they reach a television. The figures above are what the VDP
 puts on the pin.
+
+## The vertical blank flag while the display is off, which nothing here has reproduced
+
+`md.Vdp.waitVSync` waits for the flag to clear and then for it to set again, so that it returns at
+the start of the next blank rather than partway through the one already running. SGDK guards the
+first of those two loops on the display being enabled, and that guard only makes sense if the flag
+is held set for as long as the display is off: without it, a wait entered with the display disabled
+never returns.
+
+The vendored Sega overview does not say so. Page 19 gives the status register bit by bit and reads
+`VB 1: During V blanking 0:`, with nothing about the display enable. Kabuto's notes describe the
+sprite buffer as neither read nor cleared "during vertical blank and while display is disabled",
+which treats the two as one state everywhere else in the part, but does not say what the status
+register reports.
+
+So the wait is written to be correct under either reading: the first loop is entered only when the
+display is enabled, which is a no-op on a machine that clears the flag and the difference between
+returning and hanging on one that does not. **Neither emulator here models it.** `Vdp.readStatus`
+sets bit 3 from the line alone, and the harness does the same from `in_vblank`, so both clear the
+flag with the display off. Establishing it needs a ROM that reads the status register with the
+display disabled on a console, and there is no fixture for the VDP; until one is run, this entry is
+inferred from SGDK's guard rather than measured, and the emulators are left alone rather than
+changed to match a guess.
