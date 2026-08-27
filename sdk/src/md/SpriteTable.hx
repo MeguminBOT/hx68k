@@ -53,6 +53,24 @@ class SpriteTable {
 		Memory.writeU16(where + 6, x + ORIGIN);
 	}
 
+	static var cursor:Int = 0;
+
+	public static inline function begin():Void {
+		cursor = Memory.addressOf(cache);
+	}
+
+	public static inline function append(x:Int16, y:Int16, sizeAndNext:UInt16, attribute:UInt16):Void {
+		Memory.writeU16(cursor, y + ORIGIN);
+		Memory.writeU16(cursor + 2, sizeAndNext);
+		Memory.writeU16(cursor + 4, attribute);
+		Memory.writeU16(cursor + 6, x + ORIGIN);
+		cursor += BYTES_PER_ENTRY;
+	}
+
+	public static inline function written():UInt16 {
+		return (cursor - Memory.addressOf(cache)) >> 3;
+	}
+
 	public static inline function setPosition(index:UInt16, x:Int16, y:Int16):Void {
 		final where:Int = slot(index);
 
