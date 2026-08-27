@@ -11,11 +11,25 @@ mkdir -p "$HERE"
 # A local shadowing a generated resource symbol compiles to 's32 x = (s32)x;', which gcc reports as
 # -Wuninitialized and which nothing else notices until an observable comes back wrong.
 # Musashi is vendored and is compiled as it arrives, so its own warnings are not ours to answer for.
+# make skips a translation unit whose source has not changed, so a warning already in the tree stops
+# being printed and the check above passes on an object file nobody compiled. Each sample therefore
+# gets its object directory removed once per run, before the first build of it.
+SCRUBBED=""
 build() {
 	local name="$1"
 	local script="$2"
 	shift 2
 	printf "building %-16s" "$name"
+
+	local base
+	base="$(dirname "$script")"
+	case " $SCRUBBED " in
+		*" $base "*) ;;
+		*)
+			if [ -d "$base/rom/out" ]; then rm -rf "$base/rom/out"; fi
+			SCRUBBED="$SCRUBBED $base"
+			;;
+	esac
 	if ! "$script" "$@" > "$LOG" 2>&1; then
 		echo "FAILED"
 		cat "$LOG"
