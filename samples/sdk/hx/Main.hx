@@ -5,9 +5,9 @@ import md.Dma;
 import md.DmaTarget;
 import md.Fix16;
 import md.Font;
-import md.Joy;
+import md.Pads;
 import md.Maths;
-import md.Palette;
+import md.Colors;
 import md.Plane;
 import md.Probe;
 import md.System;
@@ -33,7 +33,7 @@ class Main {
 		Font.loadNormal(1);
 
 		Vdp.setBackgroundColor(2);
-		Palette.setColor(1, COLOR);
+		Colors.setColor(1, COLOR);
 
 		Tilemap.setCell(Plane.A, TILE, 3, 4);
 		Tilemap.fill(Plane.A, FILL, 10, 10, 2, 2);
@@ -47,32 +47,32 @@ class Main {
 
 		Dma.queueFrom(DmaTarget.Vram, words, QUEUED, 4, 2);
 
-		Joy.init();
+		Pads.init();
 
 		var frame = 0;
 		while (frame < 4) {
-			System.doVBlankProcess();
-			Joy.update();
+			System.nextFrame();
+			Pads.update();
 			frame++;
 		}
 
 		Boot.show();
 
 		Probe.report(Vdp.register(7));
-		Probe.report(Palette.color(1));
+		Probe.report(Colors.color(1));
 		Probe.report(readVram(Tilemap.address(Plane.A, 3, 4)));
 		Probe.report(readVram(Tilemap.address(Plane.A, 11, 11)));
 		Probe.report(readVram(TARGET + 4));
 		Probe.report(readVram(QUEUED + 4));
-		Probe.report(Joy.held(0));
-		Probe.report(Joy.portType(0));
-		Probe.report(Joy.padType(0));
+		Probe.report(Pads.held(0));
+		Probe.report(Pads.portType(0));
+		Probe.report(Pads.padType(0));
 		Probe.report(System.isNtsc() ? 1 : 0);
 		Probe.report(Maths.sqrt(Fix16.of(16)));
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 

@@ -35,10 +35,10 @@ class Z80Bus {
 		return Ports.held();
 	}
 
-	public static function requestAndReport():Bool {
-		if (Ports.held()) return true;
+	public static function borrow():Bool {
+		if (Ports.held()) return false;
 		Ports.hold();
-		return false;
+		return true;
 	}
 
 	public static inline function startReset():Void {
@@ -60,9 +60,9 @@ class Z80Bus {
 	}
 
 	public static function driverReady():Bool {
-		final was:Bool = requestAndReport();
+		final borrowed:Bool = borrow();
 		final ready:Bool = (Memory.readU8(STATUS) & READY) != 0;
-		if (!was) Ports.release();
+		if (borrowed) Ports.release();
 		return ready;
 	}
 
@@ -102,9 +102,9 @@ class Z80Bus {
 	public static function setProtection(on:Bool):Void {
 		if (protection == 0) return;
 
-		final was:Bool = requestAndReport();
+		final borrowed:Bool = borrow();
 		Memory.writeU8(RAM + (protection : Int), on ? 1 : 0);
-		if (!was) Ports.release();
+		if (borrowed) Ports.release();
 	}
 
 	public static inline function readByte(at:UInt16):UInt8 {
@@ -116,7 +116,7 @@ class Z80Bus {
 	}
 
 	public static function upload(to:UInt16, from:Vector<UInt8>, count:UInt16):Void {
-		final was:Bool = requestAndReport();
+		final borrowed:Bool = borrow();
 
 		final at:Int = to;
 		var i:Int = 0;
@@ -125,11 +125,11 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Ports.release();
+		if (borrowed) Ports.release();
 	}
 
 	public static function download(from:UInt16, into:Vector<UInt8>, count:UInt16):Void {
-		final was:Bool = requestAndReport();
+		final borrowed:Bool = borrow();
 
 		final at:Int = from;
 		var i:Int = 0;
@@ -138,11 +138,11 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Ports.release();
+		if (borrowed) Ports.release();
 	}
 
 	public static function clear():Void {
-		final was:Bool = requestAndReport();
+		final borrowed:Bool = borrow();
 
 		var i:Int = 0;
 		while (i < SIZE) {
@@ -150,7 +150,7 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Ports.release();
+		if (borrowed) Ports.release();
 	}
 
 	public static inline function setBank(bank:UInt16):Void {

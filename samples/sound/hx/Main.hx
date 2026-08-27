@@ -15,7 +15,7 @@ class Main {
 	@:md.main
 	static function main():Void {
 		Boot.begin();
-		Boot.listen();
+		Boot.startVerticalInterrupt();
 
 		Psg.reset();
 		Psg.setAttenuation(0, 2);
@@ -41,7 +41,7 @@ class Main {
 
 		var frame = 0;
 		while (frame < 8) {
-			System.doVBlankProcess();
+			System.nextFrame();
 			frame++;
 		}
 
@@ -58,7 +58,7 @@ class Main {
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 

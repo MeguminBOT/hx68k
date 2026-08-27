@@ -208,7 +208,7 @@ class Tilemap {
 			y:UInt16):Bool {
 		if (!Patterns.load(base & Patterns.INDEX, from.tileset)) return false;
 
-		Palette.load((base >> 9) & 0x30, from.palette);
+		Colors.load((base >> 9) & 0x30, from.palette);
 		return load(plane, from.tilemap, base, x, y);
 	}
 

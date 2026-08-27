@@ -21,7 +21,7 @@ class Main {
 	@:md.main
 	static function main():Void {
 		Boot.begin();
-		Boot.listen();
+		Boot.startVerticalInterrupt();
 
 		register(twice);
 		register(negate);
@@ -31,7 +31,7 @@ class Main {
 		Probe.report(registered);
 
 		while (ticks < WAIT) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 
 		final seen = ticks;
@@ -41,7 +41,7 @@ class Main {
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 

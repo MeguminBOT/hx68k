@@ -7,15 +7,15 @@ class SpriteTable {
 
 	public static inline final ENTRIES_H32 = 64;
 
-	public static inline final BYTES = 8;
+	public static inline final BYTES_PER_ENTRY = 8;
 
 	public static inline final ORIGIN = 0x80;
 
-	public static inline final DEFAULT_AT = 0xF400;
+	public static inline final DEFAULT_BASE = 0xF400;
 
 	@:md.size(160) static var cache:Vector<UInt32>;
 
-	static var at:UInt16 = DEFAULT_AT;
+	static var at:UInt16 = DEFAULT_BASE;
 
 	public static inline function size(width:UInt16, height:UInt16):UInt16 {
 		return ((width - 1) << 2) | (height - 1);
@@ -31,7 +31,7 @@ class SpriteTable {
 	}
 
 	static inline function slot(index:UInt16):Int {
-		return Memory.addressOf(cache) + index * BYTES;
+		return Memory.addressOf(cache) + index * BYTES_PER_ENTRY;
 	}
 
 	public static function setBase(where:UInt16):Void {
@@ -85,7 +85,7 @@ class SpriteTable {
 
 		while (left > 1) {
 			Memory.writeU16(where, (Memory.readU16(where) & 0xFF00) | (next & 0x7F));
-			where += BYTES;
+			where += BYTES_PER_ENTRY;
 			next++;
 			left--;
 		}

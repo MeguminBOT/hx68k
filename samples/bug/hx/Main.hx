@@ -18,7 +18,7 @@ class Main {
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 

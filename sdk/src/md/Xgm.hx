@@ -70,7 +70,7 @@ class Xgm {
 		final quiet:Int = Memory.addressOf(md.res.Drivers.xgmSilence);
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		var slot:Int = 0;
 		while (slot < SAMPLE_SLOTS) {
@@ -95,7 +95,7 @@ class Xgm {
 
 		start(data);
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -103,13 +103,13 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		setMusicAddress(Memory.addressOf(md.res.Drivers.xgmStop));
 		sendCommand(PLAY);
 		setPendingFrames(3);
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -117,12 +117,12 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		sendCommand(PAUSE);
 		setPendingFrames(0);
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -130,14 +130,14 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		if ((Memory.readU8(Z80Bus.COMMAND) & PLAY) == 0) {
 			sendCommand(RESUME);
 			setPendingFrames(0);
 		}
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -145,11 +145,11 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		final on:Bool = (Memory.readU8(Z80Bus.STATUS) & PLAY) != 0;
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 		return on;
 	}
@@ -158,11 +158,11 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		pointSample(id, Memory.addressOf(sample), length);
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -170,14 +170,14 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		final slot:Int = Z80Bus.PARAMETERS + CHANNELS + (channel * 2);
 		Memory.writeU8(slot, priority & 0x0F);
 		Memory.writeU8(slot + 1, id);
 		Memory.writeU8(Z80Bus.COMMAND, Memory.readU8(Z80Bus.COMMAND) | (1 << channel));
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -189,11 +189,11 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		final on:Int = Memory.readU8(Z80Bus.STATUS) & channels;
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 		return on;
 	}
@@ -202,11 +202,11 @@ class Xgm {
 		loadDriver();
 
 		System.disableInterrupts();
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 
 		Memory.writeU8(Z80Bus.PARAMETERS + LOOPS, (count : Int) + 1);
 
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 		System.enableInterrupts();
 	}
 
@@ -233,9 +233,9 @@ class Xgm {
 
 		counted = left - (wanted : Int);
 
-		final was:Bool = Z80Bus.requestAndReport();
+		final borrowed:Bool = Z80Bus.borrow();
 		addPendingFrames(due);
-		if (!was) Z80Bus.release();
+		if (borrowed) Z80Bus.release();
 	}
 
 	static inline function setMusicAddress(at:Int):Void {

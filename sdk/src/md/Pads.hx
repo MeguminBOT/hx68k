@@ -2,7 +2,7 @@ package md;
 
 import md.hw.Joypad as Ports;
 
-class Joy {
+class Pads {
 	public static inline final PORTS = 3;
 
 	public static inline final UP = 0x0001;
@@ -24,14 +24,6 @@ class Joy {
 	public static inline final DIRECTIONS = 0x000F;
 
 	public static inline final BUTTONS = 0x00F0;
-
-	public static inline final PORT_PAD = 0x0D;
-
-	public static inline final PORT_NOTHING = 0x0F;
-
-	public static inline final PAD_THREE_BUTTON = 0x00;
-
-	public static inline final PAD_NOTHING = 0x0F;
 
 	@:md.size(3) static var latest:Vector<UInt16>;
 
@@ -74,11 +66,11 @@ class Joy {
 		return Ports.read(port);
 	}
 
-	public static inline function portType(port:UInt16):UInt8 {
-		return Ports.identify(port) == 0 ? PORT_PAD : PORT_NOTHING;
+	public static inline function portType(port:UInt16):PortType {
+		return Ports.identify(port) == 0 ? PortType.Pad : PortType.Nothing;
 	}
 
-	public static inline function padType(port:UInt16):UInt8 {
-		return Ports.identify(port) == 0 ? PAD_THREE_BUTTON : PAD_NOTHING;
+	public static inline function padType(port:UInt16):PadType {
+		return Ports.identify(port) == 0 ? PadType.ThreeButton : PadType.Nothing;
 	}
 }

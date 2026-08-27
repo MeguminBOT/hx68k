@@ -35,7 +35,7 @@ class Vdp {
 		setRegister(index, on ? was | mask : was & ~mask);
 	}
 
-	public static inline function setEnable(on:Bool):Void {
+	public static inline function setEnabled(on:Bool):Void {
 		change(VdpRegister.Display, SHOWING, on);
 	}
 
@@ -75,22 +75,18 @@ class Vdp {
 		return shadow[VdpRegister.AutoIncrement];
 	}
 
-	public static function setWidth320():Void {
-		setRegister(VdpRegister.Width, shadow[VdpRegister.Width] | WIDE);
-		Tilemap.setWindowColumns(64);
-	}
-
-	public static function setWidth256():Void {
-		setRegister(VdpRegister.Width, shadow[VdpRegister.Width] & ~WIDE);
-		Tilemap.setWindowColumns(32);
+	public static function setWide(on:Bool):Void {
+		setRegister(VdpRegister.Width,
+			on ? shadow[VdpRegister.Width] | WIDE : shadow[VdpRegister.Width] & ~WIDE);
+		Tilemap.setWindowColumns(on ? 64 : 32);
 	}
 
 	public static inline function width():UInt16 {
 		return (shadow[VdpRegister.Width] & WIDE) == WIDE ? 320 : 256;
 	}
 
-	public static inline function setHeight240(tall:Bool):Void {
-		change(VdpRegister.Display, TALL, tall);
+	public static inline function setTall(on:Bool):Void {
+		change(VdpRegister.Display, TALL, on);
 	}
 
 	public static inline function height():UInt16 {

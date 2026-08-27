@@ -51,7 +51,7 @@ class Maths {
 			+ (least << 7) - (least << 5) + (least << 3) - (least << 1)) >> 8;
 	}
 
-	public static function root(value:UInt32):UInt32 {
+	public static function integerRoot(value:UInt32):UInt32 {
 		var left:Int = value;
 		var result:Int = 0;
 		var bit:Int = 1 << 30;
@@ -73,6 +73,6 @@ class Maths {
 	}
 
 	public static inline function sqrt(value:Fix16):Fix16 {
-		return cast((root((value : Int) << Fix16.FRACTION) : Int));
+		return cast((integerRoot((value : Int) << Fix16.FRACTION) : Int));
 	}
 }

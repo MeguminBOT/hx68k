@@ -5,9 +5,9 @@ import md.hw.Vdp as Ports;
 class Dma {
 	public static inline final DEPTH = 64;
 
-	public static inline final LONGS = 4;
+	public static inline final LONGS_PER_ENTRY = 4;
 
-	public static inline final BANK = 0x20000;
+	public static inline final SOURCE_BANK = 0x20000;
 
 	@:md.size(256) static var pending:Vector<UInt32>;
 
@@ -17,7 +17,7 @@ class Dma {
 		return waiting;
 	}
 
-	public static inline function room():Bool {
+	public static inline function hasRoom():Bool {
 		return waiting < DEPTH;
 	}
 
@@ -60,7 +60,7 @@ class Dma {
 
 	public static function transfer(to:DmaTarget, from:Int, at:UInt16, length:UInt16,
 			step:UInt16):Void {
-		final reach:Int = BANK - (from & (BANK - 1));
+		final reach:Int = SOURCE_BANK - (from & (SOURCE_BANK - 1));
 		final fits:Int = reach >> 1;
 		var words:Int = length;
 
@@ -113,7 +113,7 @@ class Dma {
 
 	public static function queue(to:DmaTarget, from:Int, at:UInt16, length:UInt16,
 			step:UInt16):Bool {
-		final reach:Int = BANK - (from & (BANK - 1));
+		final reach:Int = SOURCE_BANK - (from & (SOURCE_BANK - 1));
 		final fits:Int = reach >> 1;
 
 		if (length > fits) {
@@ -129,7 +129,7 @@ class Dma {
 
 		final source:Int = from >> 1;
 		final words:Int = length;
-		final slot:Int = waiting * LONGS;
+		final slot:Int = waiting * LONGS_PER_ENTRY;
 
 		pending[slot] = ((0x8F00 | (step & 0xFF)) << 16) | (0x9300 | (words & 0xFF));
 		pending[slot + 1] = ((0x9400 | ((words >> 8) & 0xFF)) << 16) | (0x9500 | (source & 0xFF));
@@ -147,7 +147,7 @@ class Dma {
 	}
 
 	public static function flush():Void {
-		final total:Int = waiting * LONGS;
+		final total:Int = waiting * LONGS_PER_ENTRY;
 		var i:Int = 0;
 
 		while (i < total) {
@@ -155,7 +155,7 @@ class Dma {
 			Memory.writeU32(Ports.CONTROL, pending[i + 1]);
 			Memory.writeU32(Ports.CONTROL, pending[i + 2]);
 			Memory.writeU32(Ports.CONTROL, pending[i + 3]);
-			i += LONGS;
+			i += LONGS_PER_ENTRY;
 		}
 
 		waiting = 0;

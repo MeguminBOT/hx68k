@@ -614,15 +614,15 @@ static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 
 };
 
 static const probe_t sdk_expected[] = {	{ "md.Vdp.setBackgroundColor", 2 },
-	{ "md.Palette.color reads back", 0x0246 },
+	{ "md.Colors.color reads back", 0x0246 },
 	{ "md.Tilemap.setCell landed",  0x0021 },
 	{ "md.Tilemap.fill landed",     0x0055 },
 	{ "md.Dma.transferFrom landed", 0xA4A5 },
-	/* queued and never flushed by hand: only md.System.doVBlankProcess drains the queue */
+	/* queued and never flushed by hand: only md.System.nextFrame drains the queue */
 	{ "md.Dma.queueFrom, flushed by the frame process", 0xA4A5 },
-	{ "md.Joy.read agrees with the port", 0x88 },
-	{ "md.Joy.portType is a pad",   0x0D },
-	{ "md.Joy.padType is three-button", 0x00 },
+	{ "md.Pads.held agrees with the port", 0x88 },
+	{ "md.Pads.portType is a pad",   0x0D },
+	{ "md.Pads.padType is three-button", 0x00 },
 	{ "md.System.isNtsc",           1 },
 	{ "md.Maths.sqrt of 16",        4 << 6 },
 };

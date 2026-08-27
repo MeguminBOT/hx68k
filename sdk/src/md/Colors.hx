@@ -2,7 +2,7 @@ package md;
 
 import md.hw.Vdp as Ports;
 
-class Palette {
+class Colors {
 	public static inline final COLORS = 64;
 
 	public static inline final PER_PALETTE = 16;
@@ -48,7 +48,7 @@ class Palette {
 		setColors(palette * PER_PALETTE, from, PER_PALETTE);
 	}
 
-	public static inline function palette(which:UInt16, into:Vector<UInt16>):Void {
-		colors(which * PER_PALETTE, into, PER_PALETTE);
+	public static inline function palette(palette:UInt16, into:Vector<UInt16>):Void {
+		colors(palette * PER_PALETTE, into, PER_PALETTE);
 	}
 }

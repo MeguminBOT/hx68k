@@ -2,7 +2,7 @@ package;
 
 import md.Boot;
 import md.Font;
-import md.Palette;
+import md.Colors;
 import md.Pool;
 import md.System;
 
@@ -15,7 +15,7 @@ class Main {
 	static function main():Void {
 		Boot.begin();
 		Font.loadNormal(1);
-		Palette.setColor(15, 0x0EEE);
+		Colors.setColor(15, 0x0EEE);
 		Font.setPalette(0);
 		Font.write("HX68K SPIKE", 12, 12);
 		Boot.show();
@@ -42,8 +42,8 @@ class Main {
 			}
 			sum = acc;
 
-			Palette.setColor(0, ramp(frame));
-			System.doVBlankProcess();
+			Colors.setColor(0, ramp(frame));
+			System.nextFrame();
 		}
 	}
 

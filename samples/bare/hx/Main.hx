@@ -5,7 +5,7 @@ import md.Dma;
 import md.DmaTarget;
 import md.Fm;
 import md.Font;
-import md.Joy;
+import md.Pads;
 import md.Psg;
 import md.SpriteTable;
 import md.System;
@@ -15,7 +15,7 @@ import md.Z80Bus;
 import md.Fix16;
 import md.Maths;
 import md.Memory;
-import md.Palette;
+import md.Colors;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
@@ -56,14 +56,14 @@ class Main {
 			i++;
 		}
 
-		Palette.setColor(0, 0x0200);
-		Palette.setColor(1, 0x0EEE);
+		Colors.setColor(0, 0x0200);
+		Colors.setColor(1, 0x0EEE);
 
 		Patterns.set(PATTERN, block, 1);
 		Tilemap.fill(Plane.A, Tilemap.entry(PATTERN, 0, false, false, false), 2, 2, 8, 4);
 
 		Boot.show();
-		Boot.listen();
+		Boot.startVerticalInterrupt();
 
 		while (ticks < 4) {}
 
@@ -139,9 +139,9 @@ class Main {
 		Fm.reset();
 		Fm.keyOff(0);
 
-		Joy.init();
-		Joy.update();
-		reached += Joy.held(0);
+		Pads.init();
+		Pads.update();
+		reached += Pads.held(0);
 
 		SpriteTable.clear();
 		SpriteTable.update(1);
@@ -158,7 +158,7 @@ class Main {
 		System.disableInterrupts();
 		System.enableInterrupts();
 		Dma.queueFrom(DmaTarget.Vram, room, 0x2000, 4, 2);
-		System.doVBlankProcess();
+		System.nextFrame();
 		reached += Dma.queued();
 	}
 
@@ -174,6 +174,6 @@ class Main {
 
 	static function readCram(index:Int):Int {
 		Ports.address(Ports.CRAM_READ, index * 2);
-		return Ports.read() & Palette.MASK;
+		return Ports.read() & Colors.MASK;
 	}
 }

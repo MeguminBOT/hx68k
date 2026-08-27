@@ -43,7 +43,7 @@ class System {
 		if (masked == 0) md.hw.Cpu.enableInterrupts();
 	}
 
-	public static function doVBlankProcess():Void {
+	public static function nextFrame():Void {
 		Vdp.waitFrame();
 		Dma.flush();
 	}

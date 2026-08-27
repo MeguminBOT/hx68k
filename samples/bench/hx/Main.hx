@@ -5,9 +5,9 @@ import md.Memory;
 import md.Native;
 import md.Dma;
 import md.Fm;
-import md.Joy;
+import md.Pads;
 import md.DmaTarget;
-import md.Palette;
+import md.Colors;
 import md.Psg;
 import md.Patterns;
 import md.Plane;
@@ -149,7 +149,7 @@ class Main {
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 
@@ -190,7 +190,7 @@ class Main {
 	static function paletteInHaxe():Void {
 		var n = 0;
 		while (n < LOADS) {
-			Palette.setColors(0, shades, 16);
+			Colors.setColors(0, shades, 16);
 			n++;
 		}
 	}
@@ -372,11 +372,11 @@ class Main {
 	}
 
 	static function padInHaxe():Void {
-		Joy.init();
+		Pads.init();
 
 		var n = 0;
 		while (n < PAD_READS) {
-			Joy.update();
+			Pads.update();
 			n++;
 		}
 	}

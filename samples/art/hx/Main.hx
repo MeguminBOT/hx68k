@@ -4,9 +4,9 @@ import md.Boot;
 import md.Dma;
 import md.DmaTarget;
 import md.Font;
-import md.Joy;
+import md.Pads;
 import md.Memory;
-import md.Palette;
+import md.Colors;
 import md.Patterns;
 import md.Plane;
 import md.Probe;
@@ -37,11 +37,11 @@ class Main {
 		Boot.begin();
 
 		Tilemap.drawImage(Plane.A, Art.blocks, IMAGE, 0, 0);
-		Palette.load(0, Art.blockPalette);
+		Colors.load(0, Art.blockPalette);
 
 		final first = Art.diamond.animations[0].frames[0];
 		Patterns.load(DIAMOND, first.tileset);
-		Palette.load(16, Art.diamond.palette);
+		Colors.load(16, Art.diamond.palette);
 
 		SpriteTable.set(0, 100, 80, SpriteTable.size(2, 2),
 			SpriteTable.attribute(DIAMOND, 1, false, false, false), 0);
@@ -54,7 +54,7 @@ class Main {
 
 		var frame = 0;
 		while (frame < 4) {
-			System.doVBlankProcess();
+			System.nextFrame();
 			frame++;
 		}
 
@@ -159,20 +159,20 @@ class Main {
 		Probe.report(readVram(0x8200));
 		Probe.report(readVram(0x8300));
 
-		Joy.init();
-		Joy.update();
-		final arrived = Joy.pressed(0);
-		Joy.update();
+		Pads.init();
+		Pads.update();
+		final arrived = Pads.pressed(0);
+		Pads.update();
 
 		Probe.report(arrived);
-		Probe.report(Joy.held(0));
-		Probe.report(Joy.pressed(0));
-		Probe.report(Joy.portType(0));
-		Probe.report(Joy.padType(0));
+		Probe.report(Pads.held(0));
+		Probe.report(Pads.pressed(0));
+		Probe.report(Pads.portType(0));
+		Probe.report(Pads.padType(0));
 		Probe.done();
 
 		while (true) {
-			System.doVBlankProcess();
+			System.nextFrame();
 		}
 	}
 

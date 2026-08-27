@@ -27,36 +27,36 @@ class Boot {
 		Tilemap.setBase(Plane.B, Tilemap.DEFAULT_B);
 		Tilemap.setBase(Plane.Window, Tilemap.DEFAULT_WINDOW);
 		Tilemap.setPlaneSize(64, 32);
-		SpriteTable.setBase(SpriteTable.DEFAULT_AT);
+		SpriteTable.setBase(SpriteTable.DEFAULT_BASE);
 
 		Dma.fillVram(0, 0x8000, 0, 1);
 		Dma.wait();
 		Dma.fillVram(0x8000, 0x8000, 0, 1);
 		Dma.wait();
 
-		wipe(Ports.CRAM_WRITE, 0, Palette.COLORS);
+		wipe(Ports.CRAM_WRITE, 0, Colors.COLORS);
 		wipe(Ports.VSRAM_WRITE, 0, 40);
 
 		Psg.reset();
 		Fm.reset();
 		Z80.reset(false);
-		Joy.init();
+		Pads.init();
 	}
 
 	public static inline function show():Void {
-		Vdp.setEnable(true);
+		Vdp.setEnabled(true);
 	}
 
 	public static inline function hide():Void {
-		Vdp.setEnable(false);
+		Vdp.setEnabled(false);
 	}
 
-	public static function listen():Void {
+	public static function startVerticalInterrupt():Void {
 		Vdp.setVerticalInterrupt(true);
 		Cpu.enableInterrupts();
 	}
 
-	public static function deafen():Void {
+	public static function stopVerticalInterrupt():Void {
 		Cpu.disableInterrupts();
 		Vdp.setVerticalInterrupt(false);
 	}
