@@ -12,7 +12,7 @@ import hxres.Sprite.Aim;
 import hxres.Frames.Frame;
 import hxres.Aplib.Tally;
 
-typedef Fixture = {
+private typedef Fixture = {
 	final name:String;
 	final path:String;
 	final depth:Int;
@@ -838,7 +838,7 @@ class Check {
 				continue;
 			}
 			compare(each.name, symbols, each.name,
-				Emit.evened(Emit.sized(File.getBytes(each.path), each.sizeAlign, each.fill)));
+				Emitter.evened(Emitter.sized(File.getBytes(each.path), each.sizeAlign, each.fill)));
 		}
 	}
 

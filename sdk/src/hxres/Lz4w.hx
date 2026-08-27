@@ -4,7 +4,7 @@ package hxres;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 
-class Segment {
+private class Segment {
 	public final at:Int;
 	public final from:Int;
 	public final length:Int;

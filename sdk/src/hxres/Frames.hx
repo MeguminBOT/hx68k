@@ -4,7 +4,7 @@ package hxres;
 import hxres.Sprite.Aim;
 import haxe.io.Bytes;
 
-class Piece {
+private class Piece {
 	public final offsetX:Int;
 	public final offsetY:Int;
 	public final across:Int;

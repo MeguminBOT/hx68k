@@ -4,7 +4,7 @@ package hxres.music;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 
-typedef Tune = {
+private typedef Tune = {
 	final name:String;
 	final data:Bytes;
 }

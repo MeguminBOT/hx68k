@@ -7,7 +7,7 @@ import hxres.Patterns.Optimisation;
 import hxres.Patterns.Ordering;
 import hxres.Sprite.Aim;
 
-typedef Declared = {
+private typedef Declared = {
 	final line:String;
 	final type:String;
 	final symbol:String;
@@ -19,7 +19,7 @@ class Resources {
 
 	public static function build(name:String):Array<Field> {
 		final fields = Context.getBuildFields();
-		final emit = new Emit(name);
+		final emit = new Emitter(name);
 		final cuts = new Array<hxres.Frames.Cut>();
 		final lines = [];
 
@@ -57,7 +57,7 @@ class Resources {
 		return fields;
 	}
 
-	static function describe(field:Field, emit:Emit, cuts:Array<hxres.Frames.Cut>):Null<Declared> {
+	static function describe(field:Field, emit:Emitter, cuts:Array<hxres.Frames.Cut>):Null<Declared> {
 		for (entry in field.meta) {
 			final kind = StringTools.startsWith(entry.name, ":") ? entry.name.substr(1) : entry.name;
 			if (KINDS.indexOf(kind) < 0) continue;
@@ -204,7 +204,7 @@ class Resources {
 			if (sys.FileSystem.exists(target)) sys.FileSystem.deleteFile(target);
 			return;
 		}
-		Emit.put(target, lines.join("\n") + "\n");
+		Emitter.put(target, lines.join("\n") + "\n");
 	}
 }
 #end

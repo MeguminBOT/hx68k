@@ -45,7 +45,7 @@ class Sounds {
 
 		final align:Int = each.driver == "DPCM2" ? 128 : 256;
 		final fill:Int = each.driver == "DPCM2" ? 136 : 0;
-		final padded = Emit.evened(Emit.sized(pcm, align, fill));
+		final padded = Emitter.evened(Emitter.sized(pcm, align, fill));
 
 		return {bytes: [for (i in 0...padded.length) padded.get(i)], count: pcm.length};
 	}

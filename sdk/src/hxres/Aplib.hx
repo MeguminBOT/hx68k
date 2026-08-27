@@ -4,7 +4,7 @@ package hxres;
 import haxe.io.Bytes;
 import haxe.io.BytesBuffer;
 
-class Bits {
+private class Bits {
 	final held:Array<Int> = [];
 
 	var at:Int = -1;
@@ -37,7 +37,7 @@ class Bits {
 	}
 }
 
-class Found {
+private class Match {
 	public var offset:Int;
 	public var length:Int;
 
@@ -126,7 +126,7 @@ class Tally {
 	}
 }
 
-class Reader {
+private class Reader {
 	final data:Bytes;
 
 	var at:Int;
@@ -267,7 +267,7 @@ class Aplib {
 		wasMatch = false;
 		lastOffset = -1;
 
-		final matches = new Array<Null<Found>>();
+		final matches = new Array<Null<Match>>();
 		for (_ in 0...data.length) matches.push(null);
 
 		var i = 1;
@@ -325,13 +325,13 @@ class Aplib {
 		return out.bytes();
 	}
 
-	static function best(runs:Array<Array<{offset:Int, repeat:Int}>>, data:Bytes, ind:Int):Null<Found> {
+	static function best(runs:Array<Array<{offset:Int, repeat:Int}>>, data:Bytes, ind:Int):Null<Match> {
 		if (ind < 1) return null;
 
 		final list = runs[data.get(ind)];
 		final here = repeatAt(data, ind);
 
-		var found:Null<Found> = null;
+		var found:Null<Match> = null;
 		var saved = 1;
 
 		for (run in list) {
@@ -341,7 +341,7 @@ class Aplib {
 			var repeat = run.repeat;
 
 			if (repeat < here) {
-				final match = new Found(data, ind, ind - offset, repeat + 1);
+				final match = new Match(data, ind, ind - offset, repeat + 1);
 				if (match.worth(wasMatch, lastOffset) >= saved) {
 					found = match;
 					saved = match.worth(wasMatch, lastOffset);
@@ -354,7 +354,7 @@ class Aplib {
 					repeat -= delta;
 				}
 
-				var match:Found;
+				var match:Match;
 
 				if (repeat > 0) {
 					if (offset + repeat >= ind) repeat = (ind - offset) - 1;
@@ -374,14 +374,14 @@ class Aplib {
 		return found;
 	}
 
-	static function matching(data:Bytes, from:Int, ind:Int):Found {
+	static function matching(data:Bytes, from:Int, ind:Int):Match {
 		var reference = from;
 		var current = ind;
 		var length = 0;
 
 		while (current < data.length && data.get(reference++) == data.get(current++)) length++;
 
-		return new Found(data, ind, ind - from, length);
+		return new Match(data, ind, ind - from, length);
 	}
 
 	static function repeatAt(data:Bytes, ind:Int):Int {

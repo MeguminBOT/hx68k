@@ -3,7 +3,7 @@ package hxres;
 #if (macro || md_runtime)
 import haxe.io.Bytes;
 
-class Emit {
+class Emitter {
 	static inline final PER_LINE = 8;
 
 	static inline final NEAR = "__attribute__((section(\".rodata_bin\"), aligned(2)))";
