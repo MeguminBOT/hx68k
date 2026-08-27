@@ -5,6 +5,7 @@ import hx68k.debug.md.Slots;
 import hx68k.debug.md.VdpState;
 import hx68k.map.Elf;
 import hx68k.map.SourceMap;
+import hx68k.map.Symbols;
 import hx68k.md.Machine;
 
 class DebugTool {
@@ -18,7 +19,7 @@ class DebugTool {
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
 				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]"
-				+ " [--gdb port] [--slots frames]");
+				+ " [--gdb port] [--slots frames] [--symbols <file>] [--press button@frame[:held][,...]] [--top n]");
 			Sys.exit(2);
 		}
 
@@ -33,6 +34,9 @@ class DebugTool {
 		var spending = 0;
 		var hits:Array<Int> = [1];
 		var expected:Array<Int> = [];
+		var symbolFile = "";
+		var pressing = "";
+		var top = 12;
 
 		final viewing = args.indexOf("--view") >= 0;
 		final walking = args.indexOf("--stack") >= 0;
@@ -54,6 +58,9 @@ class DebugTool {
 				case "--settle": settle = count(args, i);
 				case "--gdb": serving = count(args, i);
 				case "--slots": spending = count(args, i);
+				case "--symbols": symbolFile = value(args, i);
+				case "--press": pressing = value(args, i);
+				case "--top": top = count(args, i);
 				case _: i--;
 			}
 			i += 2;
@@ -79,7 +86,18 @@ class DebugTool {
 			}
 		}
 
-		final debugger = new Debugger(machine, map);
+		var symbols:Null<Symbols> = null;
+		if (symbolFile != "") {
+			symbols = new Symbols(symbolFile);
+			Sys.println("read " + symbols.count + " symbols from " + symbolFile);
+		}
+
+		final debugger = new Debugger(machine, map, symbols);
+
+		if (pressing != "") {
+			press(machine, pressing, settle);
+			settle = 0;
+		}
 
 		final once = hits[hits.length - 1];
 
@@ -90,7 +108,7 @@ class DebugTool {
 		if (read != "") Sys.exit(readNames(debugger, stop, read.split(","), settle, hits));
 		if (viewing) Sys.exit(view(debugger, stop, settle, once));
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, once));
-		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, once));
+		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, once, top));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, once) : hunt(debugger, stop, watch, expected));
 	}
 
@@ -380,6 +398,51 @@ class DebugTool {
 		return out.toString();
 	}
 
+	static inline final HELD_FRAMES = 6;
+
+	static function buttonBit(name:String):Int {
+		return switch (StringTools.trim(name).toLowerCase()) {
+			case "up": 0x01;
+			case "down": 0x02;
+			case "left": 0x04;
+			case "right": 0x08;
+			case "b": 0x10;
+			case "c": 0x20;
+			case "a": 0x40;
+			case "start": 0x80;
+			case _: 0;
+		}
+	}
+
+	static function press(machine:Machine, schedule:String, frames:Int):Void {
+		final at:Map<Int, Int> = [];
+
+		for (entry in schedule.split(",")) {
+			final split = entry.indexOf("@");
+			if (split <= 0) continue;
+
+			final bit = buttonBit(entry.substr(0, split));
+			final tail = entry.substr(split + 1);
+			final colon = tail.indexOf(":");
+			final when = Std.parseInt(colon > 0 ? tail.substr(0, colon) : tail);
+			final held = colon > 0 ? Std.parseInt(tail.substr(colon + 1)) : HELD_FRAMES;
+			if (bit == 0 || when == null || held == null) continue;
+
+			for (frame in when...when + held) at.set(frame, (at.exists(frame) ? at.get(frame) : 0) | bit);
+		}
+
+		var applied = 0;
+		for (frame in 0...frames) {
+			final now = at.exists(frame) ? at.get(frame) : 0;
+			if (now != 0) applied++;
+			machine.buttons[0] = now;
+			machine.runFrame();
+		}
+		Sys.println("held a button on " + applied + " of " + frames + " frames");
+
+		machine.buttons[0] = 0;
+	}
+
 	static function reach(debugger:Debugger, stop:String, settle:Int, hits:Int = 1):Bool {
 		return reachRange(debugger, stop, settle, 0, hits);
 	}
@@ -411,7 +474,8 @@ class DebugTool {
 		return true;
 	}
 
-	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int):Int {
+	static function profile(debugger:Debugger, stop:String, frames:Int, settle:Int, hits:Int,
+			top:Int = 12):Int {
 		if (!reach(debugger, stop, settle, hits)) return 1;
 
 		final report = new Profiler(debugger).run(frames);
@@ -424,7 +488,7 @@ class DebugTool {
 
 		var shown = 0;
 		for (cost in report.costs) {
-			if (shown++ >= 12) break;
+			if (shown++ >= top) break;
 			Sys.println("  " + StringTools.lpad(Std.string(cost.cycles), " ", 9)
 				+ StringTools.lpad(share(cost.cycles, report.cycles), " ", 8)
 				+ StringTools.lpad(Std.string(cost.instructions), " ", 10) + "  " + cost.name);

@@ -1,16 +1,19 @@
 package hx68k.debug;
 
 import hx68k.map.SourceMap;
+import hx68k.map.Symbols;
 import hx68k.map.Variables;
 import hx68k.md.Machine;
 
 class Debugger {
 	public final machine:Machine;
 	public final map:Null<SourceMap>;
+	public final symbols:Null<Symbols>;
 
-	public function new(machine:Machine, map:Null<SourceMap>) {
+	public function new(machine:Machine, map:Null<SourceMap>, symbols:Null<Symbols> = null) {
 		this.machine = machine;
 		this.map = map;
+		this.symbols = symbols;
 	}
 
 	public function at():Int {
@@ -56,7 +59,7 @@ class Debugger {
 	public function breakpoint(name:String):Null<Int> {
 		if (StringTools.startsWith(name, "0x") || StringTools.startsWith(name, "0X"))
 			return Std.parseInt(name);
-		if (map == null) return null;
+		if (map == null) return symbols == null ? null : symbols.addressOf(name);
 
 		final colon = name.lastIndexOf(":");
 		if (colon > 0) {
@@ -68,7 +71,9 @@ class Debugger {
 		if (entry != null) return map.addressOf(entry.symbol);
 
 		final symbol = map.addressOf(name);
-		return symbol == null ? null : symbol & 0xFFFFFF;
+		if (symbol != null) return symbol & 0xFFFFFF;
+
+		return symbols == null ? null : symbols.addressOf(name);
 	}
 
 	public function valueOf(name:String):Null<Int> {

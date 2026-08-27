@@ -1,30 +1,38 @@
 package hx68k.debug;
 
 import hx68k.map.SourceMap;
+import hx68k.map.Symbols;
 
 class Names {
 	public static inline final OUTSIDE = "outside any symbol";
 
 	final map:Null<SourceMap>;
+	final symbols:Null<Symbols>;
 	final known:Map<Int, String> = [];
 
-	public function new(map:Null<SourceMap>) {
-		this.map = map;
+	public function new(debugger:Debugger) {
+		this.map = debugger.map;
+		this.symbols = debugger.symbols;
 	}
 
 	public function at(address:Int):String {
-		if (map == null) return OUTSIDE;
-
 		final cached = known.get(address);
 		if (cached != null) return cached;
 
-		final place = map.resolve(address);
-		var name = place == null ? null : place.name;
+		var name:Null<String> = null;
 
-		if (name == null) {
-			final symbol = map.elf.functionAt(address);
-			name = symbol == null ? OUTSIDE : symbol.name;
+		if (map != null) {
+			final place = map.resolve(address);
+			name = place == null ? null : place.name;
+
+			if (name == null) {
+				final symbol = map.elf.functionAt(address);
+				if (symbol != null) name = symbol.name;
+			}
 		}
+
+		if (name == null && symbols != null) name = symbols.at(address);
+		if (name == null) name = OUTSIDE;
 
 		known.set(address, name);
 		return name;

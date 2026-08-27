@@ -20,7 +20,7 @@ class Backtrace {
 
 	public function new(debugger:Debugger) {
 		this.debugger = debugger;
-		this.names = new Names(debugger.map);
+		this.names = new Names(debugger);
 		this.disassembler = new Disassembler(new MachineCode(debugger.machine));
 	}
 

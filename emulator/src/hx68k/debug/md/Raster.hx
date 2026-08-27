@@ -30,7 +30,7 @@ class Raster {
 
 	public function new(debugger:Debugger) {
 		this.debugger = debugger;
-		this.names = new Names(debugger.map);
+		this.names = new Names(debugger);
 	}
 
 	public function frames(count:Int):Beam {
