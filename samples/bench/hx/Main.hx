@@ -190,7 +190,7 @@ class Main {
 	static function paletteInHaxe():Void {
 		var n = 0;
 		while (n < LOADS) {
-			Palette.setColours(0, shades, 16);
+			Palette.setColors(0, shades, 16);
 			n++;
 		}
 	}
@@ -198,7 +198,7 @@ class Main {
 	static function paletteInSgdk():Void {
 		var n = 0;
 		while (n < LOADS) {
-			SgdkPalette.setColours(0, shades, 16, Transfer.Cpu);
+			SgdkPalette.setColors(0, shades, 16, Transfer.Cpu);
 			n++;
 		}
 	}

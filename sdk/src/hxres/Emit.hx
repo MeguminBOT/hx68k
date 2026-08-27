@@ -32,9 +32,9 @@ class Emit {
 	}
 
 	public function palette(symbol:String, picture:Picture):Void {
-		final colours = entries(picture);
-		final data = block(symbol + "_data", "u16", words(colours), false);
-		structures.push("const Palette " + symbol + " = { " + colours.length + ", (u16*)" + data + " };");
+		final colors = entries(picture);
+		final data = block(symbol + "_data", "u16", words(colors), false);
+		structures.push("const Palette " + symbol + " = { " + colors.length + ", (u16*)" + data + " };");
 		declarations.push("extern const Palette " + symbol + ";");
 	}
 
@@ -45,16 +45,16 @@ class Emit {
 	}
 
 	public function image(symbol:String, picture:Picture, patterns:Patterns, cells:Cells):Void {
-		final colours = entries(picture);
+		final colors = entries(picture);
 		final tiles = block(symbol + "_tileset_data", "u32", longs(patterns.data()), false);
 		final map = block(symbol + "_tilemap_data", "u16", words(cells.entries), false);
-		final palette = block(symbol + "_palette_data", "u16", words(colours), false);
+		final palette = block(symbol + "_palette_data", "u16", words(colors), false);
 
 		structures.push("static const TileSet " + symbol + "_tileset = { 0, " + patterns.count()
 			+ ", (u32*)" + tiles + " };");
 		structures.push("static const TileMap " + symbol + "_tilemap = { 0, " + cells.across + ", " + cells.down
 			+ ", (u16*)" + map + " };");
-		structures.push("static const Palette " + symbol + "_palette = { " + colours.length
+		structures.push("static const Palette " + symbol + "_palette = { " + colors.length
 			+ ", (u16*)" + palette + " };");
 		structures.push("const Image " + symbol + " = { (Palette*)&" + symbol + "_palette, (TileSet*)&" + symbol
 			+ "_tileset, (TileMap*)&" + symbol + "_tilemap };");

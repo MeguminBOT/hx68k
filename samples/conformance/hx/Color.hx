@@ -1,6 +1,6 @@
 package;
 
-enum Colour {
+enum Color {
 	Red;
 	Green;
 	Blue;

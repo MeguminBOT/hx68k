@@ -41,7 +41,7 @@ once a frame, on line 223, which is how a game parks it rather than disabling it
 
 ## Palettes are read per line, not per frame
 
-The renderer takes its 64 colours from CRAM at the point the line is drawn, so a handler writing
+The renderer takes its 64 colors from CRAM at the point the line is drawn, so a handler writing
 CRAM part way down the screen splits the picture where it wrote. Sonic 2 writes all 64 entries from
 a 32 instruction `MOVE.l` run, which is far longer than a horizontal blank and carries on into the
 following lines. Hardware shows that as a disturbed row of pixels at the water line. Here the
@@ -131,11 +131,11 @@ a FIFO holding what is on its way to video memory would do. Filling it from ever
 CRAM and VSRAM keep of the word they are given makes no difference once the read exposes the latch,
 so the store masks are left as they are.
 
-**The Musashi harness had to be taught it too.** `samples/hardware` writes 0E80h to colour 0, writes 1234h to
-VRAM, then reads colour 0 back through the port. With the latch that read returns 1E90h, and the
+**The Musashi harness had to be taught it too.** `samples/hardware` writes 0E80h to color 0, writes 1234h to
+VRAM, then reads color 0 back through the port. With the latch that read returns 1E90h, and the
 Musashi harness still answered 0E80h, so the two emulators disagreed and the gate said so. The
-harness now holds the same latch, and the check that used to be called "colour 0 through the port"
-is called "colour 0 read back over the last VRAM write", because that is what it measures. What the
+harness now holds the same latch, and the check that used to be called "color 0 through the port"
+is called "color 0 read back over the last VRAM write", because that is what it measures. What the
 CRAM cell itself holds is checked separately and is still 0E80h.
 
 **In mode 4 the registers above 10 cannot be written.** Register 1 bit 2 chooses between the Master
@@ -795,8 +795,8 @@ and SourceForge and neither answers a plain fetch. `emulator/pattern.hxml` boots
 menus with the pad and says what each pattern drew, holding all seven to the digests it carries.
 
 **Every pattern renders correctly**, checked by looking as well as by digest: PLUGE's two side bars
-and its four centre blocks, the red, green, blue and white ramps of the colour bars in eleven steps
-each, the colour bars against grey, the grid, the linearity grid at one white line every eight
+and its four centre blocks, the red, green, blue and white ramps of the color bars in eleven steps
+each, the color bars against grey, the grid, the linearity grid at one white line every eight
 pixels, the grey ramp and the white screen. The pad-driven tests on the main menu were looked at
 too: the drop shadow test draws its portrait cleanly with the sprite over it, the striped sprite
 test the same, and the checkerboard and horizontal stripes alternate at exactly one pixel, which
@@ -808,16 +808,16 @@ and what it covers, plane rendering and CRAM levels, the render check and the co
 largely have. `./tests/run.sh` builds it so it cannot rot; running it is one command and it checks
 itself.
 
-**What it does not settle.** The colour bars are the pattern that would show the CRAM levels being
+**What it does not settle.** The color bars are the pattern that would show the CRAM levels being
 expanded wrongly, and no test ROM can tell a right expansion from a wrong one, since both draw
 eleven steps. What settled it was a capture off a console, recorded in the next section.
 
-## What the colour levels actually are
+## What the color levels actually are
 
 The renderer expanded a 3-bit CRAM component to eight bits linearly, as `value * 255 / 7`, and
 worked out shadow and highlight by halving that component first. Both were wrong, and the second
 was wrong in a way that lost information: `value >> 1` over an 0 to 7 component has four results,
-so a shadowed or highlighted colour reached four levels where the hardware gives it eight.
+so a shadowed or highlighted color reached four levels where the hardware gives it eight.
 
 The DAC has fifteen levels, not sixteen, and they are not evenly spaced. Measured at the end of the
 voltage dividers ahead of the RGB encoder, as voltages from 0V to 1V, they are:
@@ -839,13 +839,13 @@ Those three rows are one ramp of fifteen levels read three ways, which is the pa
 
 So a component's level is `LEVELS[n * 2]` normally, `LEVELS[n]` shadowed and `LEVELS[n + 7]`
 highlighted. Shadow and highlight introduce no level of their own, not even a subtly different one,
-and highlighting the brightest colour cannot pass white: white is white, and does not get whiter.
+and highlighting the brightest color cannot pass white: white is white, and does not get whiter.
 The curve is compressed in the middle and expanded at both ends, so the step at either end of the
 ramp is larger than every step between them.
 
 **Where this came from.** Measured by TmEE co.(TM) and published on the Spritesmind forum, with the
 figures tabulated at `plutiedev.com/vdp-color-ramp`. MD1, several MD2 ASICs and the ASIC shared by
-the MD2 and the Genesis 3 all gave the same output, and all three colour channels gave the same
+the MD2 and the Genesis 3 all gave the same output, and all three color channels gave the same
 levels, so one table serves every model and every channel. Repeated measurements landed on the same
 values each time. Mask of Destiny reports a slightly different set for BlastEm, derived on a linear
 voltage assumption, and attributes the difference to variation between individual DACs.
@@ -855,7 +855,7 @@ and a highlight mode that brightens white further. Neither is what the part does
 
 **How this is held.** Eleven checks in `RenderCheck` state the structure rather than the numbers:
 that shadow ends where highlight starts, that each mode reaches eight levels and the three together
-reach fifteen, that a normal colour is every other level, that the ramp rises at every step, and
+reach fifteen, that a normal color is every other level, that the ramp rises at every step, and
 that it is flatter in the middle than at either end. Six of the eleven fail on the linear
 expansion, which is how they were confirmed to be testing something.
 

@@ -63,7 +63,7 @@ class ViewCheck {
 		register(vdp, 16, 0x01);
 		register(vdp, 7, 10);
 
-		for (i in 0...64) colour(vdp, i, ((i & 7) << 1) | (((i >> 3) & 7) << 5));
+		for (i in 0...64) color(vdp, i, ((i & 7) << 1) | (((i >> 3) & 7) << 5));
 
 		return vdp;
 	}
@@ -79,7 +79,7 @@ class ViewCheck {
 		check(shape.window == WINDOW, "the window is where register 3 put it");
 		check(shape.sprites == SPRITES, "the sprite table is where register 5 put it");
 		check(shape.columns == 64 && shape.rows == 32, "register 16 says 64 cells by 32");
-		check(shape.backdrop == 10, "register 7 names the backdrop colour");
+		check(shape.backdrop == 10, "register 7 names the backdrop color");
 	}
 
 	static function planeCell():Void {
@@ -177,7 +177,7 @@ class ViewCheck {
 		final index = entry.palette * 16 + 1;
 		check(entry.palette == 2, "the cell the viewer reads is in palette 2");
 		check(vdp.renderer.pixels[0] == Renderer.rgb(vdp.cram[index], 0),
-			"and the renderer painted that palette's colour, so both read the cell the same way");
+			"and the renderer painted that palette's color, so both read the cell the same way");
 	}
 
 	static function register(vdp:Vdp, index:Int, value:Int):Void {
@@ -199,7 +199,7 @@ class ViewCheck {
 		while (vdp.queued > 0 || vdp.running()) vdp.tick(16);
 	}
 
-	static function colour(vdp:Vdp, index:Int, value:Int):Void {
+	static function color(vdp:Vdp, index:Int, value:Int):Void {
 		word(vdp, 3, index * 2, value);
 	}
 

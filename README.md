@@ -67,7 +67,7 @@ nothing here is ticked on intent.
 
 - [x] `md.hw.*` raw hardware, one volatile access per call
 - [x] The resource pipeline, and every `md.*` module written against `md.hw` rather than SGDK
-- [x] The palette, native Haxe over `md.hw`, at 327 cycles a sixteen colour load against SGDK's 684
+- [x] The palette, native Haxe over `md.hw`, at 327 cycles a sixteen color load against SGDK's 684
 - [x] The tilemap and the patterns, native, at 164 cycles a cell against SGDK's 334, and faster on
       fills and pattern uploads as well
 - [x] The sprite attribute table, native, transferred 12.3% faster than SGDK moves its own cache
@@ -117,7 +117,7 @@ nothing here is ticked on intent.
       under interlace
 - [x] What the bus costs: two cycles in every 128 taken from the 68000, and a Z80 reaching the
       68000's bus holding it for eleven of its cycles while paying 3.3 of its own
-- [x] The colour the VDP actually puts on the pin: fifteen levels rather than sixteen, spaced on a
+- [x] The color the VDP actually puts on the pin: fifteen levels rather than sixteen, spaced on a
       curve rather than evenly, with normal, shadow and highlight three readings of the one ramp
 - [ ] A Z80 write through its window into 68000 space, which currently goes nowhere
 - [x] SRAM, as the cartridge header declares it, with the write protect bit
@@ -278,7 +278,7 @@ machine: 19,582 against 19,586 on an array pass, 9,022 against 9,024 on a pass o
 and identical on a third.
 
 **SDK.** `md.hw` reaches the VDP, the pads, the Z80's bus and both sound chips through one volatile
-access each, and a sample ROM that calls nothing from SGDK sets a colour and reads a pad on both
+access each, and a sample ROM that calls nothing from SGDK sets a color and reads a pad on both
 emulators. Above it, `md.*` binds SGDK's VDP, palette, joypad, DMA, system, timer, maths, SRAM and
 Z80 layers, checked by a sample that drives each of them. Resources are declared in Haxe and
 compiled by SGDK's rescomp from a `.res` file a build macro writes, so an image, a sprite and a tune
@@ -392,7 +392,7 @@ docs/
 | SingleStepTests m68000, z80 | fixtures | The specification both cores are held to |
 | Spleen | BSD-2-Clause | The debugger's font, embedded in the source |
 | Kabuto's Mega Drive notes | freely published | Hardware measured on real consoles, cited where taken |
-| TmEE's VDP colour measurements | freely published | The colour ramp, measured off several consoles |
+| TmEE's VDP color measurements | freely published | The color ramp, measured off several consoles |
 | VDPFIFOTesting, Sprite Masking Test | test ROMs | What the VDP's ports and sprites are held to |
 | 240p Test Suite | test ROM | What the renderer's patterns are held to |
 | Flamewing's BCD verifier, an illegal opcode ROM | test ROMs | Two the 68000 core is held to |

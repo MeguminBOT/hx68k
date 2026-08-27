@@ -160,7 +160,7 @@ class GameCheck {
 		for (i in 0...0x10000) if (machine.vdp.vram.get(i) != 0) vram++;
 		var cram = 0;
 		for (i in 0...64) if (machine.vdp.cram[i] != 0) cram++;
-		Sys.println("  memory " + vram + " bytes of VRAM written, " + cram + " colours set");
+		Sys.println("  memory " + vram + " bytes of VRAM written, " + cram + " colors set");
 
 		var registers = "  regs ";
 		for (i in 0...24) registers += hex(machine.vdp.registers[i], 2) + " ";
@@ -203,18 +203,18 @@ class GameCheck {
 			+ "  pixel(80,80)=" + hex(machine.vdp.renderer.pixels[80 * Renderer.MAX_WIDTH + 80], 6)
 			+ "  cram0=" + hex(machine.vdp.cram[0], 4) + " cram1=" + hex(machine.vdp.cram[1], 4));
 
-		final colours = new Map<Int, Bool>();
+		final colors = new Map<Int, Bool>();
 		var ink = 0;
 		final background = machine.vdp.renderer.pixels[0];
 		for (i in 0...Renderer.MAX_WIDTH * machine.vdp.renderer.height) {
 			final pixel = machine.vdp.renderer.pixels[i];
-			colours.set(pixel, true);
+			colors.set(pixel, true);
 			if (pixel != background) ink++;
 		}
 
 		var distinct = 0;
-		for (colour in colours.keys()) distinct++;
-		Sys.println("  screen " + distinct + " distinct colours, " + ink + " pixels away from the corner one");
+		for (color in colors.keys()) distinct++;
+		Sys.println("  screen " + distinct + " distinct colors, " + ink + " pixels away from the corner one");
 
 		final digest = digestOf(machine);
 		Sys.println("  digest " + StringTools.hex(digest, 8) + " of the frame it ended on");

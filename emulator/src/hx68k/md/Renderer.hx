@@ -36,7 +36,7 @@ final class Renderer {
 	}
 
 	public function line(vdp:Vdp, y:Int):Void {
-		if (mixed != vdp.colours) mix(vdp);
+		if (mixed != vdp.colors) mix(vdp);
 		interlaced = vdp.doubled();
 		field = interlaced ? vdp.frame & 1 : 0;
 		width = wide(vdp) ? 320 : 256;
@@ -50,7 +50,7 @@ final class Renderer {
 	}
 
 	function mix(vdp:Vdp):Void {
-		mixed = vdp.colours;
+		mixed = vdp.colors;
 
 		for (i in 0...64) {
 			final entry = vdp.cram[i];
@@ -289,15 +289,15 @@ final class Renderer {
 				final b = planeB[x];
 				final s = sprites[x];
 
-				var colour = backdrop;
-				if ((b & 0x0F) != 0) colour = b & 0x3F;
-				if ((a & 0x0F) != 0 && ((a & PRIORITY) != 0 || (b & PRIORITY) == 0)) colour = a & 0x3F;
+				var color = backdrop;
+				if ((b & 0x0F) != 0) color = b & 0x3F;
+				if ((a & 0x0F) != 0 && ((a & PRIORITY) != 0 || (b & PRIORITY) == 0)) color = a & 0x3F;
 				if ((s & 0x0F) != 0
 					&& ((s & PRIORITY) != 0 || ((a & PRIORITY) == 0 && (b & PRIORITY) == 0))) {
-					colour = s & 0x3F;
+					color = s & 0x3F;
 				}
 
-				pixels[row + x] = palette[colour];
+				pixels[row + x] = palette[color];
 			}
 
 			return;
@@ -320,13 +320,13 @@ final class Renderer {
 				shade = 0;
 			}
 
-			var colour = backdrop;
-			if ((b & 0x0F) != 0) colour = b & 0x3F;
-			if ((a & 0x0F) != 0 && ((a & PRIORITY) != 0 || (b & PRIORITY) == 0)) colour = a & 0x3F;
+			var color = backdrop;
+			if ((b & 0x0F) != 0) color = b & 0x3F;
+			if ((a & 0x0F) != 0 && ((a & PRIORITY) != 0 || (b & PRIORITY) == 0)) color = a & 0x3F;
 			if ((s & 0x0F) != 0 && ((s & PRIORITY) != 0 || ((a & PRIORITY) == 0 && (b & PRIORITY) == 0)))
-				colour = s & 0x3F;
+				color = s & 0x3F;
 
-			pixels[row + x] = palette[shade + colour];
+			pixels[row + x] = palette[shade + color];
 		}
 	}
 

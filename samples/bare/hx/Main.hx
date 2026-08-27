@@ -56,8 +56,8 @@ class Main {
 			i++;
 		}
 
-		Palette.setColour(0, 0x0200);
-		Palette.setColour(1, 0x0EEE);
+		Palette.setColor(0, 0x0200);
+		Palette.setColor(1, 0x0EEE);
 
 		Patterns.set(PATTERN, block, 1);
 		Tilemap.fill(Plane.A, Tilemap.entry(PATTERN, 0, false, false, false), 2, 2, 8, 4);

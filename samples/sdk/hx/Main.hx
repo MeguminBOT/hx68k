@@ -20,7 +20,7 @@ import md.hw.Vdp as Ports;
 class Main {
 	static inline final TILE = 0x0021;
 	static inline final FILL = 0x0055;
-	static inline final COLOUR = 0x0246;
+	static inline final COLOR = 0x0246;
 	static inline final TARGET = 0x2000;
 
 	static inline final QUEUED = 0x2100;
@@ -32,8 +32,8 @@ class Main {
 		Boot.begin();
 		Font.loadNormal(1);
 
-		Vdp.setBackgroundColour(2);
-		Palette.setColour(1, COLOUR);
+		Vdp.setBackgroundColor(2);
+		Palette.setColor(1, COLOR);
 
 		Tilemap.setCell(Plane.A, TILE, 3, 4);
 		Tilemap.fill(Plane.A, FILL, 10, 10, 2, 2);
@@ -59,7 +59,7 @@ class Main {
 		Boot.show();
 
 		Probe.report(Vdp.register(7));
-		Probe.report(Palette.colour(1));
+		Probe.report(Palette.color(1));
 		Probe.report(readVram(Tilemap.address(Plane.A, 3, 4)));
 		Probe.report(readVram(Tilemap.address(Plane.A, 11, 11)));
 		Probe.report(readVram(TARGET + 4));

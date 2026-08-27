@@ -8,17 +8,17 @@ class Picture {
 	public final height:Int;
 	public final bits:Int;
 	public final indexes:Null<Bytes>;
-	public final colours:Null<Array<Int>>;
+	public final colors:Null<Array<Int>>;
 	public final palette:Null<Array<Int>>;
 	public final declared:Int;
 
-	public function new(width:Int, height:Int, bits:Int, indexes:Null<Bytes>, colours:Null<Array<Int>>,
+	public function new(width:Int, height:Int, bits:Int, indexes:Null<Bytes>, colors:Null<Array<Int>>,
 			palette:Null<Array<Int>>, declared:Int) {
 		this.width = width;
 		this.height = height;
 		this.bits = bits;
 		this.indexes = indexes;
-		this.colours = colours;
+		this.colors = colors;
 		this.palette = palette;
 		this.declared = declared;
 	}
@@ -28,14 +28,14 @@ class Picture {
 	}
 
 	public function entries(mask:Int):Array<Int> {
-		if (palette == null) throw new haxe.Exception("A true colour image has no palette of its own.");
+		if (palette == null) throw new haxe.Exception("A true color image has no palette of its own.");
 
 		final out = new Array<Int>();
-		for (colour in palette) {
-			final a = (colour >> 28) & 0xF;
-			final b = (colour >> 20) & 0xF;
-			final g = (colour >> 12) & 0xF;
-			final r = (colour >> 4) & 0xF;
+		for (color in palette) {
+			final a = (color >> 28) & 0xF;
+			final b = (color >> 20) & 0xF;
+			final g = (color >> 12) & 0xF;
+			final r = (color >> 4) & 0xF;
 			out.push(((a << 12) | (b << 8) | (g << 4) | r) & mask);
 		}
 		return out;

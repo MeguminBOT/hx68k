@@ -15,7 +15,7 @@ class Main {
 	static function main():Void {
 		Boot.begin();
 		Font.loadNormal(1);
-		Palette.setColour(15, 0x0EEE);
+		Palette.setColor(15, 0x0EEE);
 		Font.setPalette(0);
 		Font.write("HX68K SPIKE", 12, 12);
 		Boot.show();
@@ -42,7 +42,7 @@ class Main {
 			}
 			sum = acc;
 
-			Palette.setColour(0, ramp(frame));
+			Palette.setColor(0, ramp(frame));
 			System.doVBlankProcess();
 		}
 	}

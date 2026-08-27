@@ -34,7 +34,7 @@ class Boot {
 		Dma.fillVram(0x8000, 0x8000, 0, 1);
 		Dma.wait();
 
-		wipe(Ports.CRAM_WRITE, 0, Palette.COLOURS);
+		wipe(Ports.CRAM_WRITE, 0, Palette.COLORS);
 		wipe(Ports.VSRAM_WRITE, 0, 40);
 
 		Psg.reset();

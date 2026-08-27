@@ -50,7 +50,7 @@ class Vdp {
 		register(15, step);
 	}
 
-	public static inline function colour(index:Int, value:Int):Void {
+	public static inline function color(index:Int, value:Int):Void {
 		address(CRAM_WRITE, index * 2);
 		write(value);
 	}

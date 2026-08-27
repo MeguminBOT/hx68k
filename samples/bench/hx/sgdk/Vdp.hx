@@ -22,8 +22,8 @@ extern class Vdp {
 	@:native("VDP_getScreenWidth") static function width():UInt16;
 	@:native("VDP_getScreenHeight") static function height():UInt16;
 
-	@:native("VDP_setBackgroundColor") static function setBackgroundColour(index:UInt8):Void;
-	@:native("VDP_getBackgroundColor") static function backgroundColour():UInt8;
+	@:native("VDP_setBackgroundColor") static function setBackgroundColor(index:UInt8):Void;
+	@:native("VDP_getBackgroundColor") static function backgroundColor():UInt8;
 
 	@:native("VDP_setHorizontalScroll") static function setHorizontalScroll(plane:Plane, value:Int16):Void;
 	@:native("VDP_setVerticalScroll") static function setVerticalScroll(plane:Plane, value:Int16):Void;

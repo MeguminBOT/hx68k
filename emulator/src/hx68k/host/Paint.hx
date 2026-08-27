@@ -40,22 +40,22 @@ class Paint {
 		clipped = false;
 	}
 
-	public function rectangle(x:Float, y:Float, width:Float, height:Float, colour:Int,
+	public function rectangle(x:Float, y:Float, width:Float, height:Float, color:Int,
 			alpha:Float = 1):Void {
 		final u = font.solidU / font.atlasWidth;
 		final v = font.solidV / font.atlasHeight;
-		quad(x, y, x + width, y + height, u, v, u, v, colour, alpha);
+		quad(x, y, x + width, y + height, u, v, u, v, color, alpha);
 	}
 
-	public function outline(x:Float, y:Float, width:Float, height:Float, colour:Int,
+	public function outline(x:Float, y:Float, width:Float, height:Float, color:Int,
 			alpha:Float = 1):Void {
-		rectangle(x, y, width, 1, colour, alpha);
-		rectangle(x, y + height - 1, width, 1, colour, alpha);
-		rectangle(x, y, 1, height, colour, alpha);
-		rectangle(x + width - 1, y, 1, height, colour, alpha);
+		rectangle(x, y, width, 1, color, alpha);
+		rectangle(x, y + height - 1, width, 1, color, alpha);
+		rectangle(x, y, 1, height, color, alpha);
+		rectangle(x + width - 1, y, 1, height, color, alpha);
 	}
 
-	public function text(value:String, x:Float, y:Float, colour:Int, alpha:Float = 1):Float {
+	public function text(value:String, x:Float, y:Float, color:Int, alpha:Float = 1):Float {
 		var pen = x;
 		final top = y - font.ascent;
 		final bottom = top + font.height;
@@ -67,7 +67,7 @@ class Paint {
 			final u0 = font.cellOf(code) / font.atlasWidth;
 			final u1 = (font.cellOf(code) + font.advance) / font.atlasWidth;
 			quad(pen, top, pen + font.advance, bottom, u0, 0, u1, font.height / font.atlasHeight,
-				colour, alpha);
+				color, alpha);
 			pen += font.advance;
 		}
 
@@ -86,10 +86,10 @@ class Paint {
 	}
 
 	function quad(left:Float, top:Float, right:Float, bottom:Float, u0:Float, v0:Float, u1:Float,
-			v1:Float, colour:Int, alpha:Float):Void {
-		final r = ((colour >> 16) & 0xFF) / 255;
-		final g = ((colour >> 8) & 0xFF) / 255;
-		final b = (colour & 0xFF) / 255;
+			v1:Float, color:Int, alpha:Float):Void {
+		final r = ((color >> 16) & 0xFF) / 255;
+		final g = ((color >> 8) & 0xFF) / 255;
+		final b = (color & 0xFF) / 255;
 
 		push(left, top, r, g, b, alpha, u0, v0);
 		push(right, top, r, g, b, alpha, u1, v0);

@@ -44,7 +44,7 @@ class RenderCheck {
 		collisionFlag();
 		linkPastTheTable();
 		shadowedLine();
-		colourLevels();
+		colorLevels();
 
 		if (args.length > 0) drawnText(args[0]);
 
@@ -72,7 +72,7 @@ class RenderCheck {
 		register(vdp, 15, 2);
 		register(vdp, 16, 0x01);
 
-		for (i in 0...64) colour(vdp, i, ((i & 7) << 1) | (((i >> 3) & 7) << 5));
+		for (i in 0...64) color(vdp, i, ((i & 7) << 1) | (((i >> 3) & 7) << 5));
 
 		for (row in 0...8) {
 			word(vdp, 1, 32 + row * 4, 0x1111);
@@ -103,7 +103,7 @@ class RenderCheck {
 		while (vdp.queued > 0 || vdp.running()) vdp.tick(16);
 	}
 
-	static function colour(vdp:Vdp, index:Int, value:Int):Void {
+	static function color(vdp:Vdp, index:Int, value:Int):Void {
 		word(vdp, 3, index * 2, value);
 	}
 
@@ -132,19 +132,19 @@ class RenderCheck {
 		return count;
 	}
 
-	static function colourLevels():Void {
+	static function colorLevels():Void {
 		final normal = [for (n in 0...8) channel(n, 0)];
 		final shadow = [for (n in 0...8) channel(n, Renderer.SHADOW)];
 		final highlight = [for (n in 0...8) channel(n, Renderer.HIGHLIGHT)];
 
 		check(normal[0] == 0 && normal[7] == 255,
-			"the darkest colour reads as black and the brightest as full");
+			"the darkest color reads as black and the brightest as full");
 		check(shadow[0] == normal[0], "shadowing black leaves black");
 		check(highlight[7] == normal[7], "highlighting the brightest cannot pass full");
 		check(shadow[7] == highlight[0],
 			"shadow ends where highlight starts, so the three modes share one ramp");
 
-		check(distinct(normal) == 8, "a normal colour reaches eight levels");
+		check(distinct(normal) == 8, "a normal color reaches eight levels");
 		check(distinct(shadow) == 8, "so does a shadowed one");
 		check(distinct(highlight) == 8, "so does a highlighted one");
 		check(distinct(normal.concat(shadow).concat(highlight)) == 15,
@@ -157,7 +157,7 @@ class RenderCheck {
 
 		var every = true;
 		for (n in 0...8) if (normal[n] != ramp[n * 2]) every = false;
-		check(every, "a normal colour is every other level of that ramp");
+		check(every, "a normal color is every other level of that ramp");
 
 		final steps = [for (n in 1...ramp.length) ramp[n] - ramp[n - 1]];
 		var flatter = true;
@@ -174,7 +174,7 @@ class RenderCheck {
 
 		var uniform = true;
 		for (x in 0...320) if (pixel(vdp, x) != expected(vdp, 10)) uniform = false;
-		check(uniform, "an empty line is the backdrop register's colour everywhere");
+		check(uniform, "an empty line is the backdrop register's color everywhere");
 	}
 
 	static function opaqueTile():Void {

@@ -314,7 +314,7 @@ class SlotCheck {
 
 		vdp.writeControl(0x0000);
 		vdp.writeControl(0x0020);
-		same("a colour read shows the slot the next write will use", vdp.readData(), 0x0EEE | 0xF111);
+		same("a color read shows the slot the next write will use", vdp.readData(), 0x0EEE | 0xF111);
 	}
 
 	static function counter(width:Int, last:Int, resume:Int):Void {

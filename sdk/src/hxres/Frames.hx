@@ -147,8 +147,8 @@ class Frames {
 		var highest = 0;
 		for (i in 0...image.length) if (image.get(i) > highest) highest = image.get(i);
 		if (highest >= 64)
-			throw new haxe.Exception("A sprite names colour index " + highest
-				+ "; a sprite may use at most 64 colours. Save it as a sixteen colour indexed PNG.");
+			throw new haxe.Exception("A sprite names color index " + highest
+				+ "; a sprite may use at most 64 colors. Save it as a sixteen color indexed PNG.");
 
 		Pixels.line(image, width, height);
 

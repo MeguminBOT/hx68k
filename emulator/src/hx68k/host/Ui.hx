@@ -723,12 +723,12 @@ class Ui {
 		paint.text("x", close, baseline, DIM);
 	}
 
-	public function line(text:String, colour:Int = INK):Void {
+	public function line(text:String, color:Int = INK):Void {
 		final panel = current;
 		if (panel == null) return;
 
 		final at = panel.x + margin - panel.scrollAcross;
-		final end = paint.text(text, at, pen, colour);
+		final end = paint.text(text, at, pen, color);
 		final ran = end - at;
 		if (ran > panel.widest) panel.widest = ran;
 		if (ran > panel.reach) panel.reach = ran;
@@ -790,7 +790,7 @@ class Ui {
 		}
 
 		final each = Std.int(Math.max(1, room / paint.font.advance));
-		final colour = colourOf(part.kind);
+		final color = colorOf(part.kind);
 		var text = part.text;
 
 		while (true) {
@@ -798,7 +798,7 @@ class Ui {
 				final wide = paint.font.measure(text);
 				if (wide > panel.reach) panel.reach = wide;
 				if (wide > panel.widest) panel.widest = wide;
-				paint.text(text, left, pen, colour);
+				paint.text(text, left, pen, color);
 				advance(panel);
 				return;
 			}
@@ -809,7 +809,7 @@ class Ui {
 			if (back > each >> 1) cut = back;
 			if (cut <= 0) cut = 1;
 
-			paint.text(text.substr(0, cut), left, pen, colour);
+			paint.text(text.substr(0, cut), left, pen, color);
 			advance(panel);
 
 			text = StringTools.ltrim(text.substr(cut));
@@ -824,7 +824,7 @@ class Ui {
 
 	function write(part:hx68k.debug.Row.Part, x:Float, room:Float):Void {
 		if (part.text == "") return;
-		paint.text(shorten(part.text, room), x, pen, colourOf(part.kind));
+		paint.text(shorten(part.text, room), x, pen, colorOf(part.kind));
 	}
 
 	function measure(rows:Array<Row>, from:Int, to:Int):Array<Float> {
@@ -850,7 +850,7 @@ class Ui {
 		return text.substr(0, cut) + ".";
 	}
 
-	static function colourOf(kind:Kind):Int {
+	static function colorOf(kind:Kind):Int {
 		return switch (kind) {
 			case Label: DIM;
 			case Place: 0x9AB8D8;

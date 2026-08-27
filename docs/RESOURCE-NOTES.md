@@ -33,32 +33,32 @@ A PNG declares its palette in a `PLTE` chunk which may be shorter than the bit d
 for two bit, 2 for one bit. `Palette` then truncates to `(maxSize + 15) & 0xF0`, which is 64 for a
 `PALETTE` resource and 16 for the palette inside a `SPRITE`.
 
-So an eight bit PNG declaring sixteen colours produces a **64 entry** palette, and forty eight of
-those entries name a colour no pixel in the image can reference.
+So an eight bit PNG declaring sixteen colors produces a **64 entry** palette, and forty eight of
+those entries name a color no pixel in the image can reference.
 
-### The expansion repeats the last colour for a palette of 2, 4 or 16, and zero fills otherwise
+### The expansion repeats the last color for a palette of 2, 4 or 16, and zero fills otherwise
 
 This is the one that no rule predicts, and it is a `javax.imageio` behaviour rather than anything
 rescomp chose. Measured across every palette size from 1 to 256 by generating PNGs and reading the
 `IndexColorModel` back:
 
-| declared colours | entries past the palette |
+| declared colors | entries past the palette |
 | --- | --- |
 | 1 | zero |
-| 2 | the last colour, repeated |
+| 2 | the last color, repeated |
 | 3 | zero |
-| 4 | the last colour, repeated |
+| 4 | the last color, repeated |
 | 5 to 15 | zero |
-| 16 | the last colour, repeated |
+| 16 | the last color, repeated |
 | 17 and above | zero |
 
 2, 4 and 16 are exactly the palette sizes that fill a PNG bit depth of 1, 2 and 4. A palette of one
-colour does **not** repeat, which the first measurement missed because the fixture's single colour
+color does **not** repeat, which the first measurement missed because the fixture's single color
 was black and the two answers are indistinguishable there. The fixture that found it declares one
-non-black colour.
+non-black color.
 
-`samples/art/gfx/blocks.png` declares sixteen colours, so this rule decides what its palette lines
-1, 2 and 3 hold: the brightest colour of the image rather than black. No observable in
+`samples/art/gfx/blocks.png` declares sixteen colors, so this rule decides what its palette lines
+1, 2 and 3 hold: the brightest color of the image rather than black. No observable in
 `samples/art` reads them, but the picture depends on it.
 
 Held by `Png.EXPANDS_BY_REPEAT` and by twenty four generated fixtures in `hxres.Check`, which cover
@@ -68,7 +68,7 @@ and the full size at one, two and four bits.
 ### rescomp deduplicates identical data blocks
 
 Two resources whose bytes are the same share one label: the `PALETTE` for `blocks.png` and the one
-for `diamond.png` both point at `blocks_data`, and palettes declaring 65, 200 and 256 colours all
+for `diamond.png` both point at `blocks_data`, and palettes declaring 65, 200 and 256 colors all
 point at `wide65_data` because they are the same once truncated to 64 entries. Anything comparing
 against rescomp's output has to follow the `dc.l` in the resource structure rather than assume a
 label named after the resource.
@@ -414,6 +414,6 @@ with the reason and the check is changed to match, in that order.
 
 - **Adam7 interlaced PNGs.** The error names what to do about it.
 - **16 bits per sample.** Same.
-- **PNG colour types other than 0, 2, 3, 4 and 6.** There are no others, so this is only reached by
+- **PNG color types other than 0, 2, 3, 4 and 6.** There are no others, so this is only reached by
   a corrupt file.
-- **Colour at fewer than eight bits per sample**, which PNG does not allow anyway.
+- **Color at fewer than eight bits per sample**, which PNG does not allow anyway.

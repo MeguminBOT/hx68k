@@ -59,11 +59,11 @@ class Vdp {
 		setRegister(VdpRegister.HorizontalInterrupt, lines);
 	}
 
-	public static inline function setBackgroundColour(index:UInt8):Void {
+	public static inline function setBackgroundColor(index:UInt8):Void {
 		setRegister(VdpRegister.Background, index & 0x3F);
 	}
 
-	public static inline function backgroundColour():UInt8 {
+	public static inline function backgroundColor():UInt8 {
 		return shadow[VdpRegister.Background] & 0x3F;
 	}
 

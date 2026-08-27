@@ -200,12 +200,12 @@ class Widgets {
 		return took;
 	}
 
-	public function say(text:String, colour:Int = Ui.INK):Void {
+	public function say(text:String, color:Int = Ui.INK):Void {
 		final paint = ui.paint;
 		if (!fits(paint.font.height)) return;
 
 		final inset = paint.font.advance * 0.5;
-		paint.text(ui.shorten(text, across - inset), left + inset, pen + paint.font.ascent, colour);
+		paint.text(ui.shorten(text, across - inset), left + inset, pen + paint.font.ascent, color);
 		pen += paint.font.height;
 	}
 

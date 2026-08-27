@@ -14,7 +14,7 @@ class Main {
 	@:md.main
 	static function main():Void {
 		Vdp.register(7, 0);
-		Vdp.colour(0, BACKGROUND);
+		Vdp.color(0, BACKGROUND);
 
 		Vdp.writeAt(TILE, PATTERN);
 

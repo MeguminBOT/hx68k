@@ -203,7 +203,7 @@ static void suite_spike(const char *rom, const char *sym)
 		}
 	}
 
-	check(seq_count > 8, "captured %u CRAM colour-0 writes", (unsigned)seq_count);
+	check(seq_count > 8, "captured %u CRAM color-0 writes", (unsigned)seq_count);
 
 	if (seq_count > 8) {
 		size_t k = seq_count < 32 ? seq_count : 32;
@@ -220,7 +220,7 @@ static void suite_spike(const char *rom, const char *sym)
 			}
 		}
 
-		check(match, "last %u colour writes match ramp() computed on host", (unsigned)k);
+		check(match, "last %u color writes match ramp() computed on host", (unsigned)k);
 	}
 
 	bases[0] = (uint32_t)(md_vdp_reg[2] & 0x38) << 10;
@@ -448,7 +448,7 @@ static void suite_probe_rom(const char *label, const char *name, const char *dir
 }
 
 static const probe_t hardware_expected[] = {
-	{ "colour 0 read back over the fifth write behind it", 0x0E80 | 0xF111 },
+	{ "color 0 read back over the fifth write behind it", 0x0E80 | 0xF111 },
 	{ "a word through VRAM",        0x1234 },
 	{ "the pad reports start and right", 0x88 },
 };
@@ -467,7 +467,7 @@ static const probe_t bare_expected[] = {
 	   from cold with no VDP_init anywhere */
 	{ "an initialised static survived the boot", 0x1234 },
 	{ "and the rest of RAM was cleared", 0 },
-	{ "a colour set through the native palette", 0x0EEE },
+	{ "a color set through the native palette", 0x0EEE },
 	{ "a cell set through the native tilemap", 1 },
 	{ "a pattern uploaded without DMA", 0x1111 },
 	{ "the plane is 64 cells wide", 64 },
@@ -500,12 +500,12 @@ static const probe_t bare_expected[] = {
 };
 
 static const probe_t art_expected[] = {
-	/* bits 4 and 8 in each are not the colour: they are what the FIFO slot the next write will
+	/* bits 4 and 8 in each are not the color: they are what the FIFO slot the next write will
 	   use still holds, which a CRAM read exposes in the nine bits CRAM does not store. Which
 	   bits those are depends on the last word written to the data port before the read, so the
 	   value moves when the ROM's write order does. */
-	{ "image palette colour 1",     0x000A | 0x0110 },
-	{ "image palette colour 2",     0x0040 | 0x0110 },
+	{ "image palette color 1",     0x000A | 0x0110 },
+	{ "image palette color 2",     0x0040 | 0x0110 },
 	{ "image tilemap entry",        16 },
 	{ "sprite list holds the sprite", 80 + 128 },
 	{ "the tune is in ROM",         1 },
@@ -613,8 +613,8 @@ static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 
 	{ "a function passed and called", 42 },
 };
 
-static const probe_t sdk_expected[] = {	{ "md.Vdp.setBackgroundColour", 2 },
-	{ "md.Palette.colour reads back", 0x0246 },
+static const probe_t sdk_expected[] = {	{ "md.Vdp.setBackgroundColor", 2 },
+	{ "md.Palette.color reads back", 0x0246 },
 	{ "md.Tilemap.setCell landed",  0x0021 },
 	{ "md.Tilemap.fill landed",     0x0055 },
 	{ "md.Dma.transferFrom landed", 0xA4A5 },
@@ -665,7 +665,7 @@ int main(int argc, char **argv)
 	if (file_exists(rom)) {
 		suite_probe_rom("hardware: md.hw with no SGDK call in it", "hardware", "samples/hardware",
 			rom, sym, hardware_expected, COUNT(hardware_expected), 0x88);
-		check(md_cram[0] == 0x0E80, "colour 0 landed in CRAM (got 0x%04X)", md_cram[0]);
+		check(md_cram[0] == 0x0E80, "color 0 landed in CRAM (got 0x%04X)", md_cram[0]);
 	} else {
 		printf("\nhardware: skipped (rom not built)\n");
 	}

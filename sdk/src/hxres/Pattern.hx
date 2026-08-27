@@ -50,7 +50,7 @@ class Pattern {
 	public static function at(pixels:Bytes, width:Int, height:Int, x:Int, y:Int):Pattern {
 		final rows = new Array<Int>();
 
-		var plainColour = -1;
+		var plainColor = -1;
 		var plain = true;
 		var line = -1;
 		var priority = -1;
@@ -64,14 +64,14 @@ class Pattern {
 				final on = y + down;
 				final inside = at >= 0 && at < width && on >= 0 && on < height;
 				final pixel = inside ? pixels.get((on * width) + at) : 0;
-				final colour = pixel & 0xF;
+				final color = pixel & 0xF;
 
-				if (plainColour == -1) plainColour = colour else if (plainColour != colour) plain = false;
+				if (plainColor == -1) plainColor = color else if (plainColor != color) plain = false;
 
 				final ownLine = (pixel >> 4) & 3;
 				final ownPriority = (pixel >> 7) & 1;
 
-				if (colour == 0) {
+				if (color == 0) {
 					if (clearLine == -1) clearLine = ownLine
 					else if (clearLine != ownLine)
 						throw new haxe.Exception("A transparent pixel at " + at + "," + on + " names palette line "
@@ -93,7 +93,7 @@ class Pattern {
 							+ " where the rest of its pattern names " + priority + ".");
 				}
 
-				row = (row << 4) | colour;
+				row = (row << 4) | color;
 			}
 			rows.push(row);
 		}
@@ -101,7 +101,7 @@ class Pattern {
 		if (line == -1) line = clearLine;
 		if (priority == -1) priority = clearPriority;
 
-		return new Pattern(rows, line, priority != 0, plain ? plainColour : -1);
+		return new Pattern(rows, line, priority != 0, plain ? plainColor : -1);
 	}
 
 	public inline function isPlain():Bool {

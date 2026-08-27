@@ -103,7 +103,7 @@ class SettingsCheck {
 		sys.io.File.saveContent(at, "# a build from before this one\n"
 			+ "scale 2\n"
 			+ "\n"
-			+ "colourblind on\n"
+			+ "colorblind on\n"
 			+ "framerate cap 120\n");
 
 		final read = new SettingsFile();
@@ -111,13 +111,13 @@ class SettingsCheck {
 		same("nothing was wrong with it", read.problem, "");
 		ok("a setting this build knows loads", read.whole("scale", 1) == 2,
 			"scale is " + read.whole("scale", 1));
-		ok("one it does not know is kept", read.flag("colourblind", false), "it was dropped");
+		ok("one it does not know is kept", read.flag("colorblind", false), "it was dropped");
 		same("a value with a space in the middle keeps all of it",
 			read.text("framerate", ""), "cap 120");
 
 		read.write(at);
 		final back = sys.io.File.getContent(at);
-		ok("and is written back", back.indexOf("colourblind on") >= 0, "it went missing:\n" + back);
+		ok("and is written back", back.indexOf("colorblind on") >= 0, "it went missing:\n" + back);
 		ok("a comment is not", back.indexOf("#") < 0, "the comment came back");
 	}
 

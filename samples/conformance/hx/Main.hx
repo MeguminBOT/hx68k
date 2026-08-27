@@ -69,7 +69,7 @@ class Main {
 		Probe.report(fixedPoint(n));
 		Probe.report(stateMachine(n));
 		Probe.report(payload(n));
-		Probe.report(colour(n));
+		Probe.report(color(n));
 		Probe.report(phase(n));
 		Probe.report(romResidency(n));
 		Probe.report(romTable(n));
@@ -327,8 +327,8 @@ class Main {
 		}
 	}
 
-	static function colour(n:Int):Int {
-		final c = Colour.Green;
+	static function color(n:Int):Int {
+		final c = Color.Green;
 		return switch (c) {
 			case Red: 1;
 			case Green: 2 * n;

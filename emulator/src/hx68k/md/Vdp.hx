@@ -72,7 +72,7 @@ final class Vdp {
 	public final lineDeepest:Vector<Int> = new Vector<Int>(LINES_PAL);
 	public final lineShape:Vector<Int> = new Vector<Int>(LINES_PAL);
 
-	public var colours(default, null):Int = 0;
+	public var colors(default, null):Int = 0;
 
 	public var spriteOverflow:Bool = false;
 	public var spriteCollision:Bool = false;
@@ -144,7 +144,7 @@ final class Vdp {
 	public function reset():Void {
 		for (i in 0...registers.length) registers[i] = 0;
 		for (i in 0...cram.length) cram[i] = 0;
-		colours++;
+		colors++;
 		for (i in 0...vsram.length) vsram[i] = 0;
 		vram.fill(0, vram.length, 0);
 
@@ -620,7 +620,7 @@ final class Vdp {
 				writeVram(at, value);
 			case 0x03:
 				cram[(at >> 1) & 63] = value & 0x0EEE;
-				colours++;
+				colors++;
 			case 0x05: vsram[(at >> 1) % vsram.length] = value & 0x07FF;
 			case _:
 		}

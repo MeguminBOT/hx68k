@@ -156,8 +156,8 @@ class Resources {
 			throw new haxe.Exception(file + " is " + picture.width + " by " + picture.height
 				+ ", and both have to be a multiple of eight.");
 		if (!picture.indexed())
-			throw new haxe.Exception(file + " is a colour image. Save it as an indexed PNG of "
-				+ "sixteen or sixty four colours.");
+			throw new haxe.Exception(file + " is a color image. Save it as an indexed PNG of "
+				+ "sixteen or sixty four colors.");
 		return picture;
 	}
 

@@ -101,14 +101,14 @@ class Check {
 		ok("blocks.png is 32 by 32", blocks.width == 32 && blocks.height == 32,
 			"got " + blocks.width + " by " + blocks.height);
 		ok("blocks.png is eight bits indexed", blocks.bits == 8 && blocks.indexed(), "got " + blocks.bits + " bits");
-		ok("blocks.png declares sixteen colours", blocks.declared == 16, "got " + blocks.declared);
+		ok("blocks.png declares sixteen colors", blocks.declared == 16, "got " + blocks.declared);
 		ok("blocks.png expands to two hundred and fifty six", blocks.palette.length == 256,
 			"got " + blocks.palette.length);
 
 		final entries = blocks.entries(MASK);
-		ok("the first colour is black", entries[0] == 0x0000, hex(entries[0]));
-		ok("the sixteenth colour is the brightest", entries[15] == 0x0CCE, hex(entries[15]));
-		ok("a colour past the palette repeats the last", entries[16] == 0x0CCE, hex(entries[16]));
+		ok("the first color is black", entries[0] == 0x0000, hex(entries[0]));
+		ok("the sixteenth color is the brightest", entries[15] == 0x0CCE, hex(entries[15]));
+		ok("a color past the palette repeats the last", entries[16] == 0x0CCE, hex(entries[16]));
 
 		final diamond = Png.read(root + "/samples/art/gfx/diamond.png");
 		ok("diamond.png is 16 by 16", diamond.width == 16 && diamond.height == 16,
@@ -116,7 +116,7 @@ class Check {
 
 		var indexes = 0;
 		for (i in 0...blocks.indexes.length) if (blocks.indexes.get(i) > indexes) indexes = blocks.indexes.get(i);
-		ok("no pixel names a colour the palette does not declare", indexes < blocks.declared,
+		ok("no pixel names a color the palette does not declare", indexes < blocks.declared,
 			"the highest index is " + indexes);
 	}
 
@@ -1089,8 +1089,8 @@ class Check {
 					for (x in 0...8) {
 						final readX = (flip == 1 || flip == 3) ? 7 - x : x;
 						final readY = (flip == 2 || flip == 3) ? 7 - y : y;
-						final colour = glyph(source, readX, readY);
-						final value = colour | (line << 4) | (priority ? 0x80 : 0);
+						final color = glyph(source, readX, readY);
+						final value = color | (line << 4) | (priority ? 0x80 : 0);
 						pixels.set(((j * 8) + y) * width + (i * 8) + x, value);
 					}
 				}

@@ -27,7 +27,7 @@ cycles over the same span. They are the numbers `./tests/run.sh` last printed, n
 
 | SGDK source | lines | native Haxe | 68000 cycles, ours against theirs |
 | --- | --- | --- | --- |
-| `pal.c` | 484 | `md.Palette` | 20918 against 43772, sixty four sixteen colour loads |
+| `pal.c` | 484 | `md.Palette` | 20918 against 43772, sixty four sixteen color loads |
 | `vdp_tile.c` | 1016 | `md.Tilemap`, `md.Patterns` | cells 10476 against 21398, a 40 by 28 fill 68348 against 83012, patterns 29794 against 32850 |
 | `vdp_spr.c` | 322 | `md.SpriteTable` | positions and a transfer 36288 against 40578, the transfer alone 19260 against 21962 |
 | `dma.c` | 782 | `md.Dma` | 31995 against 37758, four queued transfers and a flush |

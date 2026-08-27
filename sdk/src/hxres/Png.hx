@@ -73,13 +73,13 @@ class Png {
 			case 3: 1;
 			case 4: 2;
 			case 6: 4;
-			case _: throw new haxe.Exception(name + " uses PNG colour type " + kind + ", which is not read here.");
+			case _: throw new haxe.Exception(name + " uses PNG color type " + kind + ", which is not read here.");
 		}
 
 		if (kind == 3 && plte == null) throw new haxe.Exception(name + " is indexed and has no PLTE chunk.");
 		if (kind == 3 && depth > 8) throw new haxe.Exception(name + " is indexed at more than 8 bits.");
 		if (kind != 3 && kind != 0 && depth != 8)
-			throw new haxe.Exception(name + " is " + depth + " bits per sample in colour, which is not read here.");
+			throw new haxe.Exception(name + " is " + depth + " bits per sample in color, which is not read here.");
 
 		final raw = InflateImpl.run(new BytesInput(data.getBytes()));
 		final rows = unfilter(raw, width, height, depth, samples, name);
@@ -88,7 +88,7 @@ class Png {
 			case 3: indexed(rows, width, height, depth, plte);
 			case 0 if (depth == 8): grey(rows, width, height);
 			case 0: indexed(rows, width, height, depth, greyRamp(depth));
-			case _: colour(rows, width, height, samples);
+			case _: color(rows, width, height, samples);
 		}
 	}
 
@@ -180,7 +180,7 @@ class Png {
 		return new Picture(width, height, 8, rows, null, palette, 256);
 	}
 
-	static function colour(rows:Bytes, width:Int, height:Int, samples:Int):Picture {
+	static function color(rows:Bytes, width:Int, height:Int, samples:Int):Picture {
 		final out = new Array<Int>();
 		var at = 0;
 		for (i in 0...width * height) {

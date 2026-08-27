@@ -18,14 +18,14 @@ class PatternCheck {
 	static inline final PAD_START = 0x80;
 
 	static final PATTERNS:Array<String> = [
-		"pluge", "colour bars", "colour bars with grey", "grid", "linearity", "grey ramp",
+		"pluge", "color bars", "color bars with grey", "grid", "linearity", "grey ramp",
 		"white screen"
 	];
 
 	static final DREW:Map<String, String> = [
 		"pluge" => "125D8000",
-		"colour bars" => "11C0F6F6",
-		"colour bars with grey" => "75840D46",
+		"color bars" => "11C0F6F6",
+		"color bars with grey" => "75840D46",
 		"grid" => "BCB46000",
 		"linearity" => "D8DCA780",
 		"grey ramp" => "FCCFA000",
