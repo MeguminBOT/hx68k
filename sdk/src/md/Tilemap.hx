@@ -186,6 +186,40 @@ class Tilemap {
 		}
 	}
 
+	public static function setFromResource(plane:Plane, from:md.res.TileMap, base:UInt16,
+			x:UInt16, y:UInt16):Bool {
+		if (from.compression != 0) return false;
+
+		final across:Int = from.across;
+		final down:Int = from.down;
+		final cells = from.data;
+		var row:Int = 0;
+
+		while (row < down) {
+			Ports.autoIncrement(2);
+			Ports.address(Ports.VRAM_WRITE, address(plane, x, y + row));
+
+			final start:Int = row * across;
+			var column:Int = 0;
+			while (column < across) {
+				Ports.write(base + cells[start + column]);
+				column++;
+			}
+
+			row++;
+		}
+
+		return true;
+	}
+
+	public static function drawImage(plane:Plane, from:md.res.Image, base:UInt16, x:UInt16,
+			y:UInt16):Bool {
+		if (!Patterns.setFromResource(base & INDEX, from.tileset)) return false;
+
+		Palette.setFromResource((base >> 9) & 0x30, from.palette);
+		return setFromResource(plane, from.tilemap, base, x, y);
+	}
+
 	public static function fillIncrementing(plane:Plane, cell:UInt16, x:UInt16, y:UInt16,
 			width:UInt16, height:UInt16):Void {
 		Ports.autoIncrement(2);

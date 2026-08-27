@@ -15,6 +15,10 @@ class Font {
 
 	static var raised:Bool = false;
 
+	public static inline function loadNormal(at:UInt16):Bool {
+		return load(at, Fonts.normal);
+	}
+
 	public static function load(at:UInt16, from:md.res.TileSet):Bool {
 		if (!Patterns.setFromResource(at, from)) return false;
 		glyph = at;

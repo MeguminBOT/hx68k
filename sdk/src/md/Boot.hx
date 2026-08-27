@@ -19,7 +19,7 @@ class Boot {
 		while ((Ports.status() & Ports.DMA_BUSY) != 0) {}
 
 		Vdp.setRegister(0, 0x04);
-		Vdp.setRegister(1, 0x04);
+		Vdp.setRegister(1, 0x14);
 		Vdp.setRegister(6, 0x00);
 		Vdp.setRegister(7, 0x00);
 		Vdp.setRegister(8, 0x00);
@@ -39,7 +39,11 @@ class Boot {
 		Tilemap.setPlaneSize(64, 32);
 		SpriteTable.setBase(SPRITES);
 
-		wipe(Ports.VRAM_WRITE, 0, 0x8000);
+		Dma.fillVram(0, 0x8000, 0, 1);
+		Dma.wait();
+		Dma.fillVram(0x8000, 0x8000, 0, 1);
+		Dma.wait();
+
 		wipe(Ports.CRAM_WRITE, 0, Palette.COLOURS);
 		wipe(Ports.VSRAM_WRITE, 0, 40);
 
