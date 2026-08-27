@@ -11,6 +11,7 @@ typedef Declared = {
 	final line:String;
 	final type:String;
 	final symbol:String;
+	final bytes:Int;
 }
 
 class Resources {
@@ -22,6 +23,8 @@ class Resources {
 		final cuts = new Array<hxres.Frames.Cut>();
 		final lines = [];
 
+		final measured = [];
+
 		for (field in fields) {
 			final declared = describe(field, emit, cuts);
 			if (declared == null) continue;
@@ -30,7 +33,18 @@ class Resources {
 			field.kind = FVar(TPath({pack: ["md", "res"], name: declared.type}), null);
 			field.access = [AStatic, APublic];
 			field.meta.push({name: ":native", params: [macro $v{declared.symbol}], pos: field.pos});
+
+			if (declared.bytes >= 0) measured.push({
+				name: field.name + "Length",
+				doc: null,
+				access: [AStatic, APublic, AInline],
+				kind: FVar(macro :Int, macro $v{declared.bytes}),
+				pos: field.pos,
+				meta: []
+			});
 		}
+
+		for (field in measured) fields.push(field);
 
 		final mixed = !emit.empty() && lines.length > 0;
 		final pending = name + "_pending";
@@ -59,11 +73,11 @@ class Resources {
 						emit.image(field.name, picture, patterns,
 							Cells.of(picture, patterns, 0, Optimisation.Every, Ordering.Row));
 					});
-					{line: "", type: "Image", symbol: '(&${field.name})'};
+					{line: "", type: "Image", symbol: '(&${field.name})', bytes: -1};
 				}
 				case "palette": {
 					native(entry.pos, () -> emit.palette(field.name, read(file, false)));
-					{line: "", type: "Palette", symbol: '(&${field.name})'};
+					{line: "", type: "Palette", symbol: '(&${field.name})', bytes: -1};
 				}
 				case "tileset": {
 					native(entry.pos, () -> {
@@ -72,7 +86,7 @@ class Resources {
 							optimisation(option(arguments, 1, "ALL"), entry.pos), Ordering.Row,
 							false));
 					});
-					{line: "", type: "TileSet", symbol: '(&${field.name})'};
+					{line: "", type: "TileSet", symbol: '(&${field.name})', bytes: -1};
 				}
 				case "sprite": {
 					if (arguments.length < 3)
@@ -80,30 +94,34 @@ class Resources {
 					native(entry.pos, () -> emit.sprite(field.name, new Frames(read(file, true),
 						Std.parseInt(arguments[1]), Std.parseInt(arguments[2]),
 						Std.parseInt(option(arguments, 4, "0")), Aim.Balanced, cuts)));
-					{line: "", type: "SpriteDefinition", symbol: '(&${field.name})'};
+					{line: "", type: "SpriteDefinition", symbol: '(&${field.name})', bytes: -1};
 				}
 				case "music": {
-					native(entry.pos, () -> emit.binary(field.name,
+					var bytes = 0;
+					native(entry.pos, () -> bytes = emit.binary(field.name,
 						hxres.music.Xgc.compile(sys.io.File.getBytes(file),
 							number(arguments, 1, -1)),
 						256, 256, 0, true, "NONE"));
-					{line: "", type: "Music", symbol: field.name};
+					{line: "", type: "Music", symbol: field.name, bytes: bytes};
 				}
 				case "sound": {
 					final driver = option(arguments, 1, "PCM");
-					native(entry.pos, () -> emit.binary(field.name,
+					var bytes = 0;
+					native(entry.pos, () -> bytes = emit.binary(field.name,
 						hxres.Sounds.convert(sys.io.File.getBytes(file), driver,
 							number(arguments, 2, 0)),
 						hxres.Sounds.alignOf(driver), hxres.Sounds.alignOf(driver),
 						hxres.Sounds.fillOf(driver),
 						option(arguments, 3, "false") != "false", "NONE"));
-					{line: "", type: "Sound", symbol: field.name};
+					{line: "", type: "Sound", symbol: field.name, bytes: bytes};
 				}
 				case _: {
-					native(entry.pos, () -> emit.binary(field.name, sys.io.File.getBytes(file),
+					var bytes = 0;
+					native(entry.pos, () -> bytes = emit.binary(field.name,
+						sys.io.File.getBytes(file),
 						number(arguments, 1, 2), number(arguments, 2, 2), number(arguments, 3, 0),
 						option(arguments, 4, "true") != "false", option(arguments, 5, "NONE")));
-					{line: "", type: "Binary", symbol: field.name};
+					{line: "", type: "Binary", symbol: field.name, bytes: bytes};
 				}
 			}
 		}
@@ -172,8 +190,11 @@ class Resources {
 	}
 
 	static function source(path:String, pos:Position):String {
-		if (!sys.FileSystem.exists(path))
-			Context.error("No such resource: " + path, pos);
+		if (!sys.FileSystem.exists(path)) {
+			final onPath = try Context.resolvePath(path) catch (_:Dynamic) null;
+			if (onPath == null) Context.error("No such resource: " + path, pos);
+			return StringTools.replace(sys.FileSystem.absolutePath(onPath), "\\", "/");
+		}
 		return StringTools.replace(sys.FileSystem.absolutePath(path), "\\", "/");
 	}
 

@@ -127,7 +127,7 @@ class Emit {
 	}
 
 	public function binary(symbol:String, data:Bytes, align:Int, sizeAlign:Int, fill:Int, far:Bool,
-			squeeze:String):Void {
+			squeeze:String):Int {
 		final sizedData = sized(data, sizeAlign, fill);
 
 		final squeezed = switch (squeeze.toUpperCase()) {
@@ -148,6 +148,7 @@ class Emit {
 		blocks.push("const u8 " + symbol + "[" + padded.length + "] " + placed(far, align) + " = {"
 			+ NEWLINE + laid(values) + NEWLINE + "};");
 		declarations.push("extern const u8 " + symbol + "[" + padded.length + "];");
+		return padded.length;
 	}
 
 	public static function evened(data:Bytes):Bytes {
