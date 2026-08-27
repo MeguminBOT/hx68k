@@ -119,6 +119,19 @@ class SpriteTable {
 		cache[0] = 0;
 	}
 
+	public static inline final WORDS_PER_ENTRY = 4;
+
+	public static function queue(count:UInt16):Void {
+		var many:Int = count;
+
+		if (many == 0) {
+			clear();
+			many = 1;
+		}
+
+		Dma.queueFrom(DmaTarget.Vram, cache, at, many * WORDS_PER_ENTRY, 2);
+	}
+
 	public static function update(count:UInt16):Void {
 		var many:Int = count;
 

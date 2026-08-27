@@ -109,6 +109,27 @@ class Vdp {
 		Ports.write(value & 0x3FF);
 	}
 
+	public static inline final COLUMN_SCROLL = 0x04;
+
+	public static inline final SCROLL_MODE = 0x03;
+
+	public static function setHorizontalScrollMode(mode:ScrollMode):Void {
+		final was:Int = shadow[VdpRegister.Scrolling];
+		setRegister(VdpRegister.Scrolling, (was & ~SCROLL_MODE) | (mode : Int));
+	}
+
+	public static inline function horizontalScrollMode():ScrollMode {
+		return shadow[VdpRegister.Scrolling] & SCROLL_MODE;
+	}
+
+	public static inline function setColumnScroll(on:Bool):Void {
+		change(VdpRegister.Scrolling, COLUMN_SCROLL, on);
+	}
+
+	public static inline function isColumnScroll():Bool {
+		return (shadow[VdpRegister.Scrolling] & COLUMN_SCROLL) != 0;
+	}
+
 	public static inline function scrollTable():UInt16 {
 		return shadow[VdpRegister.HorizontalScroll] << 10;
 	}

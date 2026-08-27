@@ -265,9 +265,23 @@ class Tilemap {
 	public static function setColumn(plane:Plane, from:Vector<UInt16>, x:UInt16, y:UInt16,
 			height:UInt16):Void {
 		final stride:Int = (plane == Plane.Window ? windowColumns : planeColumns) << 1;
+		var i:Int = 0;
+
+		if (stride <= 0xFF) {
+			Ports.autoIncrement(stride);
+			Ports.address(Ports.VRAM_WRITE, address(plane, x, y));
+
+			while (i < height) {
+				Ports.write(from[i]);
+				i++;
+			}
+
+			Ports.autoIncrement(2);
+			return;
+		}
+
 		var at:Int = address(plane, x, y);
 
-		var i:Int = 0;
 		while (i < height) {
 			Ports.writeAt(at, from[i]);
 			at += stride;
