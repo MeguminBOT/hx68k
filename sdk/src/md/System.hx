@@ -31,6 +31,19 @@ class System {
 		return Memory.readU16(HEADER_CHECKSUM);
 	}
 
+	public static inline function enableInterrupts():Void {
+		md.hw.Cpu.enableInterrupts();
+	}
+
+	public static inline function disableInterrupts():Void {
+		md.hw.Cpu.disableInterrupts();
+	}
+
+	public static function doVBlankProcess():Void {
+		Vdp.waitVSync();
+		Dma.flush();
+	}
+
 	public static function checksum(length:UInt32):UInt16 {
 		final end:Int = length;
 		var total:Int = 0;

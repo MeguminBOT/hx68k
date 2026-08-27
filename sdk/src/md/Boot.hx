@@ -67,9 +67,8 @@ class Boot {
 		Vdp.setVerticalInterrupt(false);
 	}
 
-	public static function waitVertical():Void {
-		while (Ports.inVblank()) {}
-		while (!Ports.inVblank()) {}
+	public static inline function waitVertical():Void {
+		Vdp.waitVSync();
 	}
 
 	static function wipe(code:Int, at:Int, words:Int):Void {

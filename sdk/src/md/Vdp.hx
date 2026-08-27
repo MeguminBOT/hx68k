@@ -146,7 +146,7 @@ class Vdp {
 	}
 
 	public static function waitVSync():Void {
-		while (Ports.inVblank()) {}
+		if (isEnabled()) while (Ports.inVblank()) {}
 		while (!Ports.inVblank()) {}
 	}
 }

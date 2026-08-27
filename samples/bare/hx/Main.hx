@@ -2,6 +2,7 @@ package;
 
 import md.Boot;
 import md.Dma;
+import md.DmaTarget;
 import md.Fm;
 import md.Font;
 import md.Joy;
@@ -153,6 +154,12 @@ class Main {
 
 		reached += Vdp.scanline();
 		reached += System.isPal() ? 1 : 0;
+
+		System.disableInterrupts();
+		System.enableInterrupts();
+		Dma.queueFrom(DmaTarget.Vram, room, 0x2000, 4, 2);
+		System.doVBlankProcess();
+		reached += Dma.queued();
 	}
 
 	@:md.vertical
