@@ -11,6 +11,8 @@ class SoundCheck {
 
 	static inline final SETTLE_LIMIT = 20000000;
 
+	static inline final PENDING_FRAME = 0x113;
+
 	static var checks = 0;
 	static var failures = 0;
 
@@ -132,10 +134,17 @@ class SoundCheck {
 		var power = 0.0;
 		var deepest = 0;
 		final before = sound.lost;
+		final wrote = machine.z80Bus.soundWrites;
+		var waiting = 0;
+		var idle = 0;
 
 		for (_ in 0...FRAMES) {
 			machine.runFrame();
 			if (sound.ready() > deepest) deepest = sound.ready();
+
+			final pending = machine.z80Bus.ram.get(PENDING_FRAME);
+			if (pending > waiting) waiting = pending;
+			if (pending == 0) idle++;
 
 			while (sound.ready() >= CHUNK) {
 				final got = sound.take(taken, CHUNK);
@@ -166,6 +175,13 @@ class SoundCheck {
 		check(sound.lost - before == 0,
 			"nothing was dropped for want of a listener (" + (sound.lost - before) + ")");
 		check(deepest < 2000, "the ring stayed shallow, at most " + deepest + " samples");
+
+		check(waiting <= 1, "the driver kept up: at most " + waiting
+			+ " XGM frame left waiting at the end of any of " + FRAMES);
+		check(idle == FRAMES, "and nothing left over on " + idle + " of " + FRAMES
+			+ " frames, which is one XGM frame a vertical interrupt and so the tempo");
+		check(machine.z80Bus.soundWrites - wrote > 1000, "the driver wrote to the chips "
+			+ (machine.z80Bus.soundWrites - wrote) + " times over those frames");
 	}
 
 	static function sides():Void {

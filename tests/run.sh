@@ -242,21 +242,36 @@ echo "  $STATICS"
 echo ""
 echo "--- a ROM with no SGDK in it ---"
 
-BARE="$ROOT/samples/bare/rom/out/release/rom.out"
 NM="$ROOT/vendor/SGDK/bin/nm"
 
-printf "bare %-20s" "no SGDK symbol"
-"$NM" --defined-only "$BARE" | awk '{print $3}' | sort > "$ROOT/tests/.bare.txt"
+# every symbol libmd.a defines. A sample's link is held against this list: the ones that must be
+# empty are named in FREE, and the rest have their count printed so the move off SGDK is a number
+# rather than an impression.
 "$NM" --defined-only "$ROOT/vendor/SGDK/lib/libmd.a" | awk '$2=="T"||$2=="D"||$2=="B"||$2=="R"{print $3}' | sort -u > "$ROOT/tests/.libmd.txt"
-SHARED="$(comm -12 "$ROOT/tests/.bare.txt" "$ROOT/tests/.libmd.txt" | wc -l | tr -d ' ')"
-if [ "$SHARED" = "0" ]; then
-	echo "ok"
-	echo "  $(wc -l < "$ROOT/tests/.bare.txt" | tr -d ' ') symbols, none of them SGDK's"
-else
-	echo "FAILED"
-	comm -12 "$ROOT/tests/.bare.txt" "$ROOT/tests/.libmd.txt" | head -20
-	exit 1
-fi
+
+FREE="bare sound"
+
+for name in bare hardware pal spike conformance events sdk art sound bench bug; do
+	out="$ROOT/samples/$name/rom/out/release/rom.out"
+	[ -f "$out" ] || continue
+
+	printf "%-12s %-13s" "$name" "SGDK symbols"
+	"$NM" --defined-only "$out" | awk '{print $3}' | sort > "$ROOT/tests/.linked.txt"
+	SHARED="$(comm -12 "$ROOT/tests/.linked.txt" "$ROOT/tests/.libmd.txt" | wc -l | tr -d ' ')"
+
+	case " $FREE " in
+		*" $name "*)
+			if [ "$SHARED" = "0" ]; then
+				echo "ok      0 of $(wc -l < "$ROOT/tests/.linked.txt" | tr -d ' ')"
+			else
+				echo "FAILED"
+				comm -12 "$ROOT/tests/.linked.txt" "$ROOT/tests/.libmd.txt" | head -20
+				exit 1
+			fi
+			;;
+		*) echo "$SHARED of $(wc -l < "$ROOT/tests/.linked.txt" | tr -d ' ') still SGDK's" ;;
+	esac
+done
 
 printf "bare %-20s" "boots and draws"
 DREW="$("$GATE" game "$ROOT/samples/bare/rom/out/release/rom.bin" 60)"

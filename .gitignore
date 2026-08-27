@@ -18,8 +18,9 @@ tests/harness/.build/
 tests/.build.log
 tests/.observables.txt
 tests/.template/
-tests/.bare.txt
+tests/.linked.txt
 tests/.libmd.txt
+tests/.run-copy.sh
 
 *.o
 *.bin
