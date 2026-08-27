@@ -309,6 +309,7 @@ void md_interrupts_off(void);
 		final module = t.module.split(".").pop();
 		final name = reflaxe.helpers.BaseTypeHelper.removeNameSpecialSuffixes(t.name);
 
+		if(parts.length > 0 && parts[parts.length - 1] == "_" + name) parts.pop();
 		if(module != null && module != name) parts.push(module);
 		parts.push(name);
 
