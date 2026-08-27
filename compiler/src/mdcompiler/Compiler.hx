@@ -629,7 +629,9 @@ void md_interrupts_off(void);
 	}
 
 	function attributes(meta:MetaAccess):String {
-		return (meta.has(":md.noinline") ? "__attribute__((noinline)) " : "");
+		return (meta.has(":md.noinline") || meta.has(":md.main")
+			|| Lambda.exists(INTERRUPTS, kind -> meta.has(":md." + kind))
+			? "__attribute__((noinline)) " : "");
 	}
 
 	function functionPointer(args:Array<{t:Type, opt:Bool, name:String}>, ret:Type, name:String,
