@@ -121,7 +121,7 @@ class OpnFixtures {
 	}
 
 	static function envelopes(into:String):Int {
-		final chance = new Chance(0x5E11);
+		final chance = new Random(0x5E11);
 		var made = 0;
 
 		for (i in 0...200) {
@@ -142,7 +142,7 @@ class OpnFixtures {
 	}
 
 	static function modulation(into:String):Int {
-		final chance = new Chance(0x30D);
+		final chance = new Random(0x30D);
 		final levels = [0, 4, 8, 16, 24, 32, 48, 64];
 		var made = 0;
 
@@ -162,7 +162,7 @@ class OpnFixtures {
 	}
 
 	static function voices(into:String):Int {
-		final chance = new Chance(0x4051CE);
+		final chance = new Random(0x4051CE);
 		final levels = [0, 4, 8, 16, 24, 32, 48, 64, 96];
 		var made = 0;
 
@@ -392,7 +392,7 @@ class OpnFixtures {
 		idle.keys = 0;
 		made += write(into, "special-csm-off", [idle], [2], -1, 1, 200);
 
-		final chance = new Chance(0xC33);
+		final chance = new Random(0xC33);
 		for (i in 0...40) {
 			final voice = new OpnVoice().wiring(chance.upTo(8), chance.upTo(8));
 			for (at in 0...4) {
@@ -444,7 +444,7 @@ class OpnFixtures {
 		fading.lift = 400;
 		made += write(into, "discrete-fading", [fading], [0]);
 
-		final chance = new Chance(0x1ADDE2);
+		final chance = new Random(0x1ADDE2);
 		for (i in 0...40) {
 			final voices = [];
 			final where = [];
@@ -485,7 +485,7 @@ class OpnFixtures {
 
 	static function sampled(into:String):Int {
 		final lines:Array<String> = [];
-		final chance = new Chance(0xDAC);
+		final chance = new Random(0xDAC);
 
 		byte(lines, 0, 0xB4 + 2, 0xC0);
 		byte(lines, 1, 0xB4 + 2, 0xC0);
@@ -501,7 +501,7 @@ class OpnFixtures {
 	}
 
 	static function broad(into:String):Int {
-		final chance = new Chance(0xB40AD);
+		final chance = new Random(0xB40AD);
 		final levels = [0, 0, 4, 8, 16, 24, 32, 48, 64, 96, 127];
 		final sides = [0xC0, 0xC0, 0x80, 0x40, 0x00];
 		var made = 0;

@@ -1,6 +1,6 @@
 package hx68k.test;
 
-class Chance {
+class Random {
 	var state:Int;
 
 	public function new(seed:Int) {

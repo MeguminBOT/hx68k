@@ -11,7 +11,7 @@ class Gate {
 		final rest = args.slice(1);
 
 		switch (args[0]) {
-			case "bench": hx68k.md.Bench.run(rest);
+			case "bench": Bench.run(rest);
 			case "debug": hx68k.debug.DebugTool.run(rest);
 			case "disassembly": DisassemblyCheck.run(rest);
 			case "fifo": FifoCheck.run(rest);
@@ -23,7 +23,7 @@ class Gate {
 			case "pattern": PatternCheck.run(rest);
 			case "psg": PsgCheck.run();
 			case "render": RenderCheck.run(rest);
-			case "rom": hx68k.md.RomCheck.run(rest);
+			case "rom": RomCheck.run(rest);
 			case "settings": SettingsCheck.run(rest);
 			case "slot": SlotCheck.run();
 			case "sound": SoundCheck.run(rest);

@@ -1,5 +1,6 @@
-package hx68k.md;
+package hx68k.test;
 
+import hx68k.md.Machine;
 import hx68k.map.Elf;
 
 typedef Span = {

@@ -1,8 +1,10 @@
-package hx68k.md;
+package hx68k.test;
 
+import hx68k.md.Machine;
+import hx68k.md.Vdp;
 import hx68k.map.Elf;
 
-enum Check {
+enum Observable {
 	Value(symbol:String, offset:Int, width:Int, expected:Int);
 	Vram(at:Int, expected:Int);
 	Cram(index:Int, expected:Int);
@@ -17,7 +19,7 @@ typedef Job = {
 	var reach:Int;
 	var frames:Int;
 	final held:Array<{port:Int, mask:Int}>;
-	final checks:Array<Check>;
+	final checks:Array<Observable>;
 }
 
 class RomCheck {
@@ -137,7 +139,7 @@ class RomCheck {
 		}
 	}
 
-	static function observe(machine:Machine, elf:Elf, check:Check):Int {
+	static function observe(machine:Machine, elf:Elf, check:Observable):Int {
 		return switch (check) {
 			case Value(symbol, offset, width, _):
 				final at = address(elf, symbol);
@@ -149,7 +151,7 @@ class RomCheck {
 		}
 	}
 
-	static function expected(check:Check):Int {
+	static function expected(check:Observable):Int {
 		return switch (check) {
 			case Value(_, _, _, value): value;
 			case Vram(_, value): value;
@@ -157,7 +159,7 @@ class RomCheck {
 		}
 	}
 
-	static function describe(check:Check):String {
+	static function describe(check:Observable):String {
 		return switch (check) {
 			case Value(symbol, offset, _, _): symbol + "+" + offset;
 			case Vram(at, _): "vram 0x" + StringTools.hex(at, 4);
