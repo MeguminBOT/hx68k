@@ -3,7 +3,7 @@ package hx68k.debug;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
 
-class Disassembly implements View {
+class DisassemblyView implements View {
 	final debugger:Debugger;
 	final disassembler:Disassembler;
 	final names:Names;

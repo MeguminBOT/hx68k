@@ -1,5 +1,6 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
+import hx68k.debug.Debugger;
 import hx68k.map.SourceMap;
 import hx68k.md.Vdp;
 

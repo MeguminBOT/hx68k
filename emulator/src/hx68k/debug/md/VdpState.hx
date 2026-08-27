@@ -1,4 +1,4 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
 import hx68k.md.Vdp;
 
@@ -39,7 +39,7 @@ typedef Sprite = {
 	final flipY:Bool;
 }
 
-class Viewer {
+class VdpState {
 	public final vdp:Vdp;
 
 	public function new(vdp:Vdp) {

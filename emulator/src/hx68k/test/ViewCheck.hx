@@ -1,6 +1,6 @@
 package hx68k.test;
 
-import hx68k.debug.Viewer;
+import hx68k.debug.md.VdpState;
 import hx68k.md.Memory;
 import hx68k.md.Renderer;
 import hx68k.md.Vdp;
@@ -69,7 +69,7 @@ class ViewCheck {
 	}
 
 	static function layout():Void {
-		final shape = new Viewer(setup()).layout();
+		final shape = new VdpState(setup()).layout();
 
 		check(shape.wide, "register 12 says H40");
 		check(!shape.tall, "register 1 says V28");
@@ -86,7 +86,7 @@ class ViewCheck {
 		final vdp = setup();
 		cell(vdp, PLANE_A, 0, 0, 0x9923);
 
-		final entry = new Viewer(vdp).cell(PLANE_A, 0, 0);
+		final entry = new VdpState(vdp).cell(PLANE_A, 0, 0);
 		check(entry.tile == 0x123, "the low eleven bits are the tile");
 		check(entry.palette == 0, "bits 14 and 13 are the palette");
 		check(entry.priority, "bit 15 is priority");
@@ -98,7 +98,7 @@ class ViewCheck {
 		final vdp = setup();
 		cell(vdp, PLANE_A, 3, 2, 0x0077);
 
-		final viewer = new Viewer(vdp);
+		final viewer = new VdpState(vdp);
 		check(viewer.cell(PLANE_A, 3, 2).tile == 0x77, "a cell is found where the plane width puts it");
 		check(viewer.cell(PLANE_A, 2, 3).tile == 0, "and not where a square plane would have put it");
 	}
@@ -109,7 +109,7 @@ class ViewCheck {
 		sprite(vdp, 5, 136, 136, 2, 0, 0x0002);
 		sprite(vdp, 2, 144, 144, 0, 0, 0x0003);
 
-		final list = new Viewer(vdp).spriteList();
+		final list = new VdpState(vdp).spriteList();
 		check(list.length == 3, "the walk stops where a link of zero ends the list");
 		check(list[0].index == 0 && list[1].index == 5 && list[2].index == 2,
 			"the list is in link order, not index order");
@@ -120,7 +120,7 @@ class ViewCheck {
 		sprite(vdp, 0, 128, 128, 3, 0, 0x0001);
 		sprite(vdp, 3, 136, 136, 3, 0, 0x0002);
 
-		final list = new Viewer(vdp).spriteList();
+		final list = new VdpState(vdp).spriteList();
 		check(list.length == 2, "a link that points at itself stops the walk rather than looping");
 	}
 
@@ -128,7 +128,7 @@ class ViewCheck {
 		final vdp = setup();
 		sprite(vdp, 0, 178, 228, 0, 0x0D, 0xA923);
 
-		final first = new Viewer(vdp).spriteList()[0];
+		final first = new VdpState(vdp).spriteList()[0];
 		check(first.y == 50 && first.x == 100, "x and y come back as screen positions");
 		check(first.width == 4 && first.height == 2, "the size field is cells across and cells down");
 		check(first.tile == 0x123 && first.palette == 1, "the attribute names the tile and the palette");
@@ -142,7 +142,7 @@ class ViewCheck {
 			word(vdp, 1, 32 + row * 4 + 2, 0x5678);
 		}
 
-		final pixels = new Viewer(vdp).tile(1);
+		final pixels = new VdpState(vdp).tile(1);
 		check(pixels.length == 64, "a tile is 64 palette indices");
 		check(pixels[0] == 1 && pixels[1] == 2 && pixels[7] == 8, "each byte is two indices, high nibble first");
 		check(pixels[56] == 1 && pixels[63] == 8, "and the last row reads the same way");
@@ -154,7 +154,7 @@ class ViewCheck {
 		word(vdp, 1, HSCROLL + 4 * 4, 0x0011);
 		word(vdp, 1, HSCROLL + 4 * 4 + 2, 0x0022);
 
-		final viewer = new Viewer(vdp);
+		final viewer = new VdpState(vdp);
 		check(viewer.horizontalScroll(4, true) == 0x11, "per-line scroll reads the line's own entry");
 		check(viewer.horizontalScroll(4, false) == 0x22, "and plane B's is the word after it");
 
@@ -173,7 +173,7 @@ class ViewCheck {
 		cell(vdp, PLANE_A, 0, 0, 0x4001);
 		vdp.renderer.line(vdp, 0);
 
-		final entry = new Viewer(vdp).cell(PLANE_A, 0, 0);
+		final entry = new VdpState(vdp).cell(PLANE_A, 0, 0);
 		final index = entry.palette * 16 + 1;
 		check(entry.palette == 2, "the cell the viewer reads is in palette 2");
 		check(vdp.renderer.pixels[0] == Renderer.rgb(vdp.cram[index], 0),

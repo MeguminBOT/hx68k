@@ -3,7 +3,7 @@ package hx68k.debug;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
 
-class Registers implements View {
+class RegistersView implements View {
 	final debugger:Debugger;
 
 	public function new(debugger:Debugger) {

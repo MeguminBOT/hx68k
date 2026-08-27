@@ -1,13 +1,16 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
+import hx68k.debug.Debugger;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
+import hx68k.debug.Row;
+import hx68k.debug.View;
 
-class Video implements View {
-	final viewer:Viewer;
+class VideoView implements View {
+	final viewer:VdpState;
 
 	public function new(debugger:Debugger) {
-		this.viewer = new Viewer(debugger.machine.vdp);
+		this.viewer = new VdpState(debugger.machine.vdp);
 	}
 
 	public function title():String {

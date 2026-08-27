@@ -1,5 +1,8 @@
 package hx68k.debug;
 
+import hx68k.debug.md.Raster;
+import hx68k.debug.md.Slots;
+import hx68k.debug.md.VdpState;
 import hx68k.map.Elf;
 import hx68k.map.SourceMap;
 import hx68k.md.Machine;
@@ -316,7 +319,7 @@ class DebugTool {
 	static function view(debugger:Debugger, stop:String, settle:Int, hits:Int):Int {
 		if (!reach(debugger, stop, settle, hits)) return 1;
 
-		final viewer = new Viewer(debugger.machine.vdp);
+		final viewer = new VdpState(debugger.machine.vdp);
 		final shape = viewer.layout();
 
 		Sys.println("display " + (shape.display ? "on" : "off") + "  " + (shape.wide ? "H40" : "H32")
@@ -371,7 +374,7 @@ class DebugTool {
 		return 0;
 	}
 
-	static function occupancy(viewer:Viewer):String {
+	static function occupancy(viewer:VdpState):String {
 		final out = new StringBuf();
 		for (used in viewer.vramUse()) out.add(used == 0 ? "." : (used >= 0x800 ? "#" : "-"));
 		return out.toString();

@@ -3,7 +3,7 @@ package hx68k.debug;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
 
-class Stack implements View {
+class StackView implements View {
 	final backtrace:Backtrace;
 	final debugger:Debugger;
 

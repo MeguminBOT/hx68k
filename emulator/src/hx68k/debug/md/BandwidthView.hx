@@ -1,11 +1,14 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
+import hx68k.debug.Debugger;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
-import hx68k.debug.Slots.Spent;
+import hx68k.debug.Row;
+import hx68k.debug.md.Slots.SlotLine;
+import hx68k.debug.View;
 import hx68k.md.Vdp;
 
-class Bandwidth implements View {
+class BandwidthView implements View {
 	final slots:Slots;
 
 	public function new(debugger:Debugger) {
@@ -73,7 +76,7 @@ class Bandwidth implements View {
 		return out;
 	}
 
-	static function alike(one:Spent, other:Spent):Bool {
+	static function alike(one:SlotLine, other:SlotLine):Bool {
 		return one.wrote == other.wrote && one.landed == other.landed && one.carried == other.carried
 			&& one.stalled == other.stalled && one.deepest == other.deepest
 			&& one.blanked == other.blanked && one.open == other.open;

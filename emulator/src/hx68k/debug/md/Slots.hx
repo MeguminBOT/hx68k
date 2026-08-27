@@ -1,9 +1,10 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
 import haxe.ds.Vector;
+import hx68k.debug.Debugger;
 import hx68k.md.Vdp;
 
-typedef Spent = {
+typedef SlotLine = {
 	final line:Int;
 	final open:Int;
 	final wrote:Int;
@@ -15,8 +16,8 @@ typedef Spent = {
 	final wide:Bool;
 }
 
-typedef Spend = {
-	final lines:Array<Spent>;
+typedef SlotFrame = {
+	final lines:Array<SlotLine>;
 	final wrote:Int;
 	final landed:Int;
 	final carried:Int;
@@ -38,15 +39,15 @@ class Slots {
 		for (shape in 0...4) open[shape] = openings((shape & 2) != 0, (shape & 1) != 0);
 	}
 
-	public function frame():Spend {
+	public function frame():SlotFrame {
 		debugger.machine.runFrame();
 		return read();
 	}
 
-	public function read():Spend {
+	public function read():SlotFrame {
 		final vdp = debugger.machine.vdp;
 
-		final lines = new Array<Spent>();
+		final lines = new Array<SlotLine>();
 		var wrote = 0;
 		var landed = 0;
 		var carried = 0;
@@ -106,7 +107,7 @@ class Slots {
 		return open;
 	}
 
-	public static function lines(spend:Spend, most:Int):Array<String> {
+	public static function lines(spend:SlotFrame, most:Int):Array<String> {
 		final out = new Array<String>();
 		out.push(pad("line", 8) + pad("slots", 7) + pad("used", 6) + pad("fifo", 7)
 			+ pad("stalled", 9) + "what");
@@ -133,7 +134,7 @@ class Slots {
 		return out;
 	}
 
-	public static function summary(spend:Spend):Array<String> {
+	public static function summary(spend:SlotFrame):Array<String> {
 		final out = new Array<String>();
 		final busiest = spend.lines[spend.busiest];
 
@@ -155,13 +156,13 @@ class Slots {
 		return out;
 	}
 
-	static function alike(one:Spent, other:Spent):Bool {
+	static function alike(one:SlotLine, other:SlotLine):Bool {
 		return one.wrote == other.wrote && one.landed == other.landed && one.carried == other.carried
 			&& one.stalled == other.stalled && one.deepest == other.deepest
 			&& one.blanked == other.blanked && one.wide == other.wide;
 	}
 
-	static function row(spent:Spent, end:Int):String {
+	static function row(spent:SlotLine, end:Int):String {
 		final where = spent.line == end ? Std.string(spent.line) : spent.line + "-" + end;
 		final used = spent.landed + spent.carried;
 

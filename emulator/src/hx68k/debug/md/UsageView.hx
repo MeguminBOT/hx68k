@@ -1,15 +1,18 @@
-package hx68k.debug;
+package hx68k.debug.md;
 
+import hx68k.debug.Debugger;
 import hx68k.debug.Row.Kind;
 import hx68k.debug.Row.Part;
+import hx68k.debug.Row;
+import hx68k.debug.View;
 import hx68k.md.Machine;
 import hx68k.md.Vdp;
 
-class Usage implements View {
+class UsageView implements View {
 	static inline final BAR = 24;
 
 	final machine:Machine;
-	final viewer:Viewer;
+	final viewer:VdpState;
 
 	var lastFrame:Int = -1;
 	var lastWrites:Int = 0;
@@ -28,7 +31,7 @@ class Usage implements View {
 
 	public function new(debugger:Debugger) {
 		this.machine = debugger.machine;
-		this.viewer = new Viewer(debugger.machine.vdp);
+		this.viewer = new VdpState(debugger.machine.vdp);
 	}
 
 	public function title():String {
