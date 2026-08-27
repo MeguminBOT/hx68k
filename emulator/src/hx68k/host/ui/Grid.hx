@@ -1,6 +1,6 @@
-package hx68k.host;
+package hx68k.host.ui;
 
-import hx68k.host.Zone.Side;
+import hx68k.host.ui.Zone.Side;
 
 class Split {
 	public var group:Null<String> = null;

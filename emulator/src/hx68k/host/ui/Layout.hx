@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 interface Layout {
 	public function name():String;

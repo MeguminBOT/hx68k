@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 class Field {
 	public var text(default, null):String = "";

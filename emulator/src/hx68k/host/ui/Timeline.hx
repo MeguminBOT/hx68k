@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 class Timeline {
 	public static inline final LEAST = 14.0;

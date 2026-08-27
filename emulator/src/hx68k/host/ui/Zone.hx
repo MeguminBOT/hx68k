@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 enum abstract Side(Int) from Int to Int {
 	var None = 0;

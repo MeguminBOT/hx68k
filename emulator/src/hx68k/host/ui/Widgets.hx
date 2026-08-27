@@ -1,6 +1,6 @@
-package hx68k.host;
+package hx68k.host.ui;
 
-@:access(hx68k.host.Ui)
+@:access(hx68k.host.ui.Ui)
 class Widgets {
 	public static inline final SHEET = 0x1A2029;
 	public static inline final SCRIM = 0x05070A;

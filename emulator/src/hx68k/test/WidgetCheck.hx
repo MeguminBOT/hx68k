@@ -1,11 +1,11 @@
 package hx68k.test;
 
-import hx68k.host.Focus;
-import hx68k.host.Focus.Holder;
-import hx68k.host.Field;
+import hx68k.host.ui.Focus;
+import hx68k.host.ui.Focus.Holder;
+import hx68k.host.ui.Field;
 import hx68k.host.Keys;
 import hx68k.host.Shortcuts;
-import hx68k.host.Timeline;
+import hx68k.host.ui.Timeline;
 
 class WidgetCheck {
 	static var failures:Int = 0;

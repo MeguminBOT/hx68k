@@ -1,6 +1,18 @@
 package hx68k.host;
 
-import hx68k.host.Zone.Side;
+import hx68k.host.ui.Field;
+import hx68k.host.ui.Floating;
+import hx68k.host.ui.Focus;
+import hx68k.host.ui.Font;
+import hx68k.host.ui.Grid;
+import hx68k.host.ui.Group;
+import hx68k.host.ui.Paint;
+import hx68k.host.ui.Panel;
+import hx68k.host.ui.SettingsPage;
+import hx68k.host.ui.Ui;
+import hx68k.host.ui.Widgets;
+import hx68k.host.ui.Zone;
+import hx68k.host.ui.Zone.Side;
 
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
@@ -13,7 +25,7 @@ import hx68k.map.SourceMap;
 import hx68k.debug.View;
 import hx68k.debug.Views;
 import hx68k.debug.Rewind;
-import hx68k.host.Focus.Holder;
+import hx68k.host.ui.Focus.Holder;
 import hx68k.md.Machine;
 import hx68k.md.Savestate;
 import hx68k.md.Vdp;

@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 class Glyphs {
 	public static inline final FIRST = 32;

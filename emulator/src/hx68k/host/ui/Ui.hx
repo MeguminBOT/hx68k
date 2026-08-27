@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 import hx68k.debug.Row;
 import hx68k.debug.Row.RowKind;

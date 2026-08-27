@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Canvas;

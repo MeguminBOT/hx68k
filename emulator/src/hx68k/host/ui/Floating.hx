@@ -1,6 +1,6 @@
-package hx68k.host;
+package hx68k.host.ui;
 
-import hx68k.host.Zone.Side;
+import hx68k.host.ui.Zone.Side;
 
 class Floating implements Layout {
 	var held:Array<String> = [];

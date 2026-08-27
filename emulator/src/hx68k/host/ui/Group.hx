@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 class Group {
 	public final id:String;

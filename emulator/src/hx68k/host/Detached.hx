@@ -1,5 +1,8 @@
 package hx68k.host;
 
+import hx68k.host.ui.Font;
+import hx68k.host.ui.Paint;
+import hx68k.host.ui.Ui;
 import hx68k.debug.View;
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;

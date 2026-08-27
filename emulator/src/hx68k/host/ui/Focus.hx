@@ -1,4 +1,4 @@
-package hx68k.host;
+package hx68k.host.ui;
 
 enum abstract Holder(Int) from Int to Int {
 	var Application = 0;

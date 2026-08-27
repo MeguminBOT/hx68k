@@ -1,12 +1,12 @@
 package hx68k.test;
 
-import hx68k.host.Metrics;
-import hx68k.host.Group;
-import hx68k.host.Layout;
-import hx68k.host.Grid;
-import hx68k.host.Floating;
-import hx68k.host.Zone;
-import hx68k.host.Zone.Side;
+import hx68k.host.ui.Metrics;
+import hx68k.host.ui.Group;
+import hx68k.host.ui.Layout;
+import hx68k.host.ui.Grid;
+import hx68k.host.ui.Floating;
+import hx68k.host.ui.Zone;
+import hx68k.host.ui.Zone.Side;
 
 class LayoutCheck {
 	static inline final FLOOR_WIDE = 1280;
