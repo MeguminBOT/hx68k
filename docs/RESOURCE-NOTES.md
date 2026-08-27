@@ -369,30 +369,41 @@ interpolation upward, a weighted average over the source window downward, and an
 `floor(frames * wanted / rate)`. Where the rates already match nothing is resampled at all, and
 that path is held to rescomp byte for byte.
 
-What is recorded rather than gated is how far the two land apart, on a 400 Hz tone that both can
-represent and on one signal that neither can:
+### How far apart the two actually land
 
-| | worst | mean |
-| --- | --- | --- |
-| 32000 down to 16000 | 21 | 7.9 |
-| 8000 up to 16000 | 66 | 33 |
-| 44100 down to 16000 | 79 | 7.5 |
-| a sawtooth at the Nyquist limit, 32000 down to 16000 | 215 | 37.6 |
+Comparing the two outputs frame for frame gives a large number, and that number is almost entirely
+the JDK's filter latency rather than a difference in the samples. The check therefore searches for
+the offset that lines the two up and reports the residual at it, over the real samples only, since
+past the end the delayed tail is being compared against the fill. On a 400 Hz tone both can
+represent, and on one signal neither can:
 
-Those numbers are dominated by the JDK's filter latency rather than by resampling quality: four
-samples of delay on a 400 Hz tone at 16000 is most of a tenth of a period, which on an amplitude of
-109 is about 66. They are a tracked figure, not a gate. What gates the resampler is its own
-arithmetic: a constant resamples to that constant, doubling leaves every source frame where it was,
-halving averages each pair exactly, and the frame count is right for a factor that is not whole.
+| | frames behind | worst | mean |
+| --- | --- | --- | --- |
+| 8000 up to 16000 | 4 | **0** | **0** |
+| 32000 down to 16000 | 1 | 5 | 2.7 |
+| 44100 down to 16000 | 1 | 1 | 0.5 |
+| a sawtooth at the Nyquist limit, 32000 down to 16000 | 9 | 134 | 13.6 |
+
+**Upsampling is bit identical.** Every one of the 600 frames matches, four behind, which says the
+JDK interpolates linearly the same way this does and the whole apparent difference was the delay.
+Downsampling differs by at most 5 of 256 on a tone, which is the box average here against a filter
+there. The last row is a signal at the Nyquist limit, where neither answer means anything and the
+two disagree accordingly; it is in the corpus to keep the other three honest about what they are
+measuring.
+
+Those figures are tracked, not gated. What gates the resampler is its own arithmetic: a constant
+resamples to that constant, doubling leaves every source frame where it was, halving averages each
+pair exactly, and the frame count is right for a factor that is not whole.
 
 ---
 
 ## What is deliberately not reproduced
 
 **The WAV resampler.** rescomp resamples through `javax.sound.sampled`, so matching it byte for
-byte would mean porting a JDK internal and depending on it. hxres resamples its own way and the
-divergence is measured and recorded above. Every other part of the WAV path, including the case
-where no resampling is needed at all, is held to rescomp exactly.
+byte would mean porting a JDK internal and depending on it. hxres resamples its own way. Measured
+against rescomp once the JDK's filter delay is taken off, upsampling comes out identical and
+downsampling within 5 of 256, which is recorded above rather than claimed. Every other part of the
+WAV path, including the case where no resampling is needed at all, is held to rescomp exactly.
 
 Where a rescomp behaviour is judged wrong rather than merely surprising, the divergence goes here
 with the reason and the check is changed to match, in that order.
