@@ -1,5 +1,19 @@
 package hx68k.test;
 
+import hx68k.test.md.FifoCheck;
+import hx68k.test.md.GameCheck;
+import hx68k.test.md.OpnCheck;
+import hx68k.test.md.PatternCheck;
+import hx68k.test.md.PsgCheck;
+import hx68k.test.md.RenderCheck;
+import hx68k.test.md.RomCheck;
+import hx68k.test.md.SlotCheck;
+import hx68k.test.md.SoundCheck;
+import hx68k.test.md.Speed;
+import hx68k.test.md.SpriteCheck;
+import hx68k.test.md.StateCheck;
+import hx68k.test.md.ViewCheck;
+
 class Gate {
 	static function main():Void {
 		final args = Sys.args();

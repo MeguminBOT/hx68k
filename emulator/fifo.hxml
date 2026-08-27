@@ -1,5 +1,5 @@
 # Nemesis' VDP port access ROM, which is the specification C4's timing half is held to.
 # neko bin/fifo.n <repository root> [pages] [directory for PNGs]
 -cp src
--main hx68k.test.FifoCheck
+-main hx68k.test.md.FifoCheck
 -neko bin/fifo.n

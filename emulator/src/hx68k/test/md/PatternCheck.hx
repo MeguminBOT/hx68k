@@ -1,4 +1,4 @@
-package hx68k.test;
+package hx68k.test.md;
 
 import haxe.io.Path;
 import hx68k.md.Machine;

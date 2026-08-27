@@ -1,4 +1,4 @@
-package hx68k.test;
+package hx68k.test.md;
 
 import hx68k.debug.md.VdpState;
 import hx68k.md.Memory;

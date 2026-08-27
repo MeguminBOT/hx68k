@@ -1,5 +1,5 @@
 # the 240p Test Suite's patterns, walked through its own menus.
 # neko bin/pattern.n <repository root> [directory for PNGs] [name:digest,...]
 -cp src
--main hx68k.test.PatternCheck
+-main hx68k.test.md.PatternCheck
 -neko bin/pattern.n

@@ -1,4 +1,4 @@
-package hx68k.test;
+package hx68k.test.md;
 
 import haxe.io.Bytes;
 import hx68k.md.Ym2612;

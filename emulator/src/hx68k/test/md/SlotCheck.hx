@@ -1,4 +1,4 @@
-package hx68k.test;
+package hx68k.test.md;
 
 import hx68k.md.Machine;
 import hx68k.md.Memory;
