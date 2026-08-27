@@ -150,6 +150,20 @@ static void suite_spike(const char *rom, const char *sym)
 		return;
 	}
 
+	/* a natively booted ROM clears the whole of VRAM, CRAM and VSRAM through the data port
+	   before its own loop starts, which is more than a frame's worth of writes. Wait for the
+	   frame counter to start moving before measuring how fast it moves. */
+	{
+		int32_t settling = (int32_t)md_read_ram32(frame_addr);
+
+		for (f = 0; f < 30; f++) {
+			md_run_frame();
+			if ((int32_t)md_read_ram32(frame_addr) != settling)
+				break;
+		}
+		md_run_frame();
+	}
+
 	{
 		int32_t before = (int32_t)md_read_ram32(frame_addr);
 		int steady = 1;
@@ -242,7 +256,7 @@ static void suite_spike(const char *rom, const char *sym)
 		}
 	}
 
-	check(text_ok, "drawText tilemap matches the string's repeat pattern (%s)",
+	check(text_ok, "the font tilemap matches the string's repeat pattern (%s)",
 	      text_which >= 0 ? base_names[text_which] : "not found");
 
 	dump_rom("spike", "samples/spike");
@@ -486,10 +500,12 @@ static const probe_t bare_expected[] = {
 };
 
 static const probe_t art_expected[] = {
-	/* bit 4 in each is not the colour: it is what the FIFO slot the next write will use still
-	   holds, which a CRAM read exposes in the bits CRAM does not store */
-	{ "image palette colour 1",     0x000A | 0x0010 },
-	{ "image palette colour 2",     0x0040 | 0x0010 },
+	/* bits 4 and 8 in each are not the colour: they are what the FIFO slot the next write will
+	   use still holds, which a CRAM read exposes in the nine bits CRAM does not store. Which
+	   bits those are depends on the last word written to the data port before the read, so the
+	   value moves when the ROM's write order does. */
+	{ "image palette colour 1",     0x000A | 0x0110 },
+	{ "image palette colour 2",     0x0040 | 0x0110 },
 	{ "image tilemap entry",        16 },
 	{ "sprite list holds the sprite", 80 + 128 },
 	{ "the tune is in ROM",         1 },
@@ -597,16 +613,16 @@ static const probe_t events_expected[] = {	{ "three handlers dispatched",  10 - 
 	{ "a function passed and called", 42 },
 };
 
-static const probe_t sdk_expected[] = {	{ "VDP_setBackgroundColor",     2 },
-	{ "PAL_setColor reads back",    0x0246 },
-	{ "VDP_setTileMapXY landed",    0x0021 },
-	{ "VDP_fillTileMapRect landed", 0x0055 },
-	{ "DMA_transfer landed",        0xA4A5 },
-	{ "JOY_readJoypad agrees with the port", 0x88 },
-	{ "JOY_getPortType is a pad",   0x0D },
-	{ "JOY_getJoypadType is three-button", 0x00 },
-	{ "SYS_isNTSC",                 1 },
-	{ "F16_sqrt of 16",             4 << 6 },
+static const probe_t sdk_expected[] = {	{ "md.Vdp.setBackgroundColour", 2 },
+	{ "md.Palette.colour reads back", 0x0246 },
+	{ "md.Tilemap.setCell landed",  0x0021 },
+	{ "md.Tilemap.fill landed",     0x0055 },
+	{ "md.Dma.transferFrom landed", 0xA4A5 },
+	{ "md.Joy.read agrees with the port", 0x88 },
+	{ "md.Joy.portType is a pad",   0x0D },
+	{ "md.Joy.padType is three-button", 0x00 },
+	{ "md.System.isNtsc",           1 },
+	{ "md.Maths.sqrt of 16",        4 << 6 },
 };
 static int file_exists(const char *p)
 {
@@ -687,7 +703,7 @@ int main(int argc, char **argv)
 	snprintf(rom, sizeof(rom), "%s/samples/sdk/rom/out/release/rom.bin", root);
 	snprintf(sym, sizeof(sym), "%s/samples/sdk/rom/out/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("sdk: SGDK through the bindings", "sdk", "samples/sdk",
+		suite_probe_rom("sdk: the native SDK, end to end", "sdk", "samples/sdk",
 			rom, sym, sdk_expected, COUNT(sdk_expected), 0x88);
 	else
 		printf("\nsdk: skipped (rom not built)\n");

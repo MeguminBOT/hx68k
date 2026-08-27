@@ -65,10 +65,14 @@ class DebugTool {
 			try {
 				map = new SourceMap(new Elf(args[1]), args[2]);
 			} catch (e:String) {
+				if (!viewing || stop != "") {
+					Sys.println("no source map for " + args[1] + ": " + e);
+					Sys.println("build the sample with its debug profile, which keeps the line table");
+					Sys.exit(2);
+					return;
+				}
 				Sys.println("no source map for " + args[1] + ": " + e);
-				Sys.println("build the sample with its debug profile, which keeps the line table");
-				Sys.exit(2);
-				return;
+				Sys.println("the views below read the machine, so they are printed without one");
 			}
 		}
 

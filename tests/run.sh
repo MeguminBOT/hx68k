@@ -249,7 +249,10 @@ NM="$ROOT/vendor/SGDK/bin/nm"
 # rather than an impression.
 "$NM" --defined-only "$ROOT/vendor/SGDK/lib/libmd.a" | awk '$2=="T"||$2=="D"||$2=="B"||$2=="R"{print $3}' | sort -u > "$ROOT/tests/.libmd.txt"
 
-FREE="bare sound"
+# every sample but one must link nothing out of libmd.a. samples/bench is the exception on
+# purpose: it measures md.* against the SGDK calls it replaces, so it links both and declares its
+# own SGDK externs under samples/bench/hx/sgdk rather than the SDK carrying any.
+BOUND="bench"
 
 for name in bare hardware pal spike conformance events sdk art sound bench bug; do
 	out="$ROOT/samples/$name/rom/out/release/rom.out"
@@ -259,8 +262,9 @@ for name in bare hardware pal spike conformance events sdk art sound bench bug; 
 	"$NM" --defined-only "$out" | awk '{print $3}' | sort > "$ROOT/tests/.linked.txt"
 	SHARED="$(comm -12 "$ROOT/tests/.linked.txt" "$ROOT/tests/.libmd.txt" | wc -l | tr -d ' ')"
 
-	case " $FREE " in
-		*" $name "*)
+	case " $BOUND " in
+		*" $name "*) echo "$SHARED of $(wc -l < "$ROOT/tests/.linked.txt" | tr -d ' ') on purpose" ;;
+		*)
 			if [ "$SHARED" = "0" ]; then
 				echo "ok      0 of $(wc -l < "$ROOT/tests/.linked.txt" | tr -d ' ')"
 			else
@@ -269,7 +273,6 @@ for name in bare hardware pal spike conformance events sdk art sound bench bug; 
 				exit 1
 			fi
 			;;
-		*) echo "$SHARED of $(wc -l < "$ROOT/tests/.linked.txt" | tr -d ' ') still SGDK's" ;;
 	esac
 done
 
@@ -420,149 +423,6 @@ case "$PASSES" in
 	*) echo "FAILED"; echo "  the line was reached a $STOP th time"; exit 1 ;;
 esac
 
-# the samples are DWARF 4 and the SGDK units linked beside them are DWARF 5, so this is the only
-# place a version 5 unit header and .debug_loclists are read. VDP_waitVBlank is on the path of
-# every sample that waits for a frame and SGDK calls it with TRUE, which is what forceNext holds.
-# vcnt is kept in a location list rather than at a frame offset, and what it holds is the vertical
-# counter the machine reports for itself, so the two have to say the same line.
-# the samples are DWARF 4 and the SGDK units linked beside them are DWARF 5, so this is the only
-# place a version 5 unit header and .debug_loclists are read at all. VDP_waitVBlank is on the path
-# of every sample that waits for a frame and SGDK calls it with TRUE, which is what forceNext
-# holds. Its vcnt and blank are kept in location lists rather than at frame offsets, and what they
-# read is held to what gdb reads for the same variables at the same address, since gdb brings its
-# own DWARF reader and reaches the machine only through the stub.
-echo ""
-echo "--- the same, out of the DWARF 5 the library beside it was built with ---"
-
-LIBRARY="$("$GATE" map "$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --locals VDP_waitVBlank)"
-echo "$LIBRARY" | sed 's/^/  /'
-
-printf "dwarf5 %-19s" "reads the unit"
-case "$LIBRARY" in
-	*forceNext*parameter*) echo "ok" ;;
-	*) echo "FAILED"; echo "  no parameter came out of a version 5 unit"; exit 1 ;;
-esac
-
-printf "dwarf5 %-19s" "finds a list"
-case "$LIBRARY" in
-	*"in a location list at"*) echo "ok" ;;
-	*) echo "FAILED"; echo "  no local of it was held in a location list"; exit 1 ;;
-esac
-
-FORCED="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --break VDP_waitVBlank --read forceNext | tail -1)"
-echo "  $FORCED"
-
-printf "dwarf5 %-19s" "reads a parameter"
-if [ "${FORCED##*= }" = "1" ]; then
-	echo "ok"
-else
-	echo "FAILED"
-	echo "  SGDK waits for the next frame, so forceNext should read 1"
-	exit 1
-fi
-
-# the entry comes out of the symbol table, so relinking moves the sweep with it, and the first
-# address where the list resolves is where gdb is pointed rather than an offset written down here
-ENTRY="$("$ROOT/vendor/SGDK/bin/nm.exe" "$ROOT/samples/bug/rom/out/debug/rom.out" \
-	| sed -n 's/^0*\([0-9a-fA-F][0-9a-fA-F]*\) [Tt] VDP_waitVBlank$/\1/p')"
-
-if [ -z "$ENTRY" ]; then
-	echo "FAILED"
-	echo "  the symbol table has no VDP_waitVBlank"
-	exit 1
-fi
-
-LIVE_AT=""
-for STRIDE in 16 32 48 54 64 80 96 112 128; do
-	WHERE="$(printf '0x%X' $(( 0x$ENTRY + STRIDE )))"
-	SEEN="$("$GATE" debug \
-		"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-		"$ROOT/samples/bug/rom/out/debug/rom.out" \
-		"$ROOT/samples/bug/rom/src" --break "$WHERE" --read vcnt,blank 2>/dev/null || true)"
-	OURS_VCNT="$(echo "$SEEN" | sed -n 's/^vcnt .*= \([0-9][0-9]*\)$/\1/p')"
-	OURS_BLANK="$(echo "$SEEN" | sed -n 's/^blank .*= \([0-9][0-9]*\)$/\1/p')"
-	if [ -z "$OURS_VCNT" ]; then continue; fi
-	LIVE_AT="$WHERE"
-	break
-done
-
-printf "dwarf5 %-19s" "a list resolves"
-if [ -n "$LIVE_AT" ]; then
-	echo "ok"
-	echo "  at $LIVE_AT the lists read vcnt $OURS_VCNT and blank $OURS_BLANK"
-else
-	echo "FAILED"
-	echo "  nothing in VDP_waitVBlank resolved through .debug_loclists"
-	exit 1
-fi
-
-GDB_WORK="$HERE/.gdb"
-rm -rf "$GDB_WORK"
-mkdir -p "$GDB_WORK"
-
-"$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/library.txt" 2>&1 &
-STUB=$!
-
-WAITED=0
-while [ "$WAITED" -lt 300 ]; do
-	if grep -q "waiting for a connection" "$GDB_WORK/library.txt" 2>/dev/null; then break; fi
-	sleep 0.1
-	WAITED=$((WAITED + 1))
-done
-
-GDB_PORT="$(sed -n 's/.*127\.0\.0\.1:\([0-9]*\),.*/\1/p' "$GDB_WORK/library.txt")"
-{
-	echo "set confirm off"
-	echo "set pagination off"
-	echo "target remote 127.0.0.1:${GDB_PORT:-2159}"
-	echo "break *$LIVE_AT"
-	echo "continue"
-	echo "print vcnt"
-	echo "print blank"
-	echo "detach"
-} > "$GDB_WORK/library.gdb"
-
-THEIRS="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/library.gdb" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
-	| grep -v "host encoding" | grep -v "please file a bug report")"
-wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
-
-GDB_VCNT="$(echo "$THEIRS" | sed -n 's/^\$1 = \([0-9][0-9]*\).*/\1/p')"
-GDB_BLANK="$(echo "$THEIRS" | sed -n 's/^\$2 = \([0-9][0-9]*\).*/\1/p')"
-echo "  gdb reads vcnt ${GDB_VCNT:-nothing} and blank ${GDB_BLANK:-nothing} at the same address"
-
-printf "dwarf5 %-19s" "gdb reads the same"
-if [ -n "$GDB_VCNT" ] && [ "$GDB_VCNT" = "$OURS_VCNT" ] && [ "$GDB_BLANK" = "$OURS_BLANK" ]; then
-	echo "ok"
-else
-	echo "FAILED"
-	echo "  gdb read $GDB_VCNT and $GDB_BLANK where this read $OURS_VCNT and $OURS_BLANK"
-	exit 1
-fi
-
-# enabled is kept as an expression rather than a place: gcc writes it as a register masked with
-# 0x40 and left on the stack, which gdb evaluates and this does not. What this must not do is
-# take the first operation for a place and read memory that has nothing to do with it.
-COMPUTED="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --break "$LIVE_AT" --read enabled 2>/dev/null || true)"
-echo "  $(echo "$COMPUTED" | tail -1)"
-
-printf "dwarf5 %-19s" "and an expression"
-case "$COMPUTED" in
-	*"= "[0-9]*) echo "FAILED"
-		echo "  an expression this cannot evaluate came back as a number anyway"
-		exit 1 ;;
-	*) echo "ok" ;;
-esac
 
 echo ""
 echo "--- the gdb remote serial protocol, spoken to itself ---"
@@ -689,8 +549,8 @@ backtrace() {
 STACK="$(backtrace 6)"
 echo "$STACK" | sed 's/^/  /'
 
-# fib recurses down its first branch before its second, so the sixth call stands six deep, and
-# three frames of SGDK getting there sit under it
+# fib recurses down its first branch before its second, so the sixth call stands six deep, with
+# Main.main and the boot's md_start under it and nothing else
 printf "stack %-18s" "one frame a call"
 DEEP="$(echo "$STACK" | grep -cE '^  [0-9A-F]{6}  Main\.fib')"
 if [ "$DEEP" -eq 6 ]; then
@@ -702,9 +562,9 @@ else
 fi
 
 printf "stack %-18s" "down to the entry"
-case "$(echo "$STACK" | grep -c "_start_entry")" in
+case "$(echo "$STACK" | grep -c "md_start")" in
 	1) echo "ok" ;;
-	*) echo "FAILED"; echo "  the walk did not reach SGDK's entry exactly once"; exit 1 ;;
+	*) echo "FAILED"; echo "  the walk did not reach the boot's entry exactly once"; exit 1 ;;
 esac
 
 # three more calls have to be three more frames, which no number written here decides
@@ -843,6 +703,151 @@ case "$(echo "$PROFILE" | sed -n '4p')" in
 	*) echo "FAILED"; echo "  the heaviest name was not a Haxe function"; exit 1 ;;
 esac
 
+# every unit this project compiles is DWARF 4, and version 5 lays a unit header out differently and
+# keeps its location lists in .debug_loclists rather than .debug_loc. The same sample is rebuilt at
+# -gdwarf-5 here so both halves are read. Main_masked's step is kept in a location list rather than
+# at a frame offset, and what it reads is held to what gdb reads for the same variable at the same
+# address, since gdb brings its own DWARF reader and reaches the machine only through the stub.
+echo ""
+echo "--- the same, out of a version 5 unit ---"
+
+export DWARF=5
+build "bug rom, dwarf 5" "$ROOT/samples/bug/build.sh" debug
+unset DWARF
+
+LIBRARY="$("$GATE" map "$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --locals Main_masked)"
+echo "$LIBRARY" | sed 's/^/  /'
+
+printf "dwarf5 %-19s" "reads the unit"
+case "$LIBRARY" in
+	*value*parameter*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no parameter came out of a version 5 unit"; exit 1 ;;
+esac
+
+printf "dwarf5 %-19s" "finds a list"
+case "$LIBRARY" in
+	*"in a location list at"*) echo "ok" ;;
+	*) echo "FAILED"; echo "  no local of it was held in a location list"; exit 1 ;;
+esac
+
+FORCED="$("$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --break Main.masked --read value | tail -1)"
+echo "  $FORCED"
+
+printf "dwarf5 %-19s" "reads a parameter"
+if [ "${FORCED##*= }" = "72" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  the sample calls masked with 0x48, so value should read 72"
+	exit 1
+fi
+
+# the entry comes out of the symbol table, so relinking moves the sweep with it, and the first
+# address where the list resolves is where gdb is pointed rather than an offset written down here
+ENTRY="$("$ROOT/vendor/SGDK/bin/nm.exe" "$ROOT/samples/bug/rom/out/debug/rom.out" \
+	| sed -n 's/^0*\([0-9a-fA-F][0-9a-fA-F]*\) [Tt] Main_masked$/\1/p')"
+
+if [ -z "$ENTRY" ]; then
+	echo "FAILED"
+	echo "  the symbol table has no Main_masked"
+	exit 1
+fi
+
+LIVE_AT=""
+for STRIDE in 6 8 10 12 14 16 18 20 22 24 26 28 30 32; do
+	WHERE="$(printf '0x%X' $(( 0x$ENTRY + STRIDE )))"
+	SEEN="$("$GATE" debug \
+		"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+		"$ROOT/samples/bug/rom/out/debug/rom.out" \
+		"$ROOT/samples/bug/rom/src" --break "$WHERE" --read step,value 2>/dev/null || true)"
+	OURS_STEP="$(echo "$SEEN" | sed -n 's/^step .*= \([0-9][0-9]*\)$/\1/p')"
+	OURS_VALUE="$(echo "$SEEN" | sed -n 's/^value .*= \([0-9][0-9]*\)$/\1/p')"
+	if [ -z "$OURS_STEP" ]; then continue; fi
+	LIVE_AT="$WHERE"
+	break
+done
+
+printf "dwarf5 %-19s" "a list resolves"
+if [ -n "$LIVE_AT" ]; then
+	echo "ok"
+	echo "  at $LIVE_AT the lists read step $OURS_STEP and value $OURS_VALUE"
+else
+	echo "FAILED"
+	echo "  nothing in Main_masked resolved through .debug_loclists"
+	exit 1
+fi
+
+GDB_WORK="$HERE/.gdb"
+rm -rf "$GDB_WORK"
+mkdir -p "$GDB_WORK"
+
+"$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/library.txt" 2>&1 &
+STUB=$!
+
+WAITED=0
+while [ "$WAITED" -lt 300 ]; do
+	if grep -q "waiting for a connection" "$GDB_WORK/library.txt" 2>/dev/null; then break; fi
+	sleep 0.1
+	WAITED=$((WAITED + 1))
+done
+
+GDB_PORT="$(sed -n 's/.*127\.0\.0\.1:\([0-9]*\),.*/\1/p' "$GDB_WORK/library.txt")"
+{
+	echo "set confirm off"
+	echo "set pagination off"
+	echo "target remote 127.0.0.1:${GDB_PORT:-2159}"
+	echo "break *$LIVE_AT"
+	echo "continue"
+	echo "print step"
+	echo "print value"
+	echo "detach"
+} > "$GDB_WORK/library.gdb"
+
+THEIRS="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/library.gdb" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
+	| grep -v "host encoding" | grep -v "please file a bug report")"
+wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
+
+GDB_STEP="$(echo "$THEIRS" | sed -n 's/^\$1 = \([0-9][0-9]*\).*/\1/p')"
+GDB_VALUE="$(echo "$THEIRS" | sed -n 's/^\$2 = \([0-9][0-9]*\).*/\1/p')"
+echo "  gdb reads step ${GDB_STEP:-nothing} and value ${GDB_VALUE:-nothing} at the same address"
+
+printf "dwarf5 %-19s" "gdb reads the same"
+if [ -n "$GDB_STEP" ] && [ "$GDB_STEP" = "$OURS_STEP" ] && [ "$GDB_VALUE" = "$OURS_VALUE" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  gdb read $GDB_STEP and $GDB_VALUE where this read $OURS_STEP and $OURS_VALUE"
+	exit 1
+fi
+
+# held is kept as an expression rather than a place. gcc writes its location list entry as
+# 91 70 06 08 40 1A 30 2E 09 FF 1E 9F, which is the frame slot dereferenced, masked with 0x40,
+# compared against zero and left on the stack, and that entry covers the whole of the function so
+# the pc is certainly inside it. gdb evaluates that and this does not. What this must not do is
+# take the first operation for a place and read the memory it names, which would come back as a
+# number and be wrong.
+COMPUTED="$("$GATE" debug \
+	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
+	"$ROOT/samples/bug/rom/out/debug/rom.out" \
+	"$ROOT/samples/bug/rom/src" --break "$LIVE_AT" --read held 2>/dev/null || true)"
+echo "  $(echo "$COMPUTED" | tail -1)"
+
+printf "dwarf5 %-19s" "and an expression"
+case "$COMPUTED" in
+	*"= "[0-9]*) echo "FAILED"
+		echo "  an expression this cannot evaluate came back as a number anyway"
+		exit 1 ;;
+	*) echo "ok" ;;
+esac
+
 echo ""
 echo "--- the frontend layout model, held to the 1280x720 floor ---"
 "$GATE" layout
@@ -893,10 +898,13 @@ echo "--- the VDP read back in the terms the documentation uses ---"
 "$GATE" view
 
 # the art ROM carries a sprite the sample declares the size of, so the view is checked against
-# the Haxe that asked for it rather than against a number written here
+# the Haxe that asked for it rather than against a number written here. The raster overlay below
+# names the Haxe function behind every write, so both read the debug build.
+build "art rom, debug" "$ROOT/samples/art/build.sh" debug
+
 if VIEW="$("$GATE" debug \
-	"$ROOT/samples/art/rom/out/release/rom.bin" \
-	"$ROOT/samples/art/rom/out/release/rom.out" \
+	"$ROOT/samples/art/rom/out/debug/rom.bin" \
+	"$ROOT/samples/art/rom/out/debug/rom.out" \
 	"$ROOT/samples/art/rom/src" \
 	--view --settle 40)"; then
 	VIEWED=0
@@ -936,8 +944,8 @@ fi
 echo ""
 echo "--- where the beam was when the code touched the VDP ---"
 if RASTER="$("$GATE" debug \
-	"$ROOT/samples/art/rom/out/release/rom.bin" \
-	"$ROOT/samples/art/rom/out/release/rom.out" \
+	"$ROOT/samples/art/rom/out/debug/rom.bin" \
+	"$ROOT/samples/art/rom/out/debug/rom.out" \
 	"$ROOT/samples/art/rom/src" \
 	--raster 60 --settle 0)"; then
 	RASTERED=0
@@ -960,17 +968,18 @@ fi
 
 printf "raster %-17s" "named the waiter"
 case "$RASTER" in
-	*VDP_waitVBlank*) echo "ok" ;;
+	*"Vdp.waitVSync"*) echo "ok" ;;
 	*) echo "FAILED"; echo "  nothing was attributed to the routine that polls the VDP"; exit 1 ;;
 esac
 
 # every external access slot a line offers is one the VDP can spend on the outside world, and a
 # line that spends more than it has is the model creating bandwidth the hardware does not have.
-# The art ROM clears VRAM with a fill at boot, which saturates every blanked line it runs across,
-# so this is where that would show.
+# md.Boot clears the whole of VRAM with two DMA fills, which saturate every blanked line they run
+# across, so this is where that would show. The fill is over by the fourth frame, which is why the
+# frame looked at is that one.
 echo ""
 echo "--- what a frame's VDP access slots went on ---"
-SPEND="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 12 --slots 1)"
+SPEND="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 3 --slots 1)"
 echo "$SPEND"
 
 printf "slots %-18s" "none overspent"
@@ -992,7 +1001,7 @@ else
 fi
 
 # the window draws the same tallies as a panel, so the panel is read back here on the same frame
-PANEL="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 13 --views \
+PANEL="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 4 --views \
 	| sed -n '/--- slots ---/,/^--- /p')"
 echo "$PANEL" | sed 's/^/  /'
 
