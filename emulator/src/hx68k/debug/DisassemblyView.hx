@@ -1,7 +1,7 @@
 package hx68k.debug;
 
-import hx68k.debug.Row.Kind;
-import hx68k.debug.Row.Part;
+import hx68k.debug.Row.RowKind;
+import hx68k.debug.Row.RowPart;
 
 class DisassemblyView implements View {
 	final debugger:Debugger;

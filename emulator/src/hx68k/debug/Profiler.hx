@@ -1,6 +1,6 @@
 package hx68k.debug;
 
-typedef Cost = {
+typedef ProfileCost = {
 	final name:String;
 	var cycles:Int;
 	var instructions:Int;
@@ -10,7 +10,7 @@ typedef Profile = {
 	final cycles:Int;
 	final instructions:Int;
 	final frames:Int;
-	final costs:Array<Cost>;
+	final costs:Array<ProfileCost>;
 	final scanlines:Array<String>;
 }
 
@@ -26,7 +26,7 @@ class Profiler {
 
 	public function run(frames:Int):Profile {
 		final machine = debugger.machine;
-		final costs:Map<String, Cost> = [];
+		final costs:Map<String, ProfileCost> = [];
 		final order = new Array<String>();
 		final target = machine.vdp.frame + frames;
 

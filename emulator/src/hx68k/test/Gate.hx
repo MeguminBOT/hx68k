@@ -28,11 +28,11 @@ class Gate {
 			case "slot": SlotCheck.run();
 			case "sound": SoundCheck.run(rest);
 			case "sprite": SpriteCheck.run(rest);
-			case "sst": SstConform.run(rest);
+			case "sst": SstConformance.run(rest);
 			case "state": StateCheck.run(rest);
 			case "view": ViewCheck.run();
 			case "widget": WidgetCheck.run();
-			case "z80": Z80Conform.run(rest);
+			case "z80": Z80Conformance.run(rest);
 			case _:
 				Sys.println("no program named " + args[0]);
 				usage();

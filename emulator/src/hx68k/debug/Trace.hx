@@ -2,7 +2,7 @@ package hx68k.debug;
 
 import hx68k.map.SourceMap;
 
-typedef Step = {
+typedef TraceStep = {
 	final address:Int;
 	final text:String;
 	final length:Int;
@@ -21,7 +21,7 @@ class Trace {
 		this.disassembler = new Disassembler(new MachineCode(debugger.machine));
 	}
 
-	public function step():Step {
+	public function step():TraceStep {
 		final address = debugger.at();
 		final instruction = disassembler.at(address);
 		final place = debugger.site();
@@ -38,20 +38,20 @@ class Trace {
 		};
 	}
 
-	public function record(instructions:Int):Array<Step> {
-		final out = new Array<Step>();
+	public function record(instructions:Int):Array<TraceStep> {
+		final out = new Array<TraceStep>();
 		for (_ in 0...instructions) out.push(step());
 		return out;
 	}
 
-	public static function describe(step:Step):String {
+	public static function describe(step:TraceStep):String {
 		final code = StringTools.hex(step.address, 6) + "  " + StringTools.rpad(step.text, " ", 28);
 		if (step.place == null) return code + "-";
 		return code + haxe.io.Path.withoutDirectory(step.place.file) + ":" + step.place.line
 			+ "  " + step.place.name;
 	}
 
-	public static function accountedFor(steps:Array<Step>):Int {
+	public static function accountedFor(steps:Array<TraceStep>):Int {
 		var count = 0;
 
 		for (i in 0...steps.length) {

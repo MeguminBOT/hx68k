@@ -1,7 +1,7 @@
 package hx68k.debug;
 
-import hx68k.debug.Row.Kind;
-import hx68k.debug.Row.Part;
+import hx68k.debug.Row.RowKind;
+import hx68k.debug.Row.RowPart;
 
 class RegistersView implements View {
 	final debugger:Debugger;
@@ -57,11 +57,11 @@ class RegistersView implements View {
 			+ (cpu.vf ? "V" : "v") + (cpu.cf ? "C" : "c");
 	}
 
-	static inline function name(text:String):Part {
+	static inline function name(text:String):RowPart {
 		return {text: text, kind: Label};
 	}
 
-	static inline function value(number:Int, digits:Int = 8):Part {
+	static inline function value(number:Int, digits:Int = 8):RowPart {
 		return {text: StringTools.hex(number, digits), kind: Value};
 	}
 }

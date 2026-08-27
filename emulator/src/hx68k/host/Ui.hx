@@ -1,7 +1,7 @@
 package hx68k.host;
 
 import hx68k.debug.Row;
-import hx68k.debug.Row.Kind;
+import hx68k.debug.Row.RowKind;
 
 class Ui {
 	public static inline final BACKGROUND = 0x14181D;
@@ -783,7 +783,7 @@ class Ui {
 		}
 	}
 
-	function spill(panel:Panel, part:hx68k.debug.Row.Part, left:Float, room:Float):Void {
+	function spill(panel:Panel, part:hx68k.debug.Row.RowPart, left:Float, room:Float):Void {
 		if (part.text == "") {
 			advance(panel);
 			return;
@@ -822,7 +822,7 @@ class Ui {
 		panel.content = pen + panel.scroll - (panel.y + bar);
 	}
 
-	function write(part:hx68k.debug.Row.Part, x:Float, room:Float):Void {
+	function write(part:hx68k.debug.Row.RowPart, x:Float, room:Float):Void {
 		if (part.text == "") return;
 		paint.text(shorten(part.text, room), x, pen, colorOf(part.kind));
 	}
@@ -850,7 +850,7 @@ class Ui {
 		return text.substr(0, cut) + ".";
 	}
 
-	static function colorOf(kind:Kind):Int {
+	static function colorOf(kind:RowKind):Int {
 		return switch (kind) {
 			case Label: DIM;
 			case Place: 0x9AB8D8;

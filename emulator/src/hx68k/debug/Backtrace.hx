@@ -2,7 +2,7 @@ package hx68k.debug;
 
 import hx68k.map.SourceMap;
 
-typedef Frame = {
+typedef StackFrame = {
 	final address:Int;
 	final calledFrom:Int;
 	final stack:Int;
@@ -24,7 +24,7 @@ class Backtrace {
 		this.disassembler = new Disassembler(new MachineCode(debugger.machine));
 	}
 
-	public function walk(limit:Int = 16, depth:Int = 2048):Array<Frame> {
+	public function walk(limit:Int = 16, depth:Int = 2048):Array<StackFrame> {
 		final here = debugger.at();
 		final out = [describe(here, -1, -1)];
 
@@ -64,7 +64,7 @@ class Backtrace {
 		return -1;
 	}
 
-	function describe(address:Int, calledFrom:Int, stack:Int):Frame {
+	function describe(address:Int, calledFrom:Int, stack:Int):StackFrame {
 		return {
 			address: address,
 			calledFrom: calledFrom,
@@ -74,7 +74,7 @@ class Backtrace {
 		};
 	}
 
-	public static function line(frame:Frame):String {
+	public static function line(frame:StackFrame):String {
 		final where = StringTools.hex(frame.address, 6) + "  " + StringTools.rpad(frame.name, " ", 24);
 		final site = frame.place == null
 			? "-"

@@ -1,8 +1,8 @@
 package hx68k.debug.md;
 
 import hx68k.debug.Debugger;
-import hx68k.debug.Row.Kind;
-import hx68k.debug.Row.Part;
+import hx68k.debug.Row.RowKind;
+import hx68k.debug.Row.RowPart;
 import hx68k.debug.Row;
 import hx68k.debug.md.Slots.SlotLine;
 import hx68k.debug.View;
@@ -82,11 +82,11 @@ class BandwidthView implements View {
 			&& one.blanked == other.blanked && one.open == other.open;
 	}
 
-	static inline function said(text:String):Part {
+	static inline function said(text:String):RowPart {
 		return {text: text, kind: Label};
 	}
 
-	static inline function value(text:String):Part {
+	static inline function value(text:String):RowPart {
 		return {text: text, kind: Value};
 	}
 }

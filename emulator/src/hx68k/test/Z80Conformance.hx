@@ -4,7 +4,7 @@ import haxe.io.Path;
 import hx68k.cpu.z80.Z80;
 import hx68k.test.Z80Format;
 
-class Z80Conform {
+class Z80Conformance {
 	static inline final SUITE = "../vendor/SingleStepTests-z80/v1bin";
 
 	static function main():Void {

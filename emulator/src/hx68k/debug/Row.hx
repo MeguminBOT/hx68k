@@ -1,6 +1,6 @@
 package hx68k.debug;
 
-enum abstract Kind(Int) from Int to Int {
+enum abstract RowKind(Int) from Int to Int {
 	var Label = 0;
 
 	var Value = 1;
@@ -12,23 +12,23 @@ enum abstract Kind(Int) from Int to Int {
 	var Here = 4;
 }
 
-typedef Part = {
+typedef RowPart = {
 	final text:String;
-	final kind:Kind;
+	final kind:RowKind;
 }
 
 class Row {
-	public final parts:Array<Part>;
+	public final parts:Array<RowPart>;
 
 	public final apart:Bool;
 
-	public function new(parts:Array<Part>, apart:Bool = false) {
+	public function new(parts:Array<RowPart>, apart:Bool = false) {
 		this.parts = parts;
 		this.apart = apart;
 	}
 
 	public static function of(...text:String):Row {
-		final parts = new Array<Part>();
+		final parts = new Array<RowPart>();
 		for (one in text) parts.push({text: one, kind: Value});
 		return new Row(parts);
 	}
@@ -37,11 +37,11 @@ class Row {
 		return new Row([], true);
 	}
 
-	public static function said(text:String, kind:Kind = Aside):Row {
+	public static function said(text:String, kind:RowKind = Aside):Row {
 		return new Row([{text: text, kind: kind}], true);
 	}
 
-	public function part(index:Int):Part {
+	public function part(index:Int):RowPart {
 		return index < parts.length ? parts[index] : {text: "", kind: Value};
 	}
 

@@ -1,6 +1,6 @@
 package hx68k.map;
 
-typedef Row = {
+typedef DwarfRow = {
 	final address:Int;
 	final file:String;
 	final line:Int;
@@ -9,8 +9,8 @@ typedef Row = {
 }
 
 class Dwarf {
-	public final rows:Array<Row> = [];
-	public final byFile:Map<String, Array<Row>> = [];
+	public final rows:Array<DwarfRow> = [];
+	public final byFile:Map<String, Array<DwarfRow>> = [];
 
 	public function new(elf:Elf) {
 		final section = elf.section(".debug_line");
@@ -142,7 +142,7 @@ class Dwarf {
 		final group = byFile.get(file);
 		if (group == null) return null;
 
-		var best:Null<Row> = null;
+		var best:Null<DwarfRow> = null;
 		for (row in group) {
 			if (row.endSequence || row.line != line) continue;
 			if (best == null || row.address < best.address) best = row;
@@ -150,11 +150,11 @@ class Dwarf {
 		return best == null ? null : best.address;
 	}
 
-	public function at(file:String, address:Int, floor:Int):Null<Row> {
+	public function at(file:String, address:Int, floor:Int):Null<DwarfRow> {
 		final group = byFile.get(file);
 		if (group == null) return null;
 
-		var best:Null<Row> = null;
+		var best:Null<DwarfRow> = null;
 		for (row in group) {
 			if (row.address > address || row.address < floor) continue;
 			if (best == null || row.address >= best.address) best = row;

@@ -14,7 +14,7 @@ typedef Score = {
 	var all:Int;
 }
 
-class SstConform {
+class SstConformance {
 	static inline final SUITE = "../vendor/SingleStepTests-m68000/v1";
 
 	static function main():Void {

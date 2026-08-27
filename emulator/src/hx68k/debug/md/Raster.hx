@@ -4,7 +4,7 @@ import hx68k.debug.Debugger;
 import hx68k.map.SourceMap;
 import hx68k.md.Vdp;
 
-typedef Touch = {
+typedef RasterTouch = {
 	final line:Int;
 	final writes:Int;
 	final reads:Int;
@@ -13,7 +13,7 @@ typedef Touch = {
 }
 
 typedef Beam = {
-	final touches:Array<Touch>;
+	final touches:Array<RasterTouch>;
 	final writes:Int;
 	final reads:Int;
 	final active:Int;
@@ -37,7 +37,7 @@ class Raster {
 		final machine = debugger.machine;
 		final vdp = machine.vdp;
 		final target = vdp.frame + count;
-		final touches = new Array<Touch>();
+		final touches = new Array<RasterTouch>();
 
 		var writes = 0;
 		var reads = 0;

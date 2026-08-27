@@ -1,8 +1,8 @@
 package hx68k.debug.md;
 
 import hx68k.debug.Debugger;
-import hx68k.debug.Row.Kind;
-import hx68k.debug.Row.Part;
+import hx68k.debug.Row.RowKind;
+import hx68k.debug.Row.RowPart;
 import hx68k.debug.Row;
 import hx68k.debug.View;
 
@@ -40,7 +40,7 @@ class VideoView implements View {
 		final cram = viewer.vdp.cram;
 		for (row in 0...4) {
 			for (half in 0...2) {
-				final cells:Array<Part> = [said(half == 0 ? "palette " + row : "")];
+				final cells:Array<RowPart> = [said(half == 0 ? "palette " + row : "")];
 				for (column in 0...8) {
 					cells.push(value(StringTools.hex(cram[row * 16 + half * 8 + column], 4)));
 				}
@@ -74,15 +74,15 @@ class VideoView implements View {
 		return out.slice(0, limit);
 	}
 
-	static inline function said(text:String):Part {
+	static inline function said(text:String):RowPart {
 		return {text: text, kind: Label};
 	}
 
-	static inline function value(text:String):Part {
+	static inline function value(text:String):RowPart {
 		return {text: text, kind: Value};
 	}
 
-	static inline function place(address:Int):Part {
+	static inline function place(address:Int):RowPart {
 		return {text: "$" + StringTools.hex(address, 4), kind: Place};
 	}
 }
