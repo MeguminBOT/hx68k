@@ -206,16 +206,18 @@ class Check {
 			}
 			final wanted = numbers(symbols, each.name);
 
-			var ours:Array<Int> = null;
+			var held:{bytes:Array<Int>, count:Int} = null;
 			try {
-				ours = hxres.Sounds.made(each);
+				held = hxres.Sounds.made(each);
 			} catch (e:Dynamic) {
 				ok(each.name + " converts", false, Std.string(e));
 				continue;
 			}
 
+			final ours = held.bytes;
+
 			if (!each.exact) {
-				drift.push(each.name + " " + apart(ours, wanted));
+				drift.push(each.name + " " + apart(ours, wanted, held.count));
 				continue;
 			}
 
@@ -288,21 +290,38 @@ class Check {
 			"100 frames became " + third.length);
 	}
 
-	static function apart(ours:Array<Int>, wanted:Array<Int>):String {
-		final count:Int = ours.length < wanted.length ? ours.length : wanted.length;
-		var worst:Int = 0;
-		var total:Int = 0;
+	static function apart(ours:Array<Int>, wanted:Array<Int>, real:Int):String {
+		var bestShift:Int = 0;
+		var bestWorst:Int = -1;
+		var bestMean:Int = -1;
 
-		for (i in 0...count) {
-			final mine:Int = ours[i] > 127 ? ours[i] - 256 : ours[i];
-			final theirs:Int = wanted[i] > 127 ? wanted[i] - 256 : wanted[i];
-			final gap:Int = mine > theirs ? mine - theirs : theirs - mine;
-			if (gap > worst) worst = gap;
-			total += gap;
+		for (shift in 0...13) {
+			final count:Int = real - shift;
+			if (count <= 0) continue;
+
+			var worst:Int = 0;
+			var total:Int = 0;
+			for (i in 0...count) {
+				final mine:Int = ours[i] > 127 ? ours[i] - 256 : ours[i];
+				final theirs:Int = wanted[i + shift] > 127 ? wanted[i + shift] - 256
+					: wanted[i + shift];
+				final gap:Int = mine > theirs ? mine - theirs : theirs - mine;
+				if (gap > worst) worst = gap;
+				total += gap;
+			}
+
+			final mean:Int = Std.int((total * 10) / count);
+			if (bestMean < 0 || mean < bestMean) {
+				bestShift = shift;
+				bestWorst = worst;
+				bestMean = mean;
+			}
 		}
 
-		return ours.length + "b worst " + worst + " mean "
-			+ (count > 0 ? Std.int((total * 10) / count) / 10 : 0);
+		if (bestMean < 0) return real + "b too short to line up";
+
+		return real + "b, " + bestShift + " frames behind: worst " + bestWorst
+			+ " mean " + (bestMean / 10);
 	}
 
 	static function tunes(root:String, scratch:String):Void {

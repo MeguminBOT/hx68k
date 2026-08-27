@@ -38,7 +38,7 @@ class Sounds {
 		return driver.toUpperCase() == "DPCM2" ? Dpcm.pack(pcm) : pcm;
 	}
 
-	public static function made(each:Sample):Array<Int> {
+	public static function made(each:Sample):{bytes:Array<Int>, count:Int} {
 		final wave = new Wave(each.data);
 		var pcm = wave.pcm(each.rate);
 		if (each.driver == "DPCM2") pcm = Dpcm.pack(pcm);
@@ -47,7 +47,7 @@ class Sounds {
 		final fill:Int = each.driver == "DPCM2" ? 136 : 0;
 		final padded = Emit.evened(Emit.sized(pcm, align, fill));
 
-		return [for (i in 0...padded.length) padded.get(i)];
+		return {bytes: [for (i in 0...padded.length) padded.get(i)], count: pcm.length};
 	}
 
 	static function wav(rate:Int, bits:Int, channels:Int, count:Int,
