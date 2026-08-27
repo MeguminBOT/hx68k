@@ -47,6 +47,21 @@ build() {
 	echo "ok"
 }
 
+# haxe, from a directory, with the log shown only if it failed
+compile() {
+	local name="$1"
+	local directory="$2"
+	local file="$3"
+	printf "building %-16s" "$name"
+	if (cd "$directory" && haxe "$file") > "$LOG" 2>&1; then
+		echo "ok"
+	else
+		echo "FAILED"
+		cat "$LOG"
+		exit 1
+	fi
+}
+
 codegen() {
 	local name="$1"
 	local file="$2"
@@ -141,14 +156,7 @@ build "harness"     "$HERE/harness/build.sh"
 # holds all of them, chosen by its first argument, built with the three defines the window is built
 # with. Measured on the eight cores this is pinned to, that took the whole gate from 940 seconds to
 # 61, while adding the 240p walk, the PSG and four more frames of the commercial ROM to it.
-printf "building %-16s" "gate"
-if (cd "$ROOT/emulator" && haxe gate.hxml) > "$LOG" 2>&1; then
-	echo "ok"
-else
-	echo "FAILED"
-	cat "$LOG"
-	exit 1
-fi
+compile "gate" "$ROOT/emulator" gate.hxml
 
 GATE="$ROOT/emulator/bin/gate/Gate.exe"
 [ -x "$GATE" ] || GATE="$ROOT/emulator/bin/gate/Gate"
@@ -214,14 +222,7 @@ fi
 
 echo ""
 echo "--- the resource pipeline, against the tool it replaces ---"
-printf "building %-16s" "resource check"
-if ( cd "$ROOT/sdk" && haxe check.hxml ) > "$LOG" 2>&1; then
-	echo "ok"
-else
-	echo "FAILED"
-	cat "$LOG"
-	exit 1
-fi
+compile "resource check" "$ROOT/sdk" check.hxml
 "$ROOT/sdk/bin/check/Check" "$ROOT"
 
 echo ""
@@ -351,14 +352,7 @@ build "bug rom" "$ROOT/samples/bug/build.sh" debug
 
 # nothing reachable from debug.hxml may import a display library, and this neko build is what says
 # so: the gate binary links the window's own pure parts and cannot make the same claim
-printf "building %-16s" "no display"
-if (cd "$ROOT/emulator" && haxe debug.hxml) > "$LOG" 2>&1; then
-	echo "ok"
-else
-	echo "FAILED"
-	cat "$LOG"
-	exit 1
-fi
+compile "no display" "$ROOT/emulator" debug.hxml
 
 # the line the bug sits on is found by the wrong arithmetic itself, so moving it moves the
 # expectation and nothing has to be kept in step by hand
