@@ -7,6 +7,7 @@ extern class Art {
 	@:palette("gfx/blocks.png") static var blockPalette;
 	@:sprite("gfx/diamond.png", 2, 2) static var diamond;
 	@:tileset("gfx/blocks.png") static var blockTiles;
+	@:tileset("gfx/font.png", "NONE") static var letters;
 	@:music("audio/tune.vgm") static var tune;
 	@:binary("data/table.dat", 2, 16, 0xAA) static var table;
 	@:binary("data/table.dat", 2, 16, 0xAA, true, "APLIB") static var squeezed;

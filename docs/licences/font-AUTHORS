@@ -1,0 +1,8 @@
+samples/art/gfx/font.png
+
+	SGDK's own 8x8 text font, copied from vendor/SGDK/res/image/font_default.png.
+	Copyright Stephane Dallongeville, MIT licensed, which permits copying with attribution.
+
+	128x48 at four bits a pixel: 96 glyphs of 8x8 covering ASCII 32 to 127 in order, which is
+	the order md.Font indexes them in. It is compiled by hxres as a tileset with the
+	optimisation level set to NONE, because deduplicating a font would renumber its glyphs.

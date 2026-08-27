@@ -1,6 +1,7 @@
 package;
 
 import md.Dma;
+import md.Font;
 import md.DmaTarget;
 import md.Joy;
 import md.Memory;
@@ -94,6 +95,17 @@ class Main {
 		Probe.report(rolled(wide, 5715));
 		Probe.report(Memory.readU8(wide + 11430));
 		Probe.report(Memory.readU16(wide + 4000));
+
+		Font.load(600, Art.letters);
+		Font.setPlane(Plane.B);
+		Font.setPalette(1);
+		Font.write("HX68K", 1, 20);
+		Font.clear(1, 21, 4);
+		Probe.report(Tilemap.cell(Plane.B, 1, 20));
+		Probe.report(Tilemap.cell(Plane.B, 5, 20));
+		Probe.report(Tilemap.cell(Plane.B, 6, 20));
+		Probe.report(Tilemap.cell(Plane.B, 1, 21));
+		Probe.report(readVram(Patterns.address(600 + 40) + 12));
 
 		Probe.report(Tilemap.cell(Plane.B, 3, 5));
 		Probe.report(Tilemap.cell(Plane.B, 10, 3));

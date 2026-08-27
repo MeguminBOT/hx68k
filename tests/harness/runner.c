@@ -534,6 +534,17 @@ static const probe_t art_expected[] = {
 	{ "the whole table reproduces the file", 0x7DA6 },
 	{ "its odd trailing byte",      0x5A },
 	{ "a word from the middle of it", 12705 },
+	/* md.Font, with SGDK's own 8x8 font compiled by hxres as a tileset and loaded at pattern
+	   600. "HX68K" is written on plane B at 1,20 in palette line 1, so a cell is
+	   (1 << 13) | (600 + code - 32): H is 72 and lands on 8832, K is 75 and lands on 8835. The
+	   cell past the end of the string is untouched, and a cleared cell holds the space glyph,
+	   which is the font's first. The last is the crossbar of the H, read out of VRAM: row 3 of
+	   that glyph is .######. which packs to 0x0FFF and 0xFFF0 at four bits a pixel. */
+	{ "the first letter written",   (1 << 13) | 640 },
+	{ "the last letter written",    (1 << 13) | 643 },
+	{ "the cell past the end is untouched", 0 },
+	{ "a cleared cell holds the space glyph", (1 << 13) | 600 },
+	{ "the crossbar of the H, out of VRAM", 0x0FFF },
 	/* the native tilemap, on plane B, which SGDK's boot leaves at 0xC000 as 64 by 32 cells.
 	   Every value below is worked out from the cell format and the plane geometry rather than
 	   read back from what md.Tilemap produced: a cell is
