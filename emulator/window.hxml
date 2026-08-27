@@ -1,5 +1,5 @@
 -cp src
--main hx68k.host.Console
+-main hx68k.host.Workbench
 -cpp bin/window
 
 # the same three the window is built with, so what a check measures against it stays honest

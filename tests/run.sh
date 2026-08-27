@@ -1091,7 +1091,7 @@ echo "--- the window, which the rest of this never compiles ---"
 # and wants SDL3 fetched; type checking it takes a couple of seconds and catches the same breakage.
 printf "host %-19s" "type checks"
 if (cd "$ROOT/emulator" && haxe -cp src -cpp "$HERE/.hostcheck" --no-output \
-		hx68k.host.Console hx68k.host.Detached) > "$LOG" 2>&1; then
+		hx68k.host.Workbench hx68k.host.Detached) > "$LOG" 2>&1; then
 	echo "ok"
 else
 	echo "FAILED"

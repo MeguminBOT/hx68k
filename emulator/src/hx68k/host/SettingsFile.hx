@@ -1,6 +1,6 @@
 package hx68k.host;
 
-class Settings {
+class SettingsFile {
 	public static inline final FILE = "hx68k.cfg";
 
 	public var problem(default, null):String = "";

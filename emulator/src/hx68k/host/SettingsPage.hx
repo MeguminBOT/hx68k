@@ -2,7 +2,7 @@ package hx68k.host;
 
 import hx68k.host.Zone.Side;
 
-class Preferences {
+class SettingsPage {
 	public static final SECTIONS = ["display", "layout", "sound", "panels", "rom", "keys"];
 
 	public var section:Int = 0;
@@ -23,7 +23,7 @@ class Preferences {
 	public var open:Array<Bool> = [];
 	public var picked:Int = 0;
 
-	public var bindings:Null<Bindings> = null;
+	public var bindings:Null<Shortcuts> = null;
 	public var capturing:String = "";
 	public var clash:String = "";
 
@@ -149,12 +149,12 @@ class Preferences {
 		if (widgets.button("put every key back")) restore = true;
 		widgets.rule();
 
-		final shown = page == 0 ? Bindings.COMMANDS : Bindings.BUTTONS;
+		final shown = page == 0 ? Shortcuts.COMMANDS : Shortcuts.BUTTONS;
 		for (action in shown) row(widgets, table, action);
 		cut = widgets.dropped;
 	}
 
-	function row(widgets:Widgets, table:Bindings, action:String):Void {
+	function row(widgets:Widgets, table:Shortcuts, action:String):Void {
 		final held = capturing == action;
 		if (widgets.chip(action, table.chord(action), held, clash != "" && held)) capture = action;
 	}

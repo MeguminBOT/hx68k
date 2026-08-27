@@ -1,12 +1,12 @@
 package hx68k.test;
 
-import hx68k.host.Settings;
+import hx68k.host.SettingsFile;
 import hx68k.host.Group;
 import hx68k.host.Grid;
 import hx68k.host.Zone.Side;
 import hx68k.host.Floating;
 import hx68k.host.Metrics;
-import hx68k.host.Bindings;
+import hx68k.host.Shortcuts;
 
 class SettingsCheck {
 	static var failures:Int = 0;
@@ -40,13 +40,13 @@ class SettingsCheck {
 	}
 
 	static function directory():Void {
-		final held = Settings.directory();
+		final held = SettingsFile.directory();
 
 		ok("the settings live somewhere named", held != "", "the directory came back empty");
 		ok("under a directory of their own", StringTools.endsWith(held, "/hx68k")
 			|| held == ".hx68k", "it is " + held);
-		ok("the file sits inside it", Settings.path() == held + "/" + Settings.FILE,
-			"the path is " + Settings.path());
+		ok("the file sits inside it", SettingsFile.path() == held + "/" + SettingsFile.FILE,
+			"the path is " + SettingsFile.path());
 
 		final platform = Sys.systemName();
 		final wanted = platform == "Windows" ? "AppData" : (platform == "Mac"
@@ -55,11 +55,11 @@ class SettingsCheck {
 		ok("named the way " + platform + " names it", held.indexOf(wanted) >= 0
 			|| held == ".hx68k", "it is " + held);
 
-		Sys.println("  the settings would live at " + Settings.path());
+		Sys.println("  the settings would live at " + SettingsFile.path());
 	}
 
 	static function roundTrip():Void {
-		final written = new Settings();
+		final written = new SettingsFile();
 
 		written.set("arrangement", "grid");
 		written.setWhole("scale", 3);
@@ -72,7 +72,7 @@ class SettingsCheck {
 		final at = file("round.cfg");
 		ok("the settings write", written.write(at), written.problem);
 
-		final read = new Settings();
+		final read = new SettingsFile();
 		ok("and read back", read.read(at), read.problem);
 		same("nothing was wrong with them", read.problem, "");
 
@@ -90,7 +90,7 @@ class SettingsCheck {
 		final again = file("again.cfg");
 		read.write(again);
 
-		final third = new Settings();
+		final third = new SettingsFile();
 		third.read(again);
 		same("an unknown key is written back by a build that does not know it",
 			third.text("something.this.build.does.not.know", ""), "and a value with spaces in it");
@@ -106,7 +106,7 @@ class SettingsCheck {
 			+ "colourblind on\n"
 			+ "framerate cap 120\n");
 
-		final read = new Settings();
+		final read = new SettingsFile();
 		ok("an older file loads", read.read(at), read.problem);
 		same("nothing was wrong with it", read.problem, "");
 		ok("a setting this build knows loads", read.whole("scale", 1) == 2,
@@ -125,7 +125,7 @@ class SettingsCheck {
 		final at = file("malformed.cfg");
 		sys.io.File.saveContent(at, "scale 2\nnonsense\nsound off\n");
 
-		final read = new Settings();
+		final read = new SettingsFile();
 		ok("a file with a bad line still loads", read.read(at), read.problem);
 		ok("and says which line it was", read.problem.indexOf("line 2") >= 0,
 			"it said: " + read.problem);
@@ -139,7 +139,7 @@ class SettingsCheck {
 		for (index in 0...64) bytes.set(index, index * 3 & 0xFF);
 		sys.io.File.saveBytes(at, bytes);
 
-		final read = new Settings();
+		final read = new SettingsFile();
 		ok("a file that is not text loads nothing", !read.read(at), "it claimed to load");
 		ok("and says so", read.problem != "", "it said nothing");
 		ok("every setting falls back", read.whole("scale", 1) == 1 && read.text("arrangement", "grid") == "grid",
@@ -147,7 +147,7 @@ class SettingsCheck {
 
 		Sys.println("  a corrupt file says: " + read.problem);
 
-		final missing = new Settings();
+		final missing = new SettingsFile();
 		ok("a file that is not there loads nothing", !missing.read(file("never written.cfg")),
 			"it claimed to load");
 		same("and says nothing about it, since a first run is not a fault", missing.problem, "");
@@ -174,14 +174,14 @@ class SettingsCheck {
 		ok("a group with two panels is written as both", geometry.indexOf("registers,stack") >= 0,
 			"it wrote " + geometry);
 
-		final settings = new Settings();
+		final settings = new SettingsFile();
 		settings.set("layout.grid", tree);
 		settings.set("groups", geometry);
 
 		final at = file("layout.cfg");
 		settings.write(at);
 
-		final back = new Settings();
+		final back = new SettingsFile();
 		back.read(at);
 
 		final second = board();
@@ -215,41 +215,41 @@ class SettingsCheck {
 	}
 
 	static function keys():Void {
-		final table = new Bindings();
+		final table = new Shortcuts();
 		table.bind("step a line", "ctrl+shift+f7");
 		table.bind("pad A", "q");
 
-		final written = new Settings();
+		final written = new SettingsFile();
 		written.set("scale", "2");
 		table.write(written);
 
 		final at = file("keys.cfg");
 		written.write(at);
 
-		final read = new Settings();
+		final read = new SettingsFile();
 		read.read(at);
 		same("nothing was wrong with the keys", read.problem, "");
 
-		final back = new Bindings();
+		final back = new Shortcuts();
 		back.read(read);
 
 		same("a rebound key survives a restart", back.chord("step a line"), "ctrl+shift+f7");
 		same("so does a rebound pad button", back.chord("pad A"), "q");
 		same("and one that was never touched is still itself", back.chord("pause"), "space");
 
-		final older = new Settings();
+		final older = new SettingsFile();
 		older.set("scale", "2");
-		older.set(Bindings.settingOf("pause"), "ctrl+p");
+		older.set(Shortcuts.settingOf("pause"), "ctrl+p");
 
-		final partial = new Bindings();
+		final partial = new Shortcuts();
 		partial.read(older);
 		same("a file naming one key leaves the rest alone", partial.chord("pause") + " "
 			+ partial.chord("flat out"), "ctrl+p tab");
 
-		for (action in Bindings.actions()) {
+		for (action in Shortcuts.actions()) {
 			ok("the settings key for " + action + " can be stored",
-				Settings.storable(Bindings.settingOf(action)),
-				"it is " + Bindings.settingOf(action));
+				SettingsFile.storable(Shortcuts.settingOf(action)),
+				"it is " + Shortcuts.settingOf(action));
 		}
 	}
 

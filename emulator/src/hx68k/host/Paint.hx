@@ -1,7 +1,7 @@
 package hx68k.host;
 
 import hx68k.host.sdl.Sdl;
-import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Canvas;
 import hx68k.host.sdl.Texture;
 
 @:unreflective
@@ -10,7 +10,7 @@ class Paint {
 
 	public var font(default, null):Font;
 
-	var renderer:cpp.Star<Renderer>;
+	var renderer:cpp.Star<Canvas>;
 
 	var batch:Array<Single> = new Array<Single>();
 	var used:Int = 0;
@@ -19,7 +19,7 @@ class Paint {
 
 	function new() {}
 
-	public static function on(renderer:cpp.Star<Renderer>, font:Font):Paint {
+	public static function on(renderer:cpp.Star<Canvas>, font:Font):Paint {
 		final paint = new Paint();
 		paint.renderer = renderer;
 		paint.font = font;

@@ -4,8 +4,8 @@ import hx68k.host.Zone.Side;
 
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
-import hx68k.host.sdl.Renderer;
-import hx68k.host.sdl.HostEvent;
+import hx68k.host.sdl.Canvas;
+import hx68k.host.sdl.Event;
 import hx68k.debug.Debugger;
 import hx68k.debug.Gdb;
 import hx68k.map.Elf;
@@ -18,7 +18,7 @@ import hx68k.md.Machine;
 import hx68k.md.Savestate;
 import hx68k.md.Vdp;
 
-class Console {
+class Workbench {
 	static inline final PAD_UP = 0x01;
 	static inline final PAD_DOWN = 0x02;
 	static inline final PAD_LEFT = 0x04;
@@ -83,7 +83,7 @@ class Console {
 	var said:Map<String, Array<hx68k.debug.Row>> = [];
 
 	var window:cpp.Star<Window>;
-	var renderer:cpp.Star<Renderer>;
+	var renderer:cpp.Star<Canvas>;
 	var windowID:Int;
 	var width:Int = 960;
 	var height:Int = 672;
@@ -106,12 +106,12 @@ class Console {
 	var tiled:Bool = true;
 
 	final focus:Focus = new Focus();
-	final settings:Settings = new Settings();
+	final settings:SettingsFile = new SettingsFile();
 
 	var widgets:Null<Widgets> = null;
 
-	final bindings:Bindings = new Bindings();
-	final preferences:Preferences = new Preferences();
+	final bindings:Shortcuts = new Shortcuts();
+	final preferences:SettingsPage = new SettingsPage();
 
 	var reading:Bool = false;
 
@@ -168,7 +168,7 @@ class Console {
 	public function new() {}
 
 	static function main():Void {
-		final console = new Console();
+		final console = new Workbench();
 		console.run();
 	}
 
@@ -824,7 +824,7 @@ class Console {
 	}
 
 	function pollEvents():Void {
-		final event = new HostEvent();
+		final event = new Event();
 
 		while (Sdl.pollEvent(cpp.Pointer.addressOf(event).raw) != 0) {
 			if (event.windowID != windowID && event.windowID != 0) {
@@ -866,7 +866,7 @@ class Console {
 		}
 	}
 
-	function forwardToDetached(event:HostEvent):Void {
+	function forwardToDetached(event:Event):Void {
 		for (title in apart.keys()) {
 			final window = apart.get(title);
 			if (window.id != event.windowID) continue;
@@ -1416,13 +1416,13 @@ class Console {
 	}
 
 	function remembered():Void {
-		if (!settings.read(Settings.path())) {
+		if (!settings.read(SettingsFile.path())) {
 			if (settings.problem != "") Sys.println(settings.problem);
 			return;
 		}
 
 		if (settings.problem != "") Sys.println(settings.problem);
-		Sys.println("settings read from " + Settings.path());
+		Sys.println("settings read from " + SettingsFile.path());
 
 		final wide = settings.whole("window.width", width);
 		final high = settings.whole("window.height", height);
@@ -1487,7 +1487,7 @@ class Console {
 			tiled ? grid.save() : floating.save());
 		bindings.write(settings);
 
-		if (settings.write(Settings.path())) Sys.println("settings written to " + Settings.path());
+		if (settings.write(SettingsFile.path())) Sys.println("settings written to " + SettingsFile.path());
 		else Sys.println(settings.problem);
 	}
 
@@ -1495,7 +1495,7 @@ class Console {
 		final out = new Array<String>();
 		var line = "  ";
 
-		for (action in Bindings.actions()) {
+		for (action in Shortcuts.actions()) {
 			final said = action + " " + bindings.chord(action) + "   ";
 			if (line.length + said.length > 100) {
 				out.push(line);

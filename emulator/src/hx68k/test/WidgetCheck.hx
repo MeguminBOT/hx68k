@@ -4,7 +4,7 @@ import hx68k.host.Focus;
 import hx68k.host.Focus.Holder;
 import hx68k.host.Field;
 import hx68k.host.Keys;
-import hx68k.host.Bindings;
+import hx68k.host.Shortcuts;
 import hx68k.host.Timeline;
 
 class WidgetCheck {
@@ -191,7 +191,7 @@ class WidgetCheck {
 	}
 
 	static function binding():Void {
-		final table = new Bindings();
+		final table = new Shortcuts();
 
 		same("every key starts where it was", table.chord("step a line") + " " + table.chord("pad A")
 			+ " " + table.chord("preferences"), "f11 z f1");
@@ -200,7 +200,7 @@ class WidgetCheck {
 			table.commandFor(Keys.codeOf("f11"), Keys.MOD_NONE) == "step a line",
 			"got " + table.commandFor(Keys.codeOf("f11"), Keys.MOD_NONE));
 		ok("a pad button is found by its key",
-			table.buttonMask(Keys.codeOf("z")) == Bindings.maskOf("pad A"),
+			table.buttonMask(Keys.codeOf("z")) == Shortcuts.maskOf("pad A"),
 			"got " + table.buttonMask(Keys.codeOf("z")));
 		ok("a key nothing is bound to finds nothing",
 			table.commandFor(Keys.codeOf("q"), Keys.MOD_NONE) == "", "it found something");
@@ -231,16 +231,16 @@ class WidgetCheck {
 			"got " + table.commandFor(Keys.codeOf("p"), Keys.MOD_NONE));
 
 		ok("a pad key ignores whichever modifiers are down",
-			table.buttonMask(Keys.codeOf("x")) == Bindings.maskOf("pad B"), "it did not");
+			table.buttonMask(Keys.codeOf("x")) == Shortcuts.maskOf("pad B"), "it did not");
 
 		table.reset();
 		same("putting them back restores every one", table.chord("step a line") + " "
 			+ table.chord("pause") + " " + table.chord("flat out"), "f11 space tab");
 		ok("and they are the standard ones again", table.standard("step a line"), "it says otherwise");
 
-		ok("every action has a key", Bindings.actions().length == 16,
-			Bindings.actions().length + " actions");
-		for (action in Bindings.actions()) {
+		ok("every action has a key", Shortcuts.actions().length == 16,
+			Shortcuts.actions().length + " actions");
+		for (action in Shortcuts.actions()) {
 			ok("the key for " + action + " is one this build knows",
 				Keys.codeOf(table.chord(action)) != Keys.UNBOUND, "it is " + table.chord(action));
 		}

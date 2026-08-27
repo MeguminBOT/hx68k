@@ -4,9 +4,9 @@ import hx68k.host.Keys;
 import hx68k.host.Native;
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
-import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Canvas;
 import hx68k.host.sdl.Texture;
-import hx68k.host.sdl.HostEvent;
+import hx68k.host.sdl.Event;
 
 class WindowCheck {
 	static inline final MINIMUM_WIDTH = 640;
@@ -86,7 +86,7 @@ class WindowCheck {
 		final started = haxe.Timer.stamp();
 
 		while (running && haxe.Timer.stamp() - started < 3) {
-			final event = new HostEvent();
+			final event = new Event();
 			while (Sdl.pollEvent(cpp.Pointer.addressOf(event).raw) != 0) {
 				switch (event.type) {
 					case Sdl.EVENT_QUIT | Sdl.EVENT_WINDOW_CLOSE:

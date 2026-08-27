@@ -3,7 +3,7 @@ package hx68k.host;
 import hx68k.debug.View;
 import hx68k.host.sdl.Sdl;
 import hx68k.host.sdl.Window;
-import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Canvas;
 
 @:unreflective
 class Detached {
@@ -13,7 +13,7 @@ class Detached {
 	public var closed(default, null):Bool = false;
 
 	final window:cpp.Star<Window>;
-	final renderer:cpp.Star<Renderer>;
+	final renderer:cpp.Star<Canvas>;
 	final paint:Paint;
 
 	var said:Array<hx68k.debug.Row> = [];

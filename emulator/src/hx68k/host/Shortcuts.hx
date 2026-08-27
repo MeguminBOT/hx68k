@@ -1,6 +1,6 @@
 package hx68k.host;
 
-class Bindings {
+class Shortcuts {
 	public static final COMMANDS:Array<String> = [
 		"pause", "flat out", "step an instruction", "step a line",
 		"keep a state", "restore a state", "back a frame", "preferences"
@@ -120,14 +120,14 @@ class Bindings {
 		return found;
 	}
 
-	public function read(settings:Settings):Void {
+	public function read(settings:SettingsFile):Void {
 		for (action in actions()) {
 			final key = settingOf(action);
 			if (settings.has(key)) chords.set(action, settings.text(key, chord(action)));
 		}
 	}
 
-	public function write(settings:Settings):Void {
+	public function write(settings:SettingsFile):Void {
 		for (action in actions()) settings.set(settingOf(action), chord(action));
 	}
 }

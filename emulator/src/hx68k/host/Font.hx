@@ -1,7 +1,7 @@
 package hx68k.host;
 
 import hx68k.host.sdl.Sdl;
-import hx68k.host.sdl.Renderer;
+import hx68k.host.sdl.Canvas;
 import hx68k.host.sdl.Texture;
 
 @:unreflective
@@ -41,7 +41,7 @@ class Font {
 		return scale < LEAST_SCALE ? LEAST_SCALE : (scale > MOST_SCALE ? MOST_SCALE : scale);
 	}
 
-	public static function on(renderer:cpp.Star<Renderer>, scale:Int = 2):Font {
+	public static function on(renderer:cpp.Star<Canvas>, scale:Int = 2):Font {
 		final font = new Font(held(scale));
 		final cellWidth = Glyphs.WIDTH * font.scale;
 		final cellHeight = Glyphs.HEIGHT * font.scale;
