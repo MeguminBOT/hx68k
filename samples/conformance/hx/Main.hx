@@ -7,7 +7,7 @@ import md.Int16;
 import md.Int8;
 import md.Pool;
 import md.Probe;
-import md.sgdk.System;
+import md.System;
 import md.UInt16;
 import md.UInt32;
 import md.Text;

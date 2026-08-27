@@ -14,7 +14,7 @@ echo "[2/2] c -> rom"
 # the debug profile pins the DWARF version the map tool reads and keeps every line addressable
 if [ "$1" = "debug" ]; then
 	shift
-	make.exe -f "$GDK/makefile.gen" debug SIZEBND="$SIZEBND" RESCOMP=false EXTRA_FLAGS="-gdwarf-4 -fno-inline" "$@"
+	make.exe -f "$GDK/makefile.gen" debug SIZEBND="$SIZEBND" RESCOMP=false CONVSYM=true EXTRA_FLAGS="-gdwarf-4 -fno-inline" "$@"
 else
 	make.exe -f "$GDK/makefile.gen" SIZEBND="$SIZEBND" RESCOMP=false "$@"
 fi

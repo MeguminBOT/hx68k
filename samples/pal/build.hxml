@@ -4,6 +4,7 @@
 -cp ../../sdk/src
 -lib reflaxe
 -D md
+-D md-native-boot
 -D MegaDrive
 -D md-output=rom/src
 -D md-pal

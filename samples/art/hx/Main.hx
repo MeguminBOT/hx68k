@@ -1,8 +1,9 @@
 package;
 
+import md.Boot;
 import md.Dma;
-import md.Font;
 import md.DmaTarget;
+import md.Font;
 import md.Joy;
 import md.Memory;
 import md.Palette;
@@ -10,18 +11,20 @@ import md.Patterns;
 import md.Plane;
 import md.Probe;
 import md.SpriteTable;
-import md.sgdk.System;
+import md.System;
 import md.Tilemap;
-import md.Unpack;
 import md.UInt16;
 import md.UInt32;
+import md.Unpack;
 import md.Vector;
-import md.sgdk.Sprite;
-import md.sgdk.Vdp;
 import md.hw.Vdp as Ports;
 
 class Main {
 	static inline final NATIVE = 400;
+
+	static inline final IMAGE = 16;
+
+	static inline final DIAMOND = 340;
 
 	@:md.size(4) static var words:Vector<UInt16>;
 
@@ -31,13 +34,18 @@ class Main {
 
 	@:md.main
 	static function main():Void {
-		Sprite.init();
+		Boot.begin();
 
-		Vdp.drawImage(Plane.A, Art.blocks, 0, 0);
+		Tilemap.drawImage(Plane.A, Art.blocks, IMAGE, 0, 0);
 		Palette.setFromResource(0, Art.blockPalette);
 
-		Sprite.add(Art.diamond, 100, 80, 0);
-		Sprite.update();
+		final first = Art.diamond.animations[0].frames[0];
+		Patterns.setFromResource(DIAMOND, first.tileset);
+		Palette.setFromResource(16, Art.diamond.palette);
+
+		SpriteTable.set(0, 100, 80, SpriteTable.size(2, 2),
+			SpriteTable.attribute(DIAMOND, 1, false, false, false), 0);
+		SpriteTable.update(1);
 
 		Patterns.setFromResource(NATIVE, Art.blockTiles);
 		Tilemap.setCell(Plane.B, Tilemap.entry(NATIVE, 0, false, false, false), 3, 5);

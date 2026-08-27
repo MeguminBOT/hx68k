@@ -1,7 +1,8 @@
 package;
 
+import md.Boot;
 import md.Probe;
-import md.sgdk.System;
+import md.System;
 import md.Vector;
 
 typedef Handler = Int->Int;
@@ -19,11 +20,12 @@ class Main {
 
 	@:md.main
 	static function main():Void {
+		Boot.begin();
+		Boot.listen();
+
 		register(twice);
 		register(negate);
 		register(value -> value + offset);
-
-		System.onVerticalInterrupt(count);
 
 		Probe.report(dispatch(5));
 		Probe.report(registered);
@@ -72,6 +74,7 @@ class Main {
 		return -value;
 	}
 
+	@:md.vertical
 	static function count():Void {
 		ticks = ticks + 1;
 	}

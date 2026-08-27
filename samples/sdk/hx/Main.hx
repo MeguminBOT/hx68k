@@ -1,19 +1,19 @@
 package;
 
+import md.Boot;
+import md.Dma;
 import md.DmaTarget;
 import md.Fix16;
-
-import md.sgdk.Maths;
-import md.sgdk.Dma;
-import md.sgdk.Joy;
-import md.sgdk.Palette;
-import md.sgdk.Tilemap;
+import md.Font;
+import md.Joy;
+import md.Maths;
+import md.Palette;
 import md.Plane;
 import md.Probe;
-import md.sgdk.System;
-import md.Transfer;
+import md.System;
+import md.Tilemap;
 import md.UInt16;
-import md.sgdk.Vdp;
+import md.Vdp;
 import md.Vector;
 import md.hw.Vdp as Ports;
 
@@ -27,26 +27,32 @@ class Main {
 
 	@:md.main
 	static function main():Void {
+		Boot.begin();
+		Font.loadNormal(1);
+
 		Vdp.setBackgroundColour(2);
 		Palette.setColour(1, COLOUR);
 
 		Tilemap.setCell(Plane.A, TILE, 3, 4);
 		Tilemap.fill(Plane.A, FILL, 10, 10, 2, 2);
-		Vdp.drawText("SDK", 1, 2);
+		Font.write("SDK", 1, 2);
 
 		words[0] = 0xA0A1;
 		words[1] = 0xA2A3;
 		words[2] = 0xA4A5;
 		words[3] = 0xA6A7;
-		Dma.transfer(Transfer.Direct, DmaTarget.Vram, words, TARGET, 4, 2);
+		Dma.transferFrom(DmaTarget.Vram, words, TARGET, 4, 2);
 
 		Joy.init();
 
 		var frame = 0;
 		while (frame < 4) {
 			System.doVBlankProcess();
+			Joy.update();
 			frame++;
 		}
+
+		Boot.show();
 
 		Probe.report(Vdp.register(7));
 		Probe.report(Palette.colour(1));
@@ -56,7 +62,7 @@ class Main {
 		Probe.report(Joy.read(0));
 		Probe.report(Joy.portType(0));
 		Probe.report(Joy.padType(0));
-		Probe.report(System.isNtsc());
+		Probe.report(System.isNtsc() ? 1 : 0);
 		Probe.report(Maths.sqrt(Fix16.of(16)));
 		Probe.done();
 

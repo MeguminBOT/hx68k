@@ -1,9 +1,10 @@
 package;
 
+import md.Boot;
+import md.Font;
 import md.Palette;
 import md.Pool;
-import md.sgdk.System;
-import md.sgdk.Vdp;
+import md.System;
 
 class Main {
 	static var frame:Int = 0;
@@ -12,7 +13,12 @@ class Main {
 
 	@:md.main
 	static function main():Void {
-		Vdp.drawText("HX68K SPIKE", 12, 12);
+		Boot.begin();
+		Font.loadNormal(1);
+		Palette.setColour(15, 0x0EEE);
+		Font.setPalette(0);
+		Font.write("HX68K SPIKE", 12, 12);
+		Boot.show();
 
 		var head:Entity = null;
 		var i = 0;
