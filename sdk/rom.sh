@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
-# builds the C under rom/src into rom/out/<profile>/rom.bin, from the sample's own directory.
+# builds a sample: haxe -> C -> rom/out/<profile>/rom.bin, run from the sample's own directory.
 #   ./rom.sh                 release
 #   ./rom.sh debug           DWARF-bearing, in rom/out/debug
 #   DWARF=5 ./rom.sh debug   the same at -gdwarf-5
-# MD_TOOLS names the m68k toolchain's bin directory and MD_LIBGCC its libgcc; both default to the
-# ones SGDK ships, which is the only part of it a build still reaches for. MD_BOOT names a boot
-# file other than sdk/boot/sega.s, and EXTRA_FLAGS and EXTRA_LIBS reach the compiler and the link.
+# A sample that needs more than the defaults puts it in rom.env beside its build.hxml, which is
+# sourced before anything else: MD_TOOLS names the m68k toolchain's bin directory and MD_LIBGCC its
+# libgcc, both defaulting to the ones SGDK ships, which is the only part of it a build still
+# reaches for; MD_BOOT names a boot file other than sdk/boot/sega.s; EXTRA_FLAGS and EXTRA_LIBS
+# reach the compiler and the link.
 set -e
 
 SDK="$(cd "$(dirname "$0")" && pwd)"
+if [ -f rom.env ]; then . ./rom.env; fi
+
 TOOLS="${MD_TOOLS:-$SDK/../vendor/SGDK/bin}"
 
 CC="$TOOLS/gcc"
@@ -20,6 +24,10 @@ BOOT="${MD_BOOT:-$SDK/boot/sega.s}"
 PROFILE=release
 if [ "$1" = "debug" ]; then PROFILE=debug; shift; fi
 
+echo "[1/2] haxe -> c"
+haxe build.hxml
+
+echo "[2/2] c -> rom"
 # the boot's vector table incbins out/rom_header.bin by that name, so the compiler runs from rom/
 cd rom
 OUT="out/$PROFILE"

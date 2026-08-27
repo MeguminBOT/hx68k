@@ -1,4 +1,0 @@
--D md
--D MegaDrive
---macro nullSafety("mdcompiler")
---macro mdcompiler.CompilerInit.Start()

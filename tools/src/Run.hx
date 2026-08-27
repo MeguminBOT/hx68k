@@ -191,12 +191,8 @@ class Run {
 			+ "# builds hx/Main.hx into rom/out/release/rom.bin. Pass debug for the other profile,\n"
 			+ "# and -D md-pal in build.hxml for a PAL ROM.\n"
 			+ "set -e\n"
-			+ "HERE=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
-			+ "cd \"$HERE\"\n"
-			+ "echo \"[1/2] haxe -> c\"\n"
-			+ "haxe build.hxml\n"
-			+ "echo \"[2/2] c -> rom\"\n"
-			+ "'" + root + "/sdk/rom.sh' \"$@\"\n";
+			+ "cd \"$(dirname \"$0\")\"\n"
+			+ "exec '" + root + "/sdk/rom.sh' \"$@\"\n";
 	}
 
 	static function firstProgram(name:String):String {

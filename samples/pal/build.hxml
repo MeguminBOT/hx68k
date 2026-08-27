@@ -1,13 +1,2 @@
--cp ../../compiler/src
--cp ../../compiler/std
--cp ../../compiler/std/md/_std
--cp ../../sdk/src
--lib reflaxe
--D md
--D MegaDrive
--D md-output=rom/src
+../common.hxml
 -D md-pal
---macro mdcompiler.CompilerInit.Start()
--cp hx
--dce full
--main Main
