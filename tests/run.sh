@@ -111,6 +111,22 @@ codegen "own rom header" "$ROOT/samples/bare/rom/src/rom_header.c" '\} ROMHeader
 codegen "sgdk attributed" "$ROOT/samples/bare/rom/src/rom_header.c" '"\(C\)SGDK 2026 {4}"'
 codegen "and hx68k too"  "$ROOT/samples/bare/rom/src/rom_header.c" '"HX68K 2026 {2}\(C\)SGDK 2026 {16}"'
 
+# a build reaches into vendor/SGDK for the m68k toolchain and nothing else: its bin directory and
+# the libgcc beside it, which is where that toolchain keeps its own runtime. Every other path the
+# build names is this repository's. Renaming SGDK's inc, src, res, md.ld, makefile.gen, common.mk
+# and libmd.a out of the way and building every sample was how this was first established; the
+# scan below is what holds it, since it needs nothing moved.
+printf "build %-18s" "toolchain only"
+REACHED="$( (cd "$ROOT/samples/bare" && bash -x "$ROOT/sdk/rom.sh" 2>&1) 	| grep -oE "[^ '\"]*vendor/SGDK/[^ '\"]*" 	| sed "s|.*vendor/SGDK/||" 	| grep -vE "^bin(/|$)" || true)"
+if [ -z "$REACHED" ]; then
+	echo "ok"
+else
+	echo "FAILED"
+	echo "  the build named these outside the toolchain:"
+	echo "$REACHED" | sort -u | sed 's/^/  /'
+	exit 1
+fi
+
 build "harness"     "$HERE/harness/build.sh"
 
 # every check and tool below used to be its own neko build and its own neko run. One hxcpp binary

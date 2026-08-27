@@ -178,7 +178,6 @@ class Run {
 			+ "-cp " + root + "/sdk/src\n"
 			+ "-lib reflaxe\n"
 			+ "-D md\n"
-			+ "-D md-native-boot\n"
 			+ "-D MegaDrive\n"
 			+ "-D md-output=rom/src\n"
 			+ "--macro mdcompiler.CompilerInit.Start()\n"
@@ -189,22 +188,15 @@ class Run {
 
 	static function buildScript(root:String):String {
 		return "#!/usr/bin/env bash\n"
-			+ "# builds hx/Main.hx into rom/out/rom.bin. Pass -D md-pal in build.hxml for a PAL ROM.\n"
+			+ "# builds hx/Main.hx into rom/out/release/rom.bin. Pass debug for the other profile,\n"
+			+ "# and -D md-pal in build.hxml for a PAL ROM.\n"
 			+ "set -e\n"
 			+ "HERE=\"$(cd \"$(dirname \"$0\")\" && pwd)\"\n"
-			+ "GDK_POSIX=$(cd '" + root + "/vendor/SGDK' && pwd)\n"
-			+ "export GDK=\"$(cygpath -m \"$GDK_POSIX\" 2>/dev/null || echo \"$GDK_POSIX\")\"\n"
-			+ "export PATH=\"$GDK_POSIX/bin:$PATH\"\n"
-			+ "BOOT=\"$(cygpath -m '" + root + "/sdk' 2>/dev/null || echo '" + root + "/sdk')\"\n"
-			+ "SIZEBND=\"haxelib run hx68k pad\"\n"
 			+ "cd \"$HERE\"\n"
 			+ "echo \"[1/2] haxe -> c\"\n"
 			+ "haxe build.hxml\n"
-			+ "cd rom\n"
 			+ "echo \"[2/2] c -> rom\"\n"
-			+ "rm -f out/release/sega.o out/debug/sega.o\n"
-			+ "make.exe -f \"$GDK/makefile.gen\" SIZEBND=\"$SIZEBND\" SRC_LIB=\"$BOOT\" \"$@\"\n"
-			+ "ls -la out/rom.bin\n";
+			+ "'" + root + "/sdk/rom.sh' \"$@\"\n";
 	}
 
 	static function firstProgram(name:String):String {

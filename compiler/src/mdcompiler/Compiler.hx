@@ -82,7 +82,7 @@ class Compiler extends DirectToStringCompiler {
 			appendToExtraFile(HEADER, "static inline s32 hx_bounds(s32 index, s32 capacity)\n{\n"
 				+ "\tif((u32)index >= (u32)capacity) { hx_bounds_hits++; return 0; }\n"
 				+ "\treturn index;\n}\n", P_PROTOS);
-		if(Context.defined("md-native-boot"))
+		if(!Context.defined("md-sgdk"))
 			appendToExtraFile(HEADER, "void md_interrupts_on(void);
 void md_interrupts_off(void);
 ",
@@ -180,7 +180,7 @@ void md_interrupts_off(void);
 	function entryFile(entry:String):String {
 		final head = '#include "${HEADER}"\n\ns32 hx_bounds_hits = 0;\n\n';
 
-		if(!Context.defined("md-native-boot"))
+		if(Context.defined("md-sgdk"))
 			return head + 'int main(bool hardReset)\n{\n\t(void)hardReset;\n\t${entry}();'
 				+ '\n\treturn 0;\n}\n';
 
@@ -987,9 +987,9 @@ void md_interrupts_off(void);
 
 			if(!f.isStatic)
 				Context.error("@:md." + kind + " must mark a static function.", f.field.pos);
-			if(!Context.defined("md-native-boot"))
-				Context.error("@:md." + kind + " needs -D md-native-boot. Without it SGDK owns "
-					+ "the vector table, so use its own callback instead.", f.field.pos);
+			if(Context.defined("md-sgdk"))
+				Context.error("@:md." + kind + " cannot be used with -D md-sgdk, which hands the "
+					+ "vector table to SGDK. Use its own callback instead.", f.field.pos);
 			if(handlers.exists(kind))
 				Context.error("Two functions are marked @:md." + kind + ".", f.field.pos);
 

@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
+# haxe -> C -> rom/out/release/rom.bin. The one sample that links SGDK as well as md.*, so it
+# takes SGDK's headers, its library and its boot, which is what -D md-sgdk in build.hxml says.
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
-GDK_POSIX="$(cd "$HERE/../../vendor/SGDK" && pwd)"
-export GDK="$(cygpath -m "$GDK_POSIX" 2>/dev/null || echo "$GDK_POSIX")"
-export PATH="$GDK_POSIX/bin:$PATH"
-# the ROM is padded and checksummed by hx68k itself, so the link needs no JVM
-SIZEBND="haxelib run hx68k pad"
+ROOT="$(cd "$HERE/../.." && pwd)"
+GDK_POSIX="$(cd "$ROOT/vendor/SGDK" && pwd)"
+GDK="$(cygpath -m "$GDK_POSIX" 2>/dev/null || echo "$GDK_POSIX")"
+export EXTRA_FLAGS="-DSGDK_GCC -isystem $GDK/inc -isystem $GDK/out/release"
+export EXTRA_LIBS="$GDK_POSIX/lib/libmd.a"
+export MD_BOOT="$GDK_POSIX/src/boot/sega.s"
 cd "$HERE"
 echo "[1/2] haxe -> c"
 haxe build.hxml
-cd rom
 echo "[2/2] c -> rom"
-# the debug profile pins the DWARF version the map tool reads and keeps every line addressable
-if [ "$1" = "debug" ]; then
-	shift
-	make.exe -f "$GDK/makefile.gen" debug SIZEBND="$SIZEBND" RESCOMP=false CONVSYM=true EXTRA_FLAGS="-gdwarf-4 -fno-inline" "$@"
-else
-	make.exe -f "$GDK/makefile.gen" SIZEBND="$SIZEBND" RESCOMP=false "$@"
-fi
-ls -la out/rom.bin
+"$ROOT/sdk/rom.sh" "$@"
