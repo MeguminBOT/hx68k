@@ -459,8 +459,8 @@ void md_interrupts_off(void);
 
 		final entry = cf.meta.extract(":md.size")[0];
 		if(entry == null)
-			Context.error("A Vector field needs its capacity: @:md.size(n), or the data itself "
-				+ "through @:romData.", cf.pos);
+			Context.error("A Vector field needs its capacity: @:md.size(n), the data itself through "
+				+ "@:romData, or @:md.pointer if it only points at storage owned elsewhere.", cf.pos);
 		return switch(entry.params[0].expr) {
 			case EConst(CInt(v)): "[" + v + "]";
 			case _: Context.error("@:md.size requires a constant Int.", entry.pos);
@@ -816,8 +816,10 @@ void md_interrupts_off(void);
 
 	function declareField(cf:ClassField, name:String):String {
 		final vector = isVector(cf.type);
-		final slot = name + (vector ? storage(cf) : "");
-		return vector ? declare(elementOf(cf.type, cf.pos), slot, cf.pos) : declare(cf.type, slot, cf.pos);
+		if(!vector) return declare(cf.type, name, cf.pos);
+
+		final slot = cf.meta.has(":md.pointer") ? "*" + name : name + storage(cf);
+		return declare(elementOf(cf.type, cf.pos), slot, cf.pos);
 	}
 
 	function elementOf(t:Type, pos:haxe.macro.Expr.Position):Type {
@@ -988,7 +990,9 @@ void md_interrupts_off(void);
 		final name = fieldName(classType, v.field, true);
 		final vector = isVector(v.field.type);
 		final rom = romValues(v.field);
-		final slot = name + (vector ? (rom != null ? "[" + rom.length + "]" : storage(v.field)) : "");
+		final points = v.field.meta.has(":md.pointer");
+		final bounds = rom != null ? "[" + rom.length + "]" : (points ? "" : storage(v.field));
+		final slot = points ? "*" + name : name + (vector ? bounds : "");
 		final plain = vector ? declare(elementOf(v.field.type, v.field.pos), slot, v.field.pos)
 			: declare(v.field.type, slot, v.field.pos);
 		final decl = (rom != null ? "const " : "") + (v.field.meta.has(":md.volatile") ? "volatile " + plain : plain);
@@ -998,7 +1002,7 @@ void md_interrupts_off(void);
 		appendToExtraFile(HEADER, 'extern $decl;\n', P_GLOBALS);
 		final written = vector
 			? StringTools.trim(declare(elementOf(v.field.type, v.field.pos), "", v.field.pos))
-				+ (rom != null ? "[" + rom.length + "]" : storage(v.field))
+				+ (points ? "*" : bounds)
 			: StringTools.trim(declare(v.field.type, "", v.field.pos));
 		markStatic(v.field.pos, name, classType.name + "." + v.field.name,
 			(rom != null ? "const " : "") + written);
