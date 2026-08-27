@@ -1162,7 +1162,14 @@ void md_interrupts_off(void);
 			? target + "[hx_bounds(" + index + ", " + capacity + ")]"
 			: target + "[" + index + "]";
 
-		return cf.name == "get" ? slot : slot + " = " + compileExpressionOrError(args[2]);
+		if(cf.name == "get") return slot;
+
+		final element = switch(haxe.macro.TypeTools.follow(callee.t)) {
+			case TFun(signature, _) if(signature.length > 2): signature[2].t;
+			case _: null;
+		}
+		return slot + " = "
+			+ (element == null ? compileExpressionOrError(args[2]) : coerce(element, args[2]));
 	}
 
 	static function constantIndex(e:TypedExpr):Null<Int> {
