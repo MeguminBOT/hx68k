@@ -470,7 +470,7 @@ void md_interrupts_off(void);
 	function methodName(c:ClassType, cf:ClassField):String {
 		final native = cf.getNameOrNative();
 		if(c.isExtern) return native;
-		return classPrefix(c) + "_" + (cf.name == "new" ? "init" : safe(native));
+		return classPrefix(c) + "_" + (cf.name == "new" ? "_init" : safe(native));
 	}
 
 	function lineOf(file:String, offset:Int):Int {
@@ -933,44 +933,44 @@ void md_interrupts_off(void);
 	}
 
 	function emitPool(prefix:String, capacity:Int, body:Array<String>):Void {
-		appendToExtraFile(HEADER, '$prefix* ${prefix}_alloc(void);\n'
-			+ 'void ${prefix}_free($prefix* self);\n'
-			+ 'void ${prefix}_reset(void);\n'
-			+ 's32 ${prefix}_live(void);\n', P_PROTOS);
+		appendToExtraFile(HEADER, '$prefix* ${prefix}__alloc(void);\n'
+			+ 'void ${prefix}__free($prefix* self);\n'
+			+ 'void ${prefix}__reset(void);\n'
+			+ 's32 ${prefix}__live(void);\n', P_PROTOS);
 
 		body.push('static $prefix ${prefix}__slots[$capacity];\n'
 			+ 'static u16 ${prefix}__used = 0;\n'
-			+ 'static $prefix* ${prefix}__free[$capacity];\n'
+			+ 'static $prefix* ${prefix}__freeList[$capacity];\n'
 			+ 'static u16 ${prefix}__freeCount = 0;');
 
-		body.push('$prefix* ${prefix}_alloc(void)\n{\n'
-			+ '\tif(${prefix}__freeCount > 0) return ${prefix}__free[--${prefix}__freeCount];\n'
+		body.push('$prefix* ${prefix}__alloc(void)\n{\n'
+			+ '\tif(${prefix}__freeCount > 0) return ${prefix}__freeList[--${prefix}__freeCount];\n'
 			+ '\tif(${prefix}__used < $capacity) return &${prefix}__slots[${prefix}__used++];\n'
 			+ '\treturn NULL;\n}');
 
-		body.push('void ${prefix}_free($prefix* self)\n{\n'
+		body.push('void ${prefix}__free($prefix* self)\n{\n'
 			+ '\tif(self == NULL) return;\n'
-			+ '\t${prefix}__free[${prefix}__freeCount++] = self;\n}');
+			+ '\t${prefix}__freeList[${prefix}__freeCount++] = self;\n}');
 
-		body.push('void ${prefix}_reset(void)\n{\n'
+		body.push('void ${prefix}__reset(void)\n{\n'
 			+ '\t${prefix}__used = 0;\n\t${prefix}__freeCount = 0;\n}');
 
-		body.push('s32 ${prefix}_live(void)\n{\n'
+		body.push('s32 ${prefix}__live(void)\n{\n'
 			+ '\treturn (s32)${prefix}__used - (s32)${prefix}__freeCount;\n}');
 	}
 
 	function emitCreate(prefix:String, init:ClassType, args:Array<{name:String, declaration:String}>,
 			vtable:Bool, body:Array<String>):Void {
 		final params = args.map(a -> a.declaration);
-		final signature = '$prefix* ${prefix}_create(' + (params.length == 0 ? "void" : params.join(", ")) + ")";
+		final signature = '$prefix* ${prefix}__create(' + (params.length == 0 ? "void" : params.join(", ")) + ")";
 		final initPrefix = classPrefix(init);
 		final names = [initPrefix == prefix ? "self" : '($initPrefix*)self'].concat(args.map(a -> a.name));
 
 		appendToExtraFile(HEADER, signature + ";\n", P_PROTOS);
 		body.push(signature + "\n{\n"
-			+ '\t$prefix* self = ${prefix}_alloc();\n'
+			+ '\t$prefix* self = ${prefix}__alloc();\n'
 			+ "\tif(self == NULL) return NULL;\n"
-			+ '\t${initPrefix}_init(' + names.join(", ") + ");\n"
+			+ '\t${initPrefix}__init(' + names.join(", ") + ");\n"
 			+ (vtable ? '\tself->__vt = &${prefix}__vtable;\n' : "")
 			+ "\treturn self;\n}");
 	}
@@ -1105,9 +1105,9 @@ void md_interrupts_off(void);
 
 		final prefix = classPrefix(owner);
 		return switch(cf.name) {
-			case "free": prefix + "_free(" + compileExpressionOrError(args[0]) + ")";
-			case "reset": prefix + "_reset()";
-			case "live": prefix + "_live()";
+			case "free": prefix + "__free(" + compileExpressionOrError(args[0]) + ")";
+			case "reset": prefix + "__reset()";
+			case "live": prefix + "__live()";
 			case _: Context.error("Unknown Pool operation: " + cf.name, pos);
 		}
 	}
@@ -1571,7 +1571,7 @@ void md_interrupts_off(void);
 				final made = inheritedCtor(base);
 				if(made == null) Context.error(base.name + " has no constructor for super() to call.", expr.pos);
 				final args = ["(" + classPrefix(made.owner) + "*)self"].concat(callArgs(made.field.type, el));
-				classPrefix(made.owner) + "_init(" + args.join(", ") + ")";
+				classPrefix(made.owner) + "__init(" + args.join(", ") + ")";
 			}
 
 			case TCall({expr: TField({expr: TConst(TSuper)}, FInstance(_, _, cfRef))}, el): {
@@ -1645,7 +1645,7 @@ void md_interrupts_off(void);
 				final made = inheritedCtor(c);
 				final compiled = made == null ? args.map(a -> compileExpressionOrError(a))
 					: callArgs(made.field.type, args);
-				prefix + "_create(" + compiled.join(", ") + ")";
+				prefix + "__create(" + compiled.join(", ") + ")";
 			}
 			case TFunction(f): lift(f, expr.pos);
 			case TThrow(_) | TTry(_, _): Context.error("Exceptions are not supported on this target.", expr.pos);
