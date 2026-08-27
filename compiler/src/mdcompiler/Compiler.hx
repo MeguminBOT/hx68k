@@ -1392,12 +1392,20 @@ void md_interrupts_off(void);
 
 		final out = [];
 		for(at in 0...list.length) {
-			if(!live[at]) continue;
+			if(!live[at] || !hasEffect(list[at])) continue;
 			final s = statement(list[at]);
 			if(s != null && s.length > 0) out.push(s);
 		}
 		return out.join("
 ");
+	}
+
+	static function hasEffect(expr:TypedExpr):Bool {
+		return switch(expr.expr) {
+			case TConst(_) | TLocal(_) | TTypeExpr(_): false;
+			case TParenthesis(inner) | TMeta(_, inner) | TCast(inner, _): hasEffect(inner);
+			case _: true;
+		}
 	}
 
 	function remember(expr:TypedExpr):Void {
