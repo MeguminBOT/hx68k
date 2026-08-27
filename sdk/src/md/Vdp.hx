@@ -5,6 +5,8 @@ import md.hw.Vdp as Ports;
 class Vdp {
 	public static inline final REGISTERS = 24;
 
+	public static inline final DEFAULT_SCROLL = 0xF000;
+
 	public static inline final SHOWING = 0x40;
 
 	public static inline final VERTICAL_INTERRUPT = 0x20;
@@ -117,10 +119,6 @@ class Vdp {
 
 	public static inline function setScrollTable(at:UInt16):Void {
 		setRegister(VdpRegister.HorizontalScroll, at >> 10);
-	}
-
-	public static function waitDma():Void {
-		while ((Ports.status() & Ports.DMA_BUSY) != 0) {}
 	}
 
 	public static function waitFifo():Void {

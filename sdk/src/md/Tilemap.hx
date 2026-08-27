@@ -9,14 +9,6 @@ class Tilemap {
 
 	public static inline final DEFAULT_WINDOW = 0xD000;
 
-	public static inline final PRIORITY = 0x8000;
-
-	public static inline final FLIP_VERTICAL = 0x1000;
-
-	public static inline final FLIP_HORIZONTAL = 0x0800;
-
-	public static inline final INDEX = 0x07FF;
-
 	static var baseA:UInt16 = DEFAULT_A;
 
 	static var baseB:UInt16 = DEFAULT_B;
@@ -35,11 +27,11 @@ class Tilemap {
 
 	public static inline function entry(index:UInt16, palette:UInt16, priority:Bool,
 			flipHorizontal:Bool, flipVertical:Bool):UInt16 {
-		return (index & INDEX)
+		return (index & Patterns.INDEX)
 			| ((palette & 3) << 13)
-			| (priority ? PRIORITY : 0)
-			| (flipVertical ? FLIP_VERTICAL : 0)
-			| (flipHorizontal ? FLIP_HORIZONTAL : 0);
+			| (priority ? Patterns.PRIORITY : 0)
+			| (flipVertical ? Patterns.FLIP_VERTICAL : 0)
+			| (flipHorizontal ? Patterns.FLIP_HORIZONTAL : 0);
 	}
 
 	public static inline function columns():UInt16 {
@@ -186,7 +178,7 @@ class Tilemap {
 		}
 	}
 
-	public static function setFromResource(plane:Plane, from:md.res.TileMap, base:UInt16,
+	public static function load(plane:Plane, from:md.res.TileMap, base:UInt16,
 			x:UInt16, y:UInt16):Bool {
 		if (from.compression != 0) return false;
 
@@ -214,10 +206,10 @@ class Tilemap {
 
 	public static function drawImage(plane:Plane, from:md.res.Image, base:UInt16, x:UInt16,
 			y:UInt16):Bool {
-		if (!Patterns.setFromResource(base & INDEX, from.tileset)) return false;
+		if (!Patterns.load(base & Patterns.INDEX, from.tileset)) return false;
 
-		Palette.setFromResource((base >> 9) & 0x30, from.palette);
-		return setFromResource(plane, from.tilemap, base, x, y);
+		Palette.load((base >> 9) & 0x30, from.palette);
+		return load(plane, from.tilemap, base, x, y);
 	}
 
 	public static function fillIncrementing(plane:Plane, cell:UInt16, x:UInt16, y:UInt16,

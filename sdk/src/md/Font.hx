@@ -16,11 +16,11 @@ class Font {
 	static var raised:Bool = false;
 
 	public static inline function loadNormal(at:UInt16):Bool {
-		return load(at, Fonts.normal);
+		return load(at, md.res.Fonts.normal);
 	}
 
 	public static function load(at:UInt16, from:md.res.TileSet):Bool {
-		if (!Patterns.setFromResource(at, from)) return false;
+		if (!Patterns.load(at, from)) return false;
 		glyph = at;
 		return true;
 	}
@@ -41,8 +41,8 @@ class Font {
 		writtenTo = to;
 	}
 
-	public static inline function setPalette(line:UInt16):Void {
-		palette = line & 3;
+	public static inline function setPalette(which:UInt16):Void {
+		palette = which & 3;
 	}
 
 	public static inline function setPriority(on:Bool):Void {
@@ -72,13 +72,13 @@ class Font {
 		Ports.autoIncrement(2);
 		Ports.address(Ports.VRAM_WRITE, Tilemap.address(writtenTo, x, y));
 
-		final attributes:Int = ((palette & 3) << 13) | (raised ? Tilemap.PRIORITY : 0);
+		final attributes:Int = ((palette & 3) << 13) | (raised ? Patterns.PRIORITY : 0);
 		var step:Int = 0;
 
 		while (step < left) {
 			final code:Int = md.Text.charAt(text, step);
 			if (code == 0) break;
-			Ports.write(attributes | ((glyph + (code - FIRST)) & Tilemap.INDEX));
+			Ports.write(attributes | ((glyph + (code - FIRST)) & Patterns.INDEX));
 			step++;
 		}
 	}
@@ -92,8 +92,8 @@ class Font {
 		Ports.autoIncrement(2);
 		Ports.address(Ports.VRAM_WRITE, Tilemap.address(writtenTo, x, y));
 
-		final blank:Int = ((palette & 3) << 13) | (raised ? Tilemap.PRIORITY : 0)
-			| (glyph & Tilemap.INDEX);
+		final blank:Int = ((palette & 3) << 13) | (raised ? Patterns.PRIORITY : 0)
+			| (glyph & Patterns.INDEX);
 
 		var step:Int = 0;
 		while (step < count) {

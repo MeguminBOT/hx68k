@@ -1,6 +1,6 @@
 package md;
 
-import md.hw.Psg as Port;
+import md.hw.Psg as Ports;
 
 class Psg {
 	public static inline final CHANNELS = 4;
@@ -21,15 +21,15 @@ class Psg {
 		var channel = 0;
 
 		while (channel < CHANNELS) {
-			Port.write(0x80 | (channel << 5));
-			Port.write(0x00);
-			Port.write(0x90 | (channel << 5) | SILENT);
+			Ports.write(0x80 | (channel << 5));
+			Ports.write(0x00);
+			Ports.write(0x90 | (channel << 5) | SILENT);
 			channel++;
 		}
 	}
 
 	public static inline function setAttenuation(channel:UInt8, level:UInt8):Void {
-		Port.write(0x90 | ((channel & 3) << 5) | (level & 0x0F));
+		Ports.write(0x90 | ((channel & 3) << 5) | (level & 0x0F));
 	}
 
 	public static inline function silence(channel:UInt8):Void {
@@ -39,8 +39,8 @@ class Psg {
 	public static inline function setTone(channel:UInt8, value:UInt16):Void {
 		final divider:Int = value;
 
-		Port.write(0x80 | ((channel & 3) << 5) | (divider & 0x0F));
-		Port.write((divider >> 4) & 0x3F);
+		Ports.write(0x80 | ((channel & 3) << 5) | (divider & 0x0F));
+		Ports.write((divider >> 4) & 0x3F);
 	}
 
 	public static function setFrequency(channel:UInt8, hertz:UInt16):Void {
@@ -49,6 +49,6 @@ class Psg {
 	}
 
 	public static inline function setNoise(white:Bool, rate:UInt8):Void {
-		Port.write(0xE0 | (white ? 4 : 0) | (rate & 3));
+		Ports.write(0xE0 | (white ? 4 : 0) | (rate & 3));
 	}
 }

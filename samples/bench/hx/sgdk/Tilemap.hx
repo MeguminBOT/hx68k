@@ -1,7 +1,6 @@
 package sgdk;
 
 import md.Plane;
-import md.Transfer;
 import md.UInt16;
 import md.UInt32;
 import md.UInt8;

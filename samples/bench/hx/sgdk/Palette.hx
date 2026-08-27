@@ -1,6 +1,5 @@
 package sgdk;
 
-import md.Transfer;
 import md.UInt16;
 import md.Vector;
 

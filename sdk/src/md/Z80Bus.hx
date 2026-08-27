@@ -1,6 +1,6 @@
 package md;
 
-import md.hw.Z80 as Port;
+import md.hw.Z80 as Ports;
 
 class Z80Bus {
 	public static inline final RAM = 0xA00000;
@@ -24,35 +24,35 @@ class Z80Bus {
 	static var protection:UInt16 = 0;
 
 	public static inline function request():Void {
-		Port.hold();
+		Ports.hold();
 	}
 
 	public static inline function release():Void {
-		Port.release();
+		Ports.release();
 	}
 
 	public static inline function taken():Bool {
-		return Port.held();
+		return Ports.held();
 	}
 
 	public static function requestAndReport():Bool {
-		if (Port.held()) return true;
-		Port.hold();
+		if (Ports.held()) return true;
+		Ports.hold();
 		return false;
 	}
 
 	public static inline function startReset():Void {
-		Port.reset(true);
+		Ports.reset(true);
 	}
 
 	public static inline function endReset():Void {
-		Port.reset(false);
+		Ports.reset(false);
 	}
 
 	public static function reset():Void {
-		Port.reset(true);
+		Ports.reset(true);
 		settle();
-		Port.reset(false);
+		Ports.reset(false);
 	}
 
 	public static inline function loadedDriver():Int16 {
@@ -62,12 +62,12 @@ class Z80Bus {
 	public static function driverReady():Bool {
 		final was:Bool = requestAndReport();
 		final ready:Bool = (Memory.readU8(STATUS) & READY) != 0;
-		if (!was) Port.release();
+		if (!was) Ports.release();
 		return ready;
 	}
 
 	public static function loadDriver(which:Int16, from:Int, count:UInt16):Void {
-		Port.hold();
+		Ports.hold();
 
 		Psg.reset();
 		Fm.reset();
@@ -87,10 +87,10 @@ class Z80Bus {
 		}
 
 		protection = 0;
-		Port.reset(true);
-		Port.release();
+		Ports.reset(true);
+		Ports.release();
 		settle();
-		Port.reset(false);
+		Ports.reset(false);
 
 		driver = which;
 	}
@@ -104,7 +104,7 @@ class Z80Bus {
 
 		final was:Bool = requestAndReport();
 		Memory.writeU8(RAM + (protection : Int), on ? 1 : 0);
-		if (!was) Port.release();
+		if (!was) Ports.release();
 	}
 
 	public static inline function readByte(at:UInt16):UInt8 {
@@ -125,7 +125,7 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Port.release();
+		if (!was) Ports.release();
 	}
 
 	public static function download(from:UInt16, into:Vector<UInt8>, count:UInt16):Void {
@@ -138,7 +138,7 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Port.release();
+		if (!was) Ports.release();
 	}
 
 	public static function clear():Void {
@@ -150,7 +150,7 @@ class Z80Bus {
 			i++;
 		}
 
-		if (!was) Port.release();
+		if (!was) Ports.release();
 	}
 
 	public static inline function setBank(bank:UInt16):Void {

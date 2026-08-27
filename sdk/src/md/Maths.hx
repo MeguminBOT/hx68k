@@ -1,8 +1,6 @@
 package md;
 
 class Maths {
-	public static inline final FRACTION = 6;
-
 	public static function nextPowerOfTwo(value:UInt32):UInt32 {
 		var found:Int = (value : Int) - 1;
 
@@ -75,6 +73,6 @@ class Maths {
 	}
 
 	public static inline function sqrt(value:Fix16):Fix16 {
-		return cast((root((value : Int) << FRACTION) : Int));
+		return cast((root((value : Int) << Fix16.FRACTION) : Int));
 	}
 }

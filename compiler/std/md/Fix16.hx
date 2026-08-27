@@ -2,16 +2,18 @@ package md;
 
 @:md.type("fix16")
 abstract Fix16(Int) from Int to Int {
+	public static inline final FRACTION = 6;
+
 	public static inline function of(value:Int):Fix16 {
-		return cast(value << 6);
+		return cast(value << FRACTION);
 	}
 
 	public inline function toInt():Int {
-		return (this : Int) >> 6;
+		return (this : Int) >> FRACTION;
 	}
 
 	public inline function frac():Fix16 {
-		return cast((this : Int) & 63);
+		return cast((this : Int) & ((1 << FRACTION) - 1));
 	}
 
 	public inline function abs():Fix16 {
@@ -27,10 +29,10 @@ abstract Fix16(Int) from Int to Int {
 	}
 
 	@:op(A * B) static inline function mul(a:Fix16, b:Fix16):Fix16 {
-		return cast(((a : Int) * (b : Int)) >> 6);
+		return cast(((a : Int) * (b : Int)) >> FRACTION);
 	}
 
 	@:op(A / B) static inline function div(a:Fix16, b:Fix16):Fix16 {
-		return cast(Std.int(((a : Int) << 6) / (b : Int)));
+		return cast(Std.int(((a : Int) << FRACTION) / (b : Int)));
 	}
 }

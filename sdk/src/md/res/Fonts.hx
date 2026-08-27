@@ -1,4 +1,4 @@
-package md;
+package md.res;
 
 @:build(hxres.Resources.build("mdfonts"))
 @:md.include("mdfonts.h")

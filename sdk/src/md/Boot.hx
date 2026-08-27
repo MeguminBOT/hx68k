@@ -5,18 +5,8 @@ import md.hw.Cpu;
 import md.hw.Z80;
 
 class Boot {
-	public static inline final PLANE_A = 0xE000;
-
-	public static inline final PLANE_B = 0xC000;
-
-	public static inline final WINDOW = 0xD000;
-
-	public static inline final SPRITES = 0xF400;
-
-	public static inline final SCROLL = 0xF000;
-
 	public static function begin():Void {
-		while ((Ports.status() & Ports.DMA_BUSY) != 0) {}
+		Dma.wait();
 
 		Vdp.setRegister(0, 0x04);
 		Vdp.setRegister(1, 0x14);
@@ -32,12 +22,12 @@ class Boot {
 		Vdp.setRegister(17, 0x00);
 		Vdp.setRegister(18, 0x00);
 
-		Vdp.setScrollTable(SCROLL);
-		Tilemap.setBase(Plane.A, PLANE_A);
-		Tilemap.setBase(Plane.B, PLANE_B);
-		Tilemap.setBase(Plane.Window, WINDOW);
+		Vdp.setScrollTable(Vdp.DEFAULT_SCROLL);
+		Tilemap.setBase(Plane.A, Tilemap.DEFAULT_A);
+		Tilemap.setBase(Plane.B, Tilemap.DEFAULT_B);
+		Tilemap.setBase(Plane.Window, Tilemap.DEFAULT_WINDOW);
 		Tilemap.setPlaneSize(64, 32);
-		SpriteTable.setBase(SPRITES);
+		SpriteTable.setBase(SpriteTable.DEFAULT_AT);
 
 		Dma.fillVram(0, 0x8000, 0, 1);
 		Dma.wait();
@@ -69,10 +59,6 @@ class Boot {
 	public static function deafen():Void {
 		Cpu.disableInterrupts();
 		Vdp.setVerticalInterrupt(false);
-	}
-
-	public static inline function waitVertical():Void {
-		Vdp.waitFrame();
 	}
 
 	static function wipe(code:Int, at:Int, words:Int):Void {

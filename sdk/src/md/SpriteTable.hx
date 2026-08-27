@@ -13,14 +13,6 @@ class SpriteTable {
 
 	public static inline final DEFAULT_AT = 0xF400;
 
-	public static inline final PRIORITY = 0x8000;
-
-	public static inline final FLIP_VERTICAL = 0x1000;
-
-	public static inline final FLIP_HORIZONTAL = 0x0800;
-
-	public static inline final INDEX = 0x07FF;
-
 	@:md.size(160) static var cache:Vector<UInt32>;
 
 	static var at:UInt16 = DEFAULT_AT;
@@ -31,11 +23,11 @@ class SpriteTable {
 
 	public static inline function attribute(index:UInt16, palette:UInt16, priority:Bool,
 			flipHorizontal:Bool, flipVertical:Bool):UInt16 {
-		return (index & INDEX)
+		return (index & Patterns.INDEX)
 			| ((palette & 3) << 13)
-			| (priority ? PRIORITY : 0)
-			| (flipVertical ? FLIP_VERTICAL : 0)
-			| (flipHorizontal ? FLIP_HORIZONTAL : 0);
+			| (priority ? Patterns.PRIORITY : 0)
+			| (flipVertical ? Patterns.FLIP_VERTICAL : 0)
+			| (flipHorizontal ? Patterns.FLIP_HORIZONTAL : 0);
 	}
 
 	static inline function slot(index:UInt16):Int {

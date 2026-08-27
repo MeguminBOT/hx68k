@@ -37,17 +37,17 @@ class Main {
 		Boot.begin();
 
 		Tilemap.drawImage(Plane.A, Art.blocks, IMAGE, 0, 0);
-		Palette.setFromResource(0, Art.blockPalette);
+		Palette.load(0, Art.blockPalette);
 
 		final first = Art.diamond.animations[0].frames[0];
-		Patterns.setFromResource(DIAMOND, first.tileset);
-		Palette.setFromResource(16, Art.diamond.palette);
+		Patterns.load(DIAMOND, first.tileset);
+		Palette.load(16, Art.diamond.palette);
 
 		SpriteTable.set(0, 100, 80, SpriteTable.size(2, 2),
 			SpriteTable.attribute(DIAMOND, 1, false, false, false), 0);
 		SpriteTable.update(1);
 
-		Patterns.setFromResource(NATIVE, Art.blockTiles);
+		Patterns.load(NATIVE, Art.blockTiles);
 		Tilemap.setCell(Plane.B, Tilemap.entry(NATIVE, 0, false, false, false), 3, 5);
 		Tilemap.fill(Plane.B, Tilemap.entry(NATIVE + 1, 1, true, false, true), 8, 2, 7, 3);
 		Tilemap.fillIncrementing(Plane.B, 300, 0, 10, 4, 2);

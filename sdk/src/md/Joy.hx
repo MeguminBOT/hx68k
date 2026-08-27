@@ -1,6 +1,6 @@
 package md;
 
-import md.hw.Joypad as Port;
+import md.hw.Joypad as Ports;
 
 class Joy {
 	public static inline final PORTS = 3;
@@ -41,7 +41,7 @@ class Joy {
 		var port = 0;
 
 		while (port < PORTS) {
-			Port.open(port);
+			Ports.open(port);
 			latest[port] = 0;
 			previous[port] = 0;
 			port++;
@@ -53,7 +53,7 @@ class Joy {
 
 		while (port < PORTS) {
 			previous[port] = latest[port];
-			latest[port] = Port.read(port);
+			latest[port] = Ports.read(port);
 			port++;
 		}
 	}
@@ -71,14 +71,14 @@ class Joy {
 	}
 
 	public static inline function live(port:UInt16):UInt16 {
-		return Port.read(port);
+		return Ports.read(port);
 	}
 
 	public static inline function portType(port:UInt16):UInt8 {
-		return Port.identify(port) == 0 ? PORT_PAD : PORT_NOTHING;
+		return Ports.identify(port) == 0 ? PORT_PAD : PORT_NOTHING;
 	}
 
 	public static inline function padType(port:UInt16):UInt8 {
-		return Port.identify(port) == 0 ? PAD_THREE_BUTTON : PAD_NOTHING;
+		return Ports.identify(port) == 0 ? PAD_THREE_BUTTON : PAD_NOTHING;
 	}
 }

@@ -1,4 +1,4 @@
-package md;
+package sgdk;
 
 enum abstract Transfer(Int) to Int {
 	var Cpu = 0;

@@ -2,7 +2,6 @@ package sgdk;
 
 import md.DmaTarget;
 import md.Int16;
-import md.Transfer;
 import md.UInt16;
 import md.UInt8;
 import md.Vector;

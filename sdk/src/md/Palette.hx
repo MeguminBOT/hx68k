@@ -40,12 +40,12 @@ class Palette {
 		}
 	}
 
-	public static function setFromResource(index:UInt16, palette:md.res.Palette):Void {
-		setColours(index, palette.data, palette.length);
+	public static function load(index:UInt16, from:md.res.Palette):Void {
+		setColours(index, from.data, from.length);
 	}
 
-	public static inline function setPalette(which:UInt16, from:Vector<UInt16>):Void {
-		setColours(which * PER_PALETTE, from, PER_PALETTE);
+	public static inline function setPalette(palette:UInt16, from:Vector<UInt16>):Void {
+		setColours(palette * PER_PALETTE, from, PER_PALETTE);
 	}
 
 	public static inline function palette(which:UInt16, into:Vector<UInt16>):Void {

@@ -5,6 +5,14 @@ import md.hw.Vdp as Ports;
 class Patterns {
 	public static inline final BYTES = 32;
 
+	public static inline final PRIORITY = 0x8000;
+
+	public static inline final FLIP_VERTICAL = 0x1000;
+
+	public static inline final FLIP_HORIZONTAL = 0x0800;
+
+	public static inline final INDEX = 0x07FF;
+
 	public static inline final LONGS = 8;
 
 	public static inline function address(index:UInt16):UInt16 {
@@ -48,7 +56,7 @@ class Patterns {
 		}
 	}
 
-	public static function setFromResource(index:UInt16, from:md.res.TileSet):Bool {
+	public static function load(index:UInt16, from:md.res.TileSet):Bool {
 		if (from.compression != 0) return false;
 
 		set(index, from.data, from.count);

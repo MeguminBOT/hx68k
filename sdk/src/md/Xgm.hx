@@ -42,10 +42,10 @@ class Xgm {
 		if (Z80Bus.loadedDriver() == XGM) return;
 
 		System.disableInterrupts();
-		Z80Bus.loadDriver(XGM, Memory.addressOf(Drivers.xgmDriver), Drivers.xgmDriverLength);
+		Z80Bus.loadDriver(XGM, Memory.addressOf(md.res.Drivers.xgm), md.res.Drivers.xgmLength);
 
 		Z80Bus.request();
-		pointSample(0, Memory.addressOf(Drivers.xgmSilence), Drivers.xgmSilenceLength);
+		pointSample(0, Memory.addressOf(md.res.Drivers.xgmSilence), md.res.Drivers.xgmSilenceLength);
 		Z80Bus.release();
 		System.enableInterrupts();
 
@@ -67,7 +67,7 @@ class Xgm {
 		loadDriver();
 
 		final song:Int = Memory.addressOf(tune);
-		final quiet:Int = Memory.addressOf(Drivers.xgmSilence);
+		final quiet:Int = Memory.addressOf(md.res.Drivers.xgmSilence);
 
 		System.disableInterrupts();
 		final was:Bool = Z80Bus.requestAndReport();
@@ -105,7 +105,7 @@ class Xgm {
 		System.disableInterrupts();
 		final was:Bool = Z80Bus.requestAndReport();
 
-		setMusicAddress(Memory.addressOf(Drivers.xgmStop));
+		setMusicAddress(Memory.addressOf(md.res.Drivers.xgmStop));
 		sendCommand(PLAY);
 		setPendingFrames(3);
 
