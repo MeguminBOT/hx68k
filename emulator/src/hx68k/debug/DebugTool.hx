@@ -19,7 +19,7 @@ class DebugTool {
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
 				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]"
-				+ " [--gdb port] [--slots frames] [--symbols <file>] [--press button@frame[:held][,...]] [--top n]");
+				+ " [--gdb port] [--slots frames] [--symbols <file>] [--press button@frame[:held][,...]] [--top n] [--peek addr:bytes:file] [--vgm file --record frames]");
 			Sys.exit(2);
 		}
 
@@ -37,6 +37,9 @@ class DebugTool {
 		var symbolFile = "";
 		var pressing = "";
 		var top = 12;
+		var peeking = "";
+		var logging = "";
+		var recording = 0;
 
 		final viewing = args.indexOf("--view") >= 0;
 		final walking = args.indexOf("--stack") >= 0;
@@ -61,6 +64,9 @@ class DebugTool {
 				case "--symbols": symbolFile = value(args, i);
 				case "--press": pressing = value(args, i);
 				case "--top": top = count(args, i);
+				case "--peek": peeking = value(args, i);
+				case "--vgm": logging = value(args, i);
+				case "--record": recording = count(args, i);
 				case _: i--;
 			}
 			i += 2;
@@ -101,6 +107,8 @@ class DebugTool {
 
 		final once = hits[hits.length - 1];
 
+		if (logging != "") Sys.exit(record(debugger, logging, recording, settle));
+		if (peeking != "") Sys.exit(peek(debugger, stop, peeking, settle, once));
 		if (serving > 0) Sys.exit(serve(debugger, stop, serving, settle, once));
 		if (spending > 0) Sys.exit(spend(debugger, stop, spending, settle, once));
 		if (showing) Sys.exit(views(debugger, stop, settle, once));
@@ -110,6 +118,64 @@ class DebugTool {
 		if (rastered > 0) Sys.exit(raster(debugger, stop, rastered, settle, once));
 		if (profiled > 0) Sys.exit(profile(debugger, stop, profiled, settle, once, top));
 		Sys.exit(traced > 0 ? traceFrom(debugger, stop, traced, settle, once) : hunt(debugger, stop, watch, expected));
+	}
+
+	static function record(debugger:Debugger, path:String, frames:Int, settle:Int):Int {
+		final machine = debugger.machine;
+
+		for (_ in 0...settle) machine.runFrame();
+
+		final log = new Vgm(machine.sound);
+		final many:Int = frames > 0 ? frames : 600;
+
+		for (_ in 0...many) {
+			machine.runFrame();
+			log.frame();
+		}
+
+		machine.sound.onYm = null;
+		machine.sound.onPsg = null;
+
+		log.save(path);
+		Sys.println("logged " + log.writes + " sound writes over " + log.frames + " frames to " + path);
+		return log.writes > 0 ? 0 : 1;
+	}
+
+	static function peek(debugger:Debugger, stop:String, what:String, settle:Int, hits:Int):Int {
+		final parts = what.split(":");
+
+		if (parts.length < 3) {
+			Sys.println("usage: --peek <address>:<bytes>:<file>");
+			return 2;
+		}
+
+		final wanted = Std.parseInt(parts[0]);
+		final length = Std.parseInt(parts[1]);
+
+		if (wanted == null || length == null) {
+			Sys.println("--peek wants an address and a length");
+			return 2;
+		}
+
+		final at:Int = wanted;
+		final many:Int = length;
+
+		if (!reach(debugger, stop, settle, hits)) return 1;
+
+		final out = haxe.io.Bytes.alloc(many);
+		var read = 0;
+
+		while (read < many) {
+			final word:Int = debugger.machine.readWord((at + read) & 0xFFFFFF);
+			out.set(read, (word >> 8) & 0xFF);
+			if (read + 1 < many) out.set(read + 1, word & 0xFF);
+			read += 2;
+		}
+
+		sys.io.File.saveBytes(parts.slice(2).join(":"), out);
+		Sys.println("wrote " + many + " bytes from " + StringTools.hex(at, 6) + " to "
+			+ parts.slice(2).join(":"));
+		return 0;
 	}
 
 	static function serve(debugger:Debugger, stop:String, port:Int, settle:Int, hits:Int):Int {

@@ -82,7 +82,7 @@ class Z80Bus implements Bus {
 
 		if (at >= 0x4000 && at < 0x6000) {
 			soundWrites++;
-			machine.sound.ym.write(at & 3, value);
+			machine.sound.writeYm(at & 3, value);
 			return;
 		}
 

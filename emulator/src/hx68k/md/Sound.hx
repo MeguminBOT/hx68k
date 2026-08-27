@@ -52,7 +52,16 @@ final class Sound {
 	var heldLeft:Float = 0;
 	var heldRight:Float = 0;
 
+	public var onYm:Null<(Int, Int) -> Void> = null;
+
+	public var onPsg:Null<Int -> Void> = null;
+
 	public function new() {}
+
+	public function writeYm(port:Int, value:Int):Void {
+		if (onYm != null) onYm(port, value);
+		ym.write(port, value);
+	}
 
 	public function reset():Void {
 		psg.reset();
@@ -143,6 +152,8 @@ final class Sound {
 	}
 
 	public function writePsg(value:Int):Void {
+		if (onPsg != null) onPsg(value);
+
 		catchUp();
 		psg.write(value);
 	}

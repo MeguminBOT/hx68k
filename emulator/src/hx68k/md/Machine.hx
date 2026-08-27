@@ -355,8 +355,8 @@ class Machine implements Bus implements Memory {
 
 		if (at >= 0xA04000 && at < 0xA06000) {
 			final port = at & 2;
-			if (uds) sound.ym.write(port, (value >> 8) & 0xFF);
-			if (lds) sound.ym.write(port | 1, value & 0xFF);
+			if (uds) sound.writeYm(port, (value >> 8) & 0xFF);
+			if (lds) sound.writeYm(port | 1, value & 0xFF);
 			return 0;
 		}
 
