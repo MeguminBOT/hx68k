@@ -928,7 +928,10 @@ echo "--- the focus stack and the text field, with no window under them ---"
 echo ""
 echo "--- the settings file, and the arrangement it has to bring back ---"
 "$GATE" settings "$HERE/.settings"
-rm -rf "$HERE/.settings"
+# Windows can still hold the directory for a moment after the check that wrote it has exited, and
+# set -e turns that into the whole gate failing on a check that passed. Ask twice, then leave it:
+# the next run writes over it anyway.
+rm -rf "$HERE/.settings" 2>/dev/null || rm -rf "$HERE/.settings" 2>/dev/null || true
 
 echo ""
 echo "--- the VDP read back in the terms the documentation uses ---"
