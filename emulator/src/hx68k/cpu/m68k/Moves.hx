@@ -9,11 +9,11 @@ class Moves {
 		for (reg in 0...8) {
 			for (imm in 0...256) {
 				final r = reg;
-				final v = signExt8(imm);
+				final value = signExt8(imm);
 				t[0x7000 | (reg << 9) | imm] = function(c:M68000) {
-					c.d[r] = v;
-					c.nf = v < 0;
-					c.zf = v == 0;
+					c.d[r] = value;
+					c.nf = value < 0;
+					c.zf = value == 0;
 					c.vf = false;
 					c.cf = false;
 					c.prefetch();
@@ -46,28 +46,28 @@ class Moves {
 				final lowWordN = size == 4 && srcMem && (dm == 2 || dm == 3 || (dm == 7 && dr == 1));
 
 				t[op] = function(c:M68000) {
-					final v = readEa(c, srcMode, srcReg, sz, 0);
+					final value = readEa(c, srcMode, srcReg, sz, 0);
 					if (c.faulted) return;
 
 					c.faultPc = (c.pcAtStart + (srcExt << 1)) | 0;
 
 					if (dstMode == 1) {
-						c.a[dstReg] = sz == 2 ? signExt16(v) : (v | 0);
+						c.a[dstReg] = sz == 2 ? signExt16(value) : (value | 0);
 						c.prefetch();
 						return;
 					}
 
 					if (dstMode == 0) {
-						writeReg(c, dstReg, sz, v);
-						setLogicFlags(c, v, sz);
+						writeReg(c, dstReg, sz, value);
+						setLogicFlags(c, value, sz);
 						c.prefetch();
 						return;
 					}
 
-					if (earlyNz) setNz(c, v, sz);
+					if (earlyNz) setNz(c, value, sz);
 					else if (lowWordN) {
-						c.nf = (v & 0x8000) != 0;
-						c.zf = v == 0;
+						c.nf = (value & 0x8000) != 0;
+						c.zf = value == 0;
 					}
 					if (earlyVc) {
 						c.vf = false;
@@ -78,9 +78,9 @@ class Moves {
 						final addr = c.a[dstReg] | 0;
 						final step = (dstReg == 7 && sz == 1) ? 2 : sz;
 						if (sz == 1 || (addr & 1) == 0) c.a[dstReg] = (addr + step) | 0;
-						writeMem(c, addr, sz, v);
+						writeMem(c, addr, sz, value);
 						if (c.faulted) return;
-						settleFlags(c, v, sz, earlyNz, earlyVc);
+						settleFlags(c, value, sz, earlyNz, earlyVc);
 						c.prefetch();
 						return;
 					}
@@ -93,12 +93,12 @@ class Moves {
 						if (c.faulted) return;
 						if (sz == 4) {
 							c.faultIr = c.opcode;
-							c.writeLongLowFirst(addr, c.dataFc(), v);
+							c.writeLongLowFirst(addr, c.dataFc(), value);
 						} else {
-							writeMem(c, addr, sz, v);
+							writeMem(c, addr, sz, value);
 						}
 						if (c.faulted) return;
-						settleFlags(c, v, sz, earlyNz, earlyVc);
+						settleFlags(c, value, sz, earlyNz, earlyVc);
 						return;
 					}
 
@@ -106,9 +106,9 @@ class Moves {
 						if (srcMem) {
 							final hi = c.fetchExt();
 							final lo = c.irc;
-							writeMem(c, ((hi << 16) | lo) | 0, sz, v);
+							writeMem(c, ((hi << 16) | lo) | 0, sz, value);
 							if (c.faulted) return;
-							settleFlags(c, v, sz, earlyNz, earlyVc);
+							settleFlags(c, value, sz, earlyNz, earlyVc);
 							c.fetchExt();
 							c.prefetch();
 							return;
@@ -117,18 +117,18 @@ class Moves {
 						final hi = c.fetchExt();
 						final lo = c.fetchExt();
 						c.faultPc = (c.pcAtStart + (srcExt << 1) + 2) | 0;
-						writeMem(c, ((hi << 16) | lo) | 0, sz, v);
+						writeMem(c, ((hi << 16) | lo) | 0, sz, value);
 						if (c.faulted) return;
-						settleFlags(c, v, sz, earlyNz, earlyVc);
+						settleFlags(c, value, sz, earlyNz, earlyVc);
 						c.prefetch();
 						return;
 					}
 
 					final addr = eaAddr(c, dstMode, dstReg, sz);
 					if (c.faulted) return;
-					writeMem(c, addr, sz, v);
+					writeMem(c, addr, sz, value);
 					if (c.faulted) return;
-					settleFlags(c, v, sz, earlyNz, earlyVc);
+					settleFlags(c, value, sz, earlyNz, earlyVc);
 					c.prefetch();
 				}
 			}
@@ -142,8 +142,8 @@ class Moves {
 	static inline function movemRead(c:M68000, index:Int, size:Int, addr:Int, fc:Int):Void {
 		final raw = size == 2 ? c.readWord(addr, fc) : c.readLong(addr, fc);
 		if (c.faulted) return;
-		final v = size == 2 ? signExt16(raw) : raw;
-		if (index < 8) c.d[index] = v; else c.a[index - 8] = v;
+		final value = size == 2 ? signExt16(raw) : raw;
+		if (index < 8) c.d[index] = value; else c.a[index - 8] = value;
 	}
 
 	public static function movem(t:Vector<M68000->Void>):Void {
@@ -165,10 +165,10 @@ class Moves {
 						var addr = c.a[reg] | 0;
 						for (i in 0...16) {
 							if ((mask & (1 << i)) == 0) continue;
-							final v = movemValue(c, 15 - i);
+							final value = movemValue(c, 15 - i);
 							addr = (addr - size) | 0;
-							if (size == 2) c.writeWord(addr, c.dataFc(), v & 0xFFFF); else
-								c.writeLongLowFirst(addr, c.dataFc(), v);
+							if (size == 2) c.writeWord(addr, c.dataFc(), value & 0xFFFF); else
+								c.writeLongLowFirst(addr, c.dataFc(), value);
 							if (c.faulted) return;
 						}
 						c.a[reg] = addr;
@@ -181,9 +181,9 @@ class Moves {
 					c.faultPc = c.pc | 0;
 					for (i in 0...16) {
 						if ((mask & (1 << i)) == 0) continue;
-						final v = movemValue(c, i);
-						if (size == 2) c.writeWord(addr, c.dataFc(), v & 0xFFFF); else
-							c.writeLong(addr, c.dataFc(), v);
+						final value = movemValue(c, i);
+						if (size == 2) c.writeWord(addr, c.dataFc(), value & 0xFFFF); else
+							c.writeLong(addr, c.dataFc(), value);
 						if (c.faulted) return;
 						addr = (addr + size) | 0;
 					}
@@ -231,9 +231,9 @@ class Moves {
 					return;
 				}
 
-				var v = 0;
-				for (i in 0...count) v = (v << 8) | c.readByte((addr + (i << 1)) | 0, c.dataFc());
-				if (size == 4) c.d[d] = v | 0; else c.d[d] = (c.d[d] & 0xFFFF0000) | (v & 0xFFFF);
+				var value = 0;
+				for (i in 0...count) value = (value << 8) | c.readByte((addr + (i << 1)) | 0, c.dataFc());
+				if (size == 4) c.d[d] = value | 0; else c.d[d] = (c.d[d] & 0xFFFF0000) | (value & 0xFFFF);
 				c.prefetch();
 			}
 		}
@@ -244,8 +244,8 @@ class Moves {
 			final reg = r;
 
 			t[0x4840 | r] = function(c:M68000) {
-				final v = c.d[reg];
-				final res = ((v << 16) | (v >>> 16)) | 0;
+				final value = c.d[reg];
+				final res = ((value << 16) | (value >>> 16)) | 0;
 				c.d[reg] = res;
 				setLogicFlags(c, res, 4);
 				c.prefetch();
@@ -347,10 +347,10 @@ class Moves {
 			t[0x4E58 | reg] = function(c:M68000) {
 				final sp = c.a[r] | 0;
 				c.faultPc = c.pcAtStart;
-				final v = c.readLong(sp, c.dataFc());
+				final value = c.readLong(sp, c.dataFc());
 				if (c.faulted) return;
 				c.a[7] = (sp + 4) | 0;
-				c.a[r] = v;
+				c.a[r] = value;
 				c.prefetch();
 			}
 		}

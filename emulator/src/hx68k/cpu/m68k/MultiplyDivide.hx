@@ -19,14 +19,14 @@ class MultiplyDivide {
 	}
 
 	static function mulSteps(src:Int, signed:Bool):Int {
-		var n = 0;
+		var steps = 0;
 		if (!signed) {
-			for (i in 0...16) if ((src & (1 << i)) != 0) n++;
-			return n;
+			for (i in 0...16) if ((src & (1 << i)) != 0) steps++;
+			return steps;
 		}
-		final v = (src & 0xFFFF) << 1;
-		for (i in 0...16) if (((v >> i) & 1) != ((v >> (i + 1)) & 1)) n++;
-		return n;
+		final value = (src & 0xFFFF) << 1;
+		for (i in 0...16) if (((value >> i) & 1) != ((value >> (i + 1)) & 1)) steps++;
+		return steps;
 	}
 
 	public static function multiply(t:Vector<M68000->Void>):Void {

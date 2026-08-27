@@ -17,20 +17,20 @@ class Shifts {
 		final m = mask(size);
 		final top = msb(size);
 		final bits = size << 3;
-		final v = v0 & m;
+		final value = v0 & m;
 
 		if (type == SH_ROX) {
 			var x = c.xf;
-			var r = v;
-			final n = count % (bits + 1);
+			var r = value;
+			final amount = count % (bits + 1);
 			if (left) {
-				for (_ in 0...n) {
+				for (_ in 0...amount) {
 					final out = (r & top) != 0;
 					r = ((r << 1) | (x ? 1 : 0)) & m;
 					x = out;
 				}
 			} else {
-				for (_ in 0...n) {
+				for (_ in 0...amount) {
 					final out = (r & 1) != 0;
 					r = ((r >>> 1) | (x ? top : 0)) & m;
 					x = out;
@@ -44,9 +44,9 @@ class Shifts {
 		}
 
 		if (type == SH_RO) {
-			final n = count % bits;
-			var r = v;
-			if (n != 0) r = left ? (((v << n) | (v >>> (bits - n))) & m) : (((v >>> n) | (v << (bits - n))) & m);
+			final amount = count % bits;
+			var r = value;
+			if (amount != 0) r = left ? (((value << amount) | (value >>> (bits - amount))) & m) : (((value >>> amount) | (value << (bits - amount))) & m);
 			c.cf = count == 0 ? false : (left ? (r & 1) != 0 : (r & top) != 0);
 			c.vf = false;
 			setNz(c, r, size);
@@ -56,22 +56,22 @@ class Shifts {
 		if (count == 0) {
 			c.cf = false;
 			c.vf = false;
-			setNz(c, v, size);
-			return v;
+			setNz(c, value, size);
+			return value;
 		}
 
 		var r:Int;
 		var carry:Bool;
 
 		if (left) {
-			r = count >= bits ? 0 : ((v << count) & m);
-			carry = count > bits ? false : (count == bits ? (v & 1) != 0 : ((v >>> (bits - count)) & 1) != 0);
+			r = count >= bits ? 0 : ((value << count) & m);
+			carry = count > bits ? false : (count == bits ? (value & 1) != 0 : ((value >>> (bits - count)) & 1) != 0);
 			if (type == SH_AS) {
 				if (count >= bits) {
-					c.vf = v != 0;
+					c.vf = value != 0;
 				} else {
 					final keep = (m << (bits - count - 1)) & m;
-					final masked = v & keep;
+					final masked = value & keep;
 					c.vf = masked != 0 && masked != keep;
 				}
 			} else {
@@ -79,12 +79,12 @@ class Shifts {
 			}
 		} else {
 			if (type == SH_AS) {
-				final neg = (v & top) != 0;
-				r = count >= bits ? (neg ? m : 0) : (((v >>> count) | (neg ? ((m << (bits - count)) & m) : 0)) & m);
-				carry = count >= bits ? neg : ((v >>> (count - 1)) & 1) != 0;
+				final neg = (value & top) != 0;
+				r = count >= bits ? (neg ? m : 0) : (((value >>> count) | (neg ? ((m << (bits - count)) & m) : 0)) & m);
+				carry = count >= bits ? neg : ((value >>> (count - 1)) & 1) != 0;
 			} else {
-				r = count >= bits ? 0 : (v >>> count);
-				carry = count > bits ? false : ((v >>> (count - 1)) & 1) != 0;
+				r = count >= bits ? 0 : (value >>> count);
+				carry = count > bits ? false : ((value >>> (count - 1)) & 1) != 0;
 			}
 			c.vf = false;
 		}
@@ -105,11 +105,11 @@ class Shifts {
 			final head = sz == 4 ? 4 : 2;
 
 			t[0xE000 | (cnt << 9) | (dr << 8) | (szBits << 6) | (ir << 5) | (type << 3) | reg] = function(c:M68000) {
-				final n = byReg ? (c.d[countReg] & 63) : fixed;
-				final res = shiftOp(c, ty, left, c.d[r] & mask(size), n, size);
+				final amount = byReg ? (c.d[countReg] & 63) : fixed;
+				final res = shiftOp(c, ty, left, c.d[r] & mask(size), amount, size);
 				writeReg(c, r, size, res);
 				c.prefetch();
-				c.idle(head + (n << 1));
+				c.idle(head + (amount << 1));
 			}
 		}
 	}
@@ -125,10 +125,10 @@ class Shifts {
 				if (c.faulted) return;
 				operandFaultPc(c, mode, reg, 2, 0);
 
-				final v = readMem(c, addr, 2);
+				final value = readMem(c, addr, 2);
 				if (c.faulted) return;
 
-				final res = shiftOp(c, ty, left, v, 1, 2);
+				final res = shiftOp(c, ty, left, value, 1, 2);
 				c.prefetch();
 				writeBack(c, addr, 2, res);
 			}
@@ -156,12 +156,12 @@ class Shifts {
 					if (mode == 0) {
 						final b = bitNum & 31;
 						final bit = 1 << b;
-						final v = c.d[reg];
-						c.zf = (v & bit) == 0;
+						final value = c.d[reg];
+						c.zf = (value & bit) == 0;
 						switch (ty) {
-							case 1: c.d[reg] = v ^ bit;
-							case 2: c.d[reg] = v & ~bit;
-							case 3: c.d[reg] = v | bit;
+							case 1: c.d[reg] = value ^ bit;
+							case 2: c.d[reg] = value & ~bit;
+							case 3: c.d[reg] = value | bit;
 							default:
 						}
 						c.prefetch();
@@ -172,22 +172,22 @@ class Shifts {
 					final bit = 1 << (bitNum & 7);
 
 					if (ty == 0) {
-						final v = readEa(c, mode, reg, 1, fromReg ? 0 : 1);
+						final value = readEa(c, mode, reg, 1, fromReg ? 0 : 1);
 						if (c.faulted) return;
-						c.zf = (v & bit) == 0;
+						c.zf = (value & bit) == 0;
 						c.prefetch();
 						if (mode == 7 && reg == 4) c.idle(2);
 						return;
 					}
 
 					final addr = eaAddr(c, mode, reg, 1);
-					final v = c.readByte(addr, c.dataFc());
-					c.zf = (v & bit) == 0;
+					final value = c.readByte(addr, c.dataFc());
+					c.zf = (value & bit) == 0;
 					c.prefetch();
 					c.writeByte(addr, c.dataFc(), switch (ty) {
-						case 1: v ^ bit;
-						case 2: v & ~bit;
-						default: v | bit;
+						case 1: value ^ bit;
+						case 2: value & ~bit;
+						default: value | bit;
 					});
 				}
 			}
@@ -202,18 +202,18 @@ class Shifts {
 
 			t[0x4AC0 | (m << 3) | r] = function(c:M68000) {
 				if (mode == 0) {
-					final v = c.d[reg] & 0xFF;
-					setLogicFlags(c, v, 1);
-					c.d[reg] = (c.d[reg] & 0xFFFFFF00) | (v | 0x80);
+					final value = c.d[reg] & 0xFF;
+					setLogicFlags(c, value, 1);
+					c.d[reg] = (c.d[reg] & 0xFFFFFF00) | (value | 0x80);
 					c.prefetch();
 					return;
 				}
 
 				final addr = eaAddr(c, mode, reg, 1);
-				final v = c.readByte(addr, c.dataFc());
-				setLogicFlags(c, v, 1);
+				final value = c.readByte(addr, c.dataFc());
+				setLogicFlags(c, value, 1);
 				c.idle(2);
-				c.writeByte(addr, c.dataFc(), v | 0x80);
+				c.writeByte(addr, c.dataFc(), value | 0x80);
 				c.prefetch();
 			}
 		}

@@ -31,9 +31,9 @@ class Exceptions {
 	}
 
 	public static function traps(t:Vector<M68000->Void>):Void {
-		for (n in 0...16) {
-			final vector = 32 + n;
-			t[0x4E40 | n] = function(c:M68000) {
+		for (trap in 0...16) {
+			final vector = 32 + trap;
+			t[0x4E40 | trap] = function(c:M68000) {
 				c.exception(vector, (c.pcAtStart - 2) | 0, 4);
 			}
 		}
@@ -78,20 +78,20 @@ class Exceptions {
 				final bound = signExt16(readEa(c, mode, reg, 2, 0));
 				if (c.faulted) return;
 
-				final v = signExt16(c.d[d] & 0xFFFF);
-				c.zf = v == 0;
+				final value = signExt16(c.d[d] & 0xFFFF);
+				c.zf = value == 0;
 				c.vf = false;
 				c.cf = false;
-				c.nf = v < 0;
+				c.nf = value < 0;
 
-				if (v >= 0 && v <= bound) {
+				if (value >= 0 && value <= bound) {
 					c.idle(6);
 					c.prefetch();
 					return;
 				}
 
-				final diff = (v - bound) & 0xFFFF;
-				final slow = v < 0 && ((diff & 0x8000) != 0 || diff == 0);
+				final diff = (value - bound) & 0xFFFF;
+				final slow = value < 0 && ((diff & 0x8000) != 0 || diff == 0);
 				c.exception(VEC_CHK, (c.pcAtStart - 2 + back) | 0, slow ? 10 : 8);
 			}
 		}
@@ -123,19 +123,19 @@ class Exceptions {
 			if (m == 1 || (m == 7 && r > 4)) continue;
 
 			t[0x44C0 | (m << 3) | r] = function(c:M68000) {
-				final v = readEa(c, mode, reg, 2, 0);
+				final value = readEa(c, mode, reg, 2, 0);
 				if (c.faulted) return;
 				c.idle(4);
-				c.setCcr(v);
+				c.setCcr(value);
 				statusTail(c);
 			}
 
 			t[0x46C0 | (m << 3) | r] = function(c:M68000) {
 				if (!supervisor(c)) return;
-				final v = readEa(c, mode, reg, 2, 0);
+				final value = readEa(c, mode, reg, 2, 0);
 				if (c.faulted) return;
 				c.idle(4);
-				c.setSr(v);
+				c.setSr(value);
 				statusTail(c);
 			}
 		}
@@ -152,11 +152,11 @@ class Exceptions {
 			t[base | 0x3C] = function(c:M68000) {
 				final imm = c.fetchExt() & 0xFF;
 				c.idle(8);
-				final v = c.getCcr();
+				final value = c.getCcr();
 				c.setCcr(switch (kind) {
-					case Arithmetic.OP_OR: v | imm;
-					case Arithmetic.OP_AND: v & imm;
-					default: v ^ imm;
+					case Arithmetic.OP_OR: value | imm;
+					case Arithmetic.OP_AND: value & imm;
+					default: value ^ imm;
 				});
 				statusTail(c);
 			}
@@ -165,11 +165,11 @@ class Exceptions {
 				if (!supervisor(c)) return;
 				final imm = c.fetchExt() & 0xFFFF;
 				c.idle(8);
-				final v = c.getSr();
+				final value = c.getSr();
 				c.setSr(switch (kind) {
-					case Arithmetic.OP_OR: v | imm;
-					case Arithmetic.OP_AND: v & imm;
-					default: v ^ imm;
+					case Arithmetic.OP_OR: value | imm;
+					case Arithmetic.OP_AND: value & imm;
+					default: value ^ imm;
 				});
 				statusTail(c);
 			}
@@ -185,9 +185,9 @@ class Exceptions {
 
 		t[0x4E72] = function(c:M68000) {
 			if (!supervisor(c)) return;
-			final v = c.irc;
+			final value = c.irc;
 			c.idle(4);
-			c.setSr(v);
+			c.setSr(value);
 		}
 
 		t[0x4E73] = function(c:M68000) {

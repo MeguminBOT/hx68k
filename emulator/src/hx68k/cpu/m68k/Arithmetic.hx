@@ -77,9 +77,9 @@ class Arithmetic {
 				final tail = sz != 4 ? 0 : (kind == OP_CMP ? 2 : (srcMem ? 2 : 4));
 
 				t[base | (dreg << 9) | (szBits << 6) | (m << 3) | r] = function(c:M68000) {
-					final v = readEa(c, mode, reg, size, 0);
+					final value = readEa(c, mode, reg, size, 0);
 					if (c.faulted) return;
-					final res = aluOp(c, k, c.d[d] & mask(size), v, size);
+					final res = aluOp(c, k, c.d[d] & mask(size), value, size);
 					if (k != OP_CMP) writeReg(c, d, size, res);
 					c.prefetch();
 					c.idle(tail);
@@ -111,10 +111,10 @@ class Arithmetic {
 					if (c.faulted) return;
 					operandFaultPc(c, mode, reg, size, 0);
 
-					final v = readMem(c, addr, size);
+					final value = readMem(c, addr, size);
 					if (c.faulted) return;
 
-					final res = aluOp(c, k, v, src, size);
+					final res = aluOp(c, k, value, src, size);
 					c.prefetch();
 					writeBack(c, addr, size, res);
 				}
@@ -136,10 +136,10 @@ class Arithmetic {
 				t[base | (areg << 9) | (opmode << 6) | (m << 3) | r] = function(c:M68000) {
 					final raw = readEa(c, mode, reg, size, 0);
 					if (c.faulted) return;
-					final v = size == 2 ? signExt16(raw) : (raw | 0);
+					final value = size == 2 ? signExt16(raw) : (raw | 0);
 
-					if (k == OP_CMP) aluOp(c, OP_CMP, c.a[a] | 0, v, 4);
-					else c.a[a] = (k == OP_ADD ? (c.a[a] + v) : (c.a[a] - v)) | 0;
+					if (k == OP_CMP) aluOp(c, OP_CMP, c.a[a] | 0, value, 4);
+					else c.a[a] = (k == OP_ADD ? (c.a[a] + value) : (c.a[a] - value)) | 0;
 
 					c.prefetch();
 					c.idle(tail);
@@ -180,10 +180,10 @@ class Arithmetic {
 					if (c.faulted) return;
 					operandFaultPc(c, mode, reg, size, immExt);
 
-					final v = readMem(c, addr, size);
+					final value = readMem(c, addr, size);
 					if (c.faulted) return;
 
-					final res = aluOp(c, k, v, imm, size);
+					final res = aluOp(c, k, value, imm, size);
 					c.prefetch();
 					if (k != OP_CMP) writeBack(c, addr, size, res);
 				}
@@ -198,19 +198,19 @@ class Arithmetic {
 			for (m in 0...8) for (r in 0...8) {
 				if (m == 1 ? sz == 1 : (m != 0 && !memAlterable(m, r))) continue;
 
-				final mode = m, reg = r, size = sz, v = value;
+				final mode = m, reg = r, size = sz, operand = value;
 				final k = sub == 0 ? OP_ADD : OP_SUB;
 
 				t[0x5000 | (data << 9) | (sub << 8) | (szBits << 6) | (m << 3) | r] = function(c:M68000) {
 					if (mode == 1) {
-						c.a[reg] = (k == OP_ADD ? (c.a[reg] + v) : (c.a[reg] - v)) | 0;
+						c.a[reg] = (k == OP_ADD ? (c.a[reg] + operand) : (c.a[reg] - operand)) | 0;
 						c.prefetch();
 						c.idle(4);
 						return;
 					}
 
 					if (mode == 0) {
-						final res = aluOp(c, k, c.d[reg] & mask(size), v, size);
+						final res = aluOp(c, k, c.d[reg] & mask(size), operand, size);
 						writeReg(c, reg, size, res);
 						c.prefetch();
 						if (size == 4) c.idle(4);
@@ -224,7 +224,7 @@ class Arithmetic {
 					final cur = readMem(c, addr, size);
 					if (c.faulted) return;
 
-					final res = aluOp(c, k, cur, v, size);
+					final res = aluOp(c, k, cur, operand, size);
 					c.prefetch();
 					writeBack(c, addr, size, res);
 				}
@@ -265,30 +265,30 @@ class Arithmetic {
 		}
 	}
 
-	static function unaryResult(c:M68000, kind:Int, v:Int, size:Int):Int {
+	static function unaryResult(c:M68000, kind:Int, value:Int, size:Int):Int {
 		final m = mask(size);
 		final top = msb(size);
 
 		switch (kind) {
 			case NEG:
-				final r = (0 - v) & m;
+				final r = (0 - value) & m;
 				c.nf = (r & top) != 0;
 				c.zf = r == 0;
-				c.vf = (v & r & top) != 0;
+				c.vf = (value & r & top) != 0;
 				c.cf = r != 0;
 				c.xf = c.cf;
 				return r;
 			case NEGX:
 				final x = c.xf ? 1 : 0;
-				final r = (0 - v - x) & m;
+				final r = (0 - value - x) & m;
 				c.nf = (r & top) != 0;
 				if (r != 0) c.zf = false;
-				c.vf = (v & r & top) != 0;
-				c.cf = v != 0 || x != 0;
+				c.vf = (value & r & top) != 0;
+				c.cf = value != 0 || x != 0;
 				c.xf = c.cf;
 				return r;
 			default:
-				final r = (~v) & m;
+				final r = (~value) & m;
 				setLogicFlags(c, r, size);
 				return r;
 		}
@@ -313,10 +313,10 @@ class Arithmetic {
 					if (c.faulted) return;
 					operandFaultPc(c, mode, reg, size, 0);
 
-					final v = readMem(c, addr, size);
+					final value = readMem(c, addr, size);
 					if (c.faulted) return;
 
-					final res = unaryResult(c, k, v, size);
+					final res = unaryResult(c, k, value, size);
 
 					c.prefetch();
 					writeBack(c, addr, size, res);
@@ -332,9 +332,9 @@ class Arithmetic {
 				if (!dataAlterable(m, r)) continue;
 				final mode = m, reg = r, size = sz;
 				t[0x4A00 | (szBits << 6) | (m << 3) | r] = function(c:M68000) {
-					final v = readEa(c, mode, reg, size, 0);
+					final value = readEa(c, mode, reg, size, 0);
 					if (c.faulted) return;
-					setLogicFlags(c, v, size);
+					setLogicFlags(c, value, size);
 					c.prefetch();
 				}
 			}
@@ -515,8 +515,8 @@ class Arithmetic {
 				}
 
 				final addr = eaAddr(c, mode, reg, 1);
-				final v = c.readByte(addr, c.dataFc());
-				final res = bcdSub(c, 0, v);
+				final value = c.readByte(addr, c.dataFc());
+				final res = bcdSub(c, 0, value);
 				c.prefetch();
 				c.writeByte(addr, c.dataFc(), res);
 			}

@@ -3,19 +3,19 @@ package hx68k.cpu.m68k;
 import hx68k.cpu.m68k.Addressing.*;
 
 class Flags {
-	public static inline function setNz(c:M68000, v:Int, size:Int):Void {
-		c.nf = (v & msb(size)) != 0;
-		c.zf = (v & mask(size)) == 0;
+	public static inline function setNz(c:M68000, value:Int, size:Int):Void {
+		c.nf = (value & msb(size)) != 0;
+		c.zf = (value & mask(size)) == 0;
 	}
 
-	public static inline function setLogicFlags(c:M68000, v:Int, size:Int):Void {
-		setNz(c, v, size);
+	public static inline function setLogicFlags(c:M68000, value:Int, size:Int):Void {
+		setNz(c, value, size);
 		c.vf = false;
 		c.cf = false;
 	}
 
-	public static inline function settleFlags(c:M68000, v:Int, size:Int, earlyNz:Bool, earlyVc:Bool):Void {
-		if (!earlyNz) setNz(c, v, size);
+	public static inline function settleFlags(c:M68000, value:Int, size:Int, earlyNz:Bool, earlyVc:Bool):Void {
+		if (!earlyNz) setNz(c, value, size);
 		if (!earlyVc) {
 			c.vf = false;
 			c.cf = false;

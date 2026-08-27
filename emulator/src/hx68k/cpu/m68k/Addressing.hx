@@ -1,12 +1,12 @@
 package hx68k.cpu.m68k;
 
 class Addressing {
-	public static inline function signExt8(v:Int):Int {
-		return (v & 0x80) != 0 ? v | 0xFFFFFF00 : v & 0xFF;
+	public static inline function signExt8(value:Int):Int {
+		return (value & 0x80) != 0 ? value | 0xFFFFFF00 : value & 0xFF;
 	}
 
-	public static inline function signExt16(v:Int):Int {
-		return (v & 0x8000) != 0 ? v | 0xFFFF0000 : v & 0xFFFF;
+	public static inline function signExt16(value:Int):Int {
+		return (value & 0x8000) != 0 ? value | 0xFFFF0000 : value & 0xFFFF;
 	}
 
 	public static inline function mask(size:Int):Int {
@@ -120,8 +120,8 @@ class Addressing {
 					final lo = c.fetchExt();
 					return (hi << 16) | lo;
 				}
-				final v = c.fetchExt();
-				return size == 1 ? (v & 0xFF) : (v & 0xFFFF);
+				final value = c.fetchExt();
+				return size == 1 ? (value & 0xFF) : (value & 0xFFFF);
 			default:
 				final addr = eaAddr(c, mode, reg, size);
 				if (c.faulted) return 0;
@@ -143,27 +143,27 @@ class Addressing {
 		}
 	}
 
-	public static function writeMem(c:M68000, addr:Int, size:Int, v:Int):Void {
+	public static function writeMem(c:M68000, addr:Int, size:Int, value:Int):Void {
 		switch (size) {
-			case 1: c.writeByte(addr, c.dataFc(), v);
-			case 2: c.writeWord(addr, c.dataFc(), v);
-			default: c.writeLong(addr, c.dataFc(), v);
+			case 1: c.writeByte(addr, c.dataFc(), value);
+			case 2: c.writeWord(addr, c.dataFc(), value);
+			default: c.writeLong(addr, c.dataFc(), value);
 		}
 	}
 
-	public static inline function writeBack(c:M68000, addr:Int, size:Int, v:Int):Void {
+	public static inline function writeBack(c:M68000, addr:Int, size:Int, value:Int):Void {
 		switch (size) {
-			case 1: c.writeByte(addr, c.dataFc(), v);
-			case 2: c.writeWord(addr, c.dataFc(), v);
-			default: c.writeLongLowFirst(addr, c.dataFc(), v);
+			case 1: c.writeByte(addr, c.dataFc(), value);
+			case 2: c.writeWord(addr, c.dataFc(), value);
+			default: c.writeLongLowFirst(addr, c.dataFc(), value);
 		}
 	}
 
-	public static function writeReg(c:M68000, reg:Int, size:Int, v:Int):Void {
+	public static function writeReg(c:M68000, reg:Int, size:Int, value:Int):Void {
 		switch (size) {
-			case 1: c.d[reg] = (c.d[reg] & 0xFFFFFF00) | (v & 0xFF);
-			case 2: c.d[reg] = (c.d[reg] & 0xFFFF0000) | (v & 0xFFFF);
-			default: c.d[reg] = v | 0;
+			case 1: c.d[reg] = (c.d[reg] & 0xFFFFFF00) | (value & 0xFF);
+			case 2: c.d[reg] = (c.d[reg] & 0xFFFF0000) | (value & 0xFFFF);
+			default: c.d[reg] = value | 0;
 		}
 	}
 
@@ -197,11 +197,11 @@ class Addressing {
 		}
 	}
 
-	public static inline function push32(c:M68000, v:Int):Void {
+	public static inline function push32(c:M68000, value:Int):Void {
 		final sp = (c.a[7] - 4) | 0;
 		c.a[7] = sp;
-		c.writeWord(sp, c.dataFc(), (v >>> 16) & 0xFFFF);
+		c.writeWord(sp, c.dataFc(), (value >>> 16) & 0xFFFF);
 		if (c.faulted) return;
-		c.writeWord((sp + 2) | 0, c.dataFc(), v & 0xFFFF);
+		c.writeWord((sp + 2) | 0, c.dataFc(), value & 0xFFFF);
 	}
 }

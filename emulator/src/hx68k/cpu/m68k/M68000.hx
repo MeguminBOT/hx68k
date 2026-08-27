@@ -55,27 +55,27 @@ class M68000 {
 		return (xf ? 0x10 : 0) | (nf ? 0x08 : 0) | (zf ? 0x04 : 0) | (vf ? 0x02 : 0) | (cf ? 0x01 : 0);
 	}
 
-	public function setSr(v:Int):Void {
-		setS((v & 0x2000) != 0);
-		t = (v & 0x8000) != 0;
-		imask = (v >> 8) & 7;
-		setCcr(v);
+	public function setSr(value:Int):Void {
+		setS((value & 0x2000) != 0);
+		t = (value & 0x8000) != 0;
+		imask = (value >> 8) & 7;
+		setCcr(value);
 	}
 
-	public inline function setCcr(v:Int):Void {
-		xf = (v & 0x10) != 0;
-		nf = (v & 0x08) != 0;
-		zf = (v & 0x04) != 0;
-		vf = (v & 0x02) != 0;
-		cf = (v & 0x01) != 0;
+	public inline function setCcr(value:Int):Void {
+		xf = (value & 0x10) != 0;
+		nf = (value & 0x08) != 0;
+		zf = (value & 0x04) != 0;
+		vf = (value & 0x02) != 0;
+		cf = (value & 0x01) != 0;
 	}
 
-	public function setS(v:Bool):Void {
-		if (v == s) return;
+	public function setS(value:Bool):Void {
+		if (value == s) return;
 		final tmp = a[7];
 		a[7] = inactiveSp;
 		inactiveSp = tmp;
-		s = v;
+		s = value;
 	}
 
 	public inline function dataFc():Int {
@@ -86,15 +86,15 @@ class M68000 {
 		return s ? FunctionCode.SUPER_PROGRAM : FunctionCode.USER_PROGRAM;
 	}
 
-	public inline function idle(n:Int):Void {
-		if (n > 0) bus.idle(n);
+	public inline function idle(cycles:Int):Void {
+		if (cycles > 0) bus.idle(cycles);
 	}
 
 	public function readByte(addr:Int, fc:Int):Int {
 		addr &= 0xFFFFFF;
 		final odd = (addr & 1) != 0;
-		final v = bus.read(addr & 0xFFFFFE, fc, !odd, odd);
-		return odd ? (v & 0xFF) : ((v >> 8) & 0xFF);
+		final value = bus.read(addr & 0xFFFFFE, fc, !odd, odd);
+		return odd ? (value & 0xFF) : ((value >> 8) & 0xFF);
 	}
 
 	public function readWord(addr:Int, fc:Int):Int {
@@ -116,39 +116,39 @@ class M68000 {
 		return (hi << 16) | lo;
 	}
 
-	public function writeByte(addr:Int, fc:Int, v:Int):Void {
+	public function writeByte(addr:Int, fc:Int, value:Int):Void {
 		addr &= 0xFFFFFF;
-		v &= 0xFF;
+		value &= 0xFF;
 		final odd = (addr & 1) != 0;
-		bus.write(addr & 0xFFFFFE, fc, odd ? v : (v << 8), !odd, odd);
+		bus.write(addr & 0xFFFFFE, fc, odd ? value : (value << 8), !odd, odd);
 	}
 
-	public function writeWord(addr:Int, fc:Int, v:Int):Void {
+	public function writeWord(addr:Int, fc:Int, value:Int):Void {
 		if ((addr & 1) != 0) {
-			addressError(addr, fc, false, v);
+			addressError(addr, fc, false, value);
 			return;
 		}
-		bus.write(addr & 0xFFFFFF, fc, v & 0xFFFF, true, true);
+		bus.write(addr & 0xFFFFFF, fc, value & 0xFFFF, true, true);
 	}
 
-	public function writeLong(addr:Int, fc:Int, v:Int):Void {
+	public function writeLong(addr:Int, fc:Int, value:Int):Void {
 		if ((addr & 1) != 0) {
-			addressError(addr, fc, false, (v >>> 16) & 0xFFFF);
+			addressError(addr, fc, false, (value >>> 16) & 0xFFFF);
 			return;
 		}
-		bus.write(addr & 0xFFFFFF, fc, (v >>> 16) & 0xFFFF, true, true);
+		bus.write(addr & 0xFFFFFF, fc, (value >>> 16) & 0xFFFF, true, true);
 		if (faulted) return;
-		bus.write((addr + 2) & 0xFFFFFF, fc, v & 0xFFFF, true, true);
+		bus.write((addr + 2) & 0xFFFFFF, fc, value & 0xFFFF, true, true);
 	}
 
-	public function writeLongLowFirst(addr:Int, fc:Int, v:Int):Void {
+	public function writeLongLowFirst(addr:Int, fc:Int, value:Int):Void {
 		if ((addr & 1) != 0) {
-			addressError((addr + 2) | 0, fc, false, v & 0xFFFF);
+			addressError((addr + 2) | 0, fc, false, value & 0xFFFF);
 			return;
 		}
-		bus.write((addr + 2) & 0xFFFFFF, fc, v & 0xFFFF, true, true);
+		bus.write((addr + 2) & 0xFFFFFF, fc, value & 0xFFFF, true, true);
 		if (faulted) return;
-		bus.write(addr & 0xFFFFFF, fc, (v >>> 16) & 0xFFFF, true, true);
+		bus.write(addr & 0xFFFFFF, fc, (value >>> 16) & 0xFFFF, true, true);
 	}
 
 	public function readLongLowFirst(addr:Int, fc:Int):Int {
@@ -184,10 +184,10 @@ class M68000 {
 	}
 
 	public inline function fetchExt():Int {
-		final v = irc;
+		final value = irc;
 		irc = bus.read(pc & 0xFFFFFE, progFc(), true, true) & 0xFFFF;
 		pc = (pc + 2) | 0;
-		return v;
+		return value;
 	}
 
 	public inline function extAddr():Int {
@@ -200,8 +200,8 @@ class M68000 {
 		return bus.read(addr & 0xFFFFFE, fc, true, true) & 0xFFFF;
 	}
 
-	inline function rawWrite(addr:Int, fc:Int, v:Int):Void {
-		bus.write(addr & 0xFFFFFE, fc, v & 0xFFFF, true, true);
+	inline function rawWrite(addr:Int, fc:Int, value:Int):Void {
+		bus.write(addr & 0xFFFFFE, fc, value & 0xFFFF, true, true);
 	}
 
 	public function addressError(addr:Int, fc:Int, read:Bool, data:Int):Void {
