@@ -186,7 +186,7 @@ class Emit {
 	public function header():String {
 		final guard = "_RES_" + name.toUpperCase() + "_H_";
 		final opening = includes.length > 0 ? includes.join(NEWLINE) + NEWLINE + NEWLINE : "";
-		return "#include <genesis.h>" + NEWLINE + NEWLINE
+		return "#include \"hx.h\"" + NEWLINE + NEWLINE
 			+ "#ifndef " + guard + NEWLINE + "#define " + guard + NEWLINE + NEWLINE
 			+ opening + declarations.join(NEWLINE) + NEWLINE + NEWLINE
 			+ "#endif" + NEWLINE;

@@ -618,6 +618,8 @@ static const probe_t sdk_expected[] = {	{ "md.Vdp.setBackgroundColour", 2 },
 	{ "md.Tilemap.setCell landed",  0x0021 },
 	{ "md.Tilemap.fill landed",     0x0055 },
 	{ "md.Dma.transferFrom landed", 0xA4A5 },
+	/* queued and never flushed by hand: only md.System.doVBlankProcess drains the queue */
+	{ "md.Dma.queueFrom, flushed by the frame process", 0xA4A5 },
 	{ "md.Joy.read agrees with the port", 0x88 },
 	{ "md.Joy.portType is a pad",   0x0D },
 	{ "md.Joy.padType is three-button", 0x00 },

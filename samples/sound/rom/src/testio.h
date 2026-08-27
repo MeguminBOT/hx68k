@@ -1,7 +1,7 @@
 #ifndef TESTIO_H
 #define TESTIO_H
 
-#include <genesis.h>
+#include "hx.h"
 
 extern volatile s32 hx_probe[64];
 extern volatile u16 hx_probe_count;

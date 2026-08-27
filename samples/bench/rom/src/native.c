@@ -1,4 +1,4 @@
-#include <genesis.h>
+#include "hx.h"
 
 #include "native.h"
 

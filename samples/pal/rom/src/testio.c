@@ -1,4 +1,4 @@
-#include <genesis.h>
+#include "hx.h"
 
 /*
  * Probe channel for the headless harness, which reads these symbols straight out

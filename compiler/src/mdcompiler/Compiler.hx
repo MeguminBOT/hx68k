@@ -73,7 +73,8 @@ class Compiler extends DirectToStringCompiler {
 		if(main != null) addModuleTypeForCompilation(main);
 
 		setExtraFile(HEADER, "");
-		appendToExtraFile(HEADER, "#ifndef _HX_H_\n#define _HX_H_\n\n#include <genesis.h>", P_PROLOGUE);
+		appendToExtraFile(HEADER, "#ifndef _HX_H_\n#define _HX_H_\n\n"
+			+ (Context.defined("md-sgdk") ? "#include <genesis.h>\n" : machine()), P_PROLOGUE);
 		appendToExtraFile(HEADER, "extern s32 hx_bounds_hits;\n", P_GLOBALS);
 		appendToExtraFile(HEADER, "static inline s32 hx_text_length(const char* text)\n{\n"
 			+ "\t const char* at = text;\n\t while(*at) at++;\n\t return (s32)(at - text);\n}\n", P_PROTOS);
@@ -88,6 +89,79 @@ void md_interrupts_off(void);
 				P_PROTOS);
 
 		appendToExtraFile(HEADER, "#endif", P_EPILOGUE);
+	}
+
+	static function machine():String {
+		return "typedef char s8;\n"
+			+ "typedef short s16;\n"
+			+ "typedef long s32;\n"
+			+ "typedef unsigned char u8;\n"
+			+ "typedef unsigned short u16;\n"
+			+ "typedef unsigned long u32;\n"
+			+ "typedef u8 bool;\n"
+			+ "typedef s16 fix16;\n"
+			+ "typedef s32 fix32;\n"
+			+ "\n"
+			+ "#define TRUE 1\n"
+			+ "#define FALSE 0\n"
+			+ "#define NULL 0\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu16 length;\n"
+			+ "\tu16* data;\n"
+			+ "} Palette;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu16 compression;\n"
+			+ "\tu16 numTile;\n"
+			+ "\tu32* tiles;\n"
+			+ "} TileSet;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu16 compression;\n"
+			+ "\tu16 w;\n"
+			+ "\tu16 h;\n"
+			+ "\tu16* tilemap;\n"
+			+ "} TileMap;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tPalette* palette;\n"
+			+ "\tTileSet* tileset;\n"
+			+ "\tTileMap* tilemap;\n"
+			+ "} Image;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu8 offsetY;\n"
+			+ "\tu8 offsetYFlip;\n"
+			+ "\tu8 size;\n"
+			+ "\tu8 offsetX;\n"
+			+ "\tu8 offsetXFlip;\n"
+			+ "\tu8 numTile;\n"
+			+ "} FrameVDPSprite;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\ts8 numSprite;\n"
+			+ "\tu8 timer;\n"
+			+ "\tTileSet* tileset;\n"
+			+ "\tvoid* collision;\n"
+			+ "\tFrameVDPSprite frameVDPSprites[];\n"
+			+ "} AnimationFrame;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu8 numFrame;\n"
+			+ "\tu8 loop;\n"
+			+ "\tAnimationFrame** frames;\n"
+			+ "} Animation;\n"
+			+ "\n"
+			+ "typedef struct {\n"
+			+ "\tu16 w;\n"
+			+ "\tu16 h;\n"
+			+ "\tPalette* palette;\n"
+			+ "\tu16 numAnimation;\n"
+			+ "\tAnimation** animations;\n"
+			+ "\tu16 maxNumTile;\n"
+			+ "\tu16 maxNumSprite;\n"
+			+ "} SpriteDefinition;\n";
 	}
 
 	public override function onCompileEnd() {
@@ -126,7 +200,30 @@ void md_interrupts_off(void);
 		final region = pal ? "E" : "JUE";
 		final domestic = pal ? "OVERSEAS PROGRAM" : "SAMPLE PROGRAM";
 
-		return "#include <genesis.h>\n\n"
+		final alone = !Context.defined("md-sgdk");
+
+		return "#include \"hx.h\"\n\n"
+			+ (alone ? "typedef struct {\n"
+				+ "\tchar console[16];\n"
+				+ "\tchar copyright[16];\n"
+				+ "\tchar domestic[48];\n"
+				+ "\tchar overseas[48];\n"
+				+ "\tchar serial[14];\n"
+				+ "\tu16 checksum;\n"
+				+ "\tchar devices[16];\n"
+				+ "\tu32 romStart;\n"
+				+ "\tu32 romEnd;\n"
+				+ "\tu32 ramStart;\n"
+				+ "\tu32 ramEnd;\n"
+				+ "\tchar backupSignature[2];\n"
+				+ "\tu16 backupType;\n"
+				+ "\tu32 backupStart;\n"
+				+ "\tu32 backupEnd;\n"
+				+ "\tchar modem[12];\n"
+				+ "\tchar notes[40];\n"
+				+ "\tchar region[16];\n"
+				+ "} ROMHeader;\n\n"
+				: "")
 			+ "__attribute__((externally_visible))\n"
 			+ "const ROMHeader rom_header = {\n"
 			+ padded("SEGA MEGA DRIVE ", 16)
@@ -145,7 +242,7 @@ void md_interrupts_off(void);
 			+ "\t0x00200000,\n"
 			+ "\t0x0020FFFF,\n"
 			+ padded("            ", 12)
-			+ padded("DEMONSTRATION PROGRAM                   ", 40)
+			+ padded("HX68K 2026  (C)SGDK 2026                ", 40)
 			+ padded(region, 16, false)
 			+ "};\n";
 	}

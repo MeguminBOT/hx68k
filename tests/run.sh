@@ -99,6 +99,18 @@ build "art rom"     "$ROOT/samples/art/build.sh"
 build "events rom"  "$ROOT/samples/events/build.sh"
 build "sdk rom"     "$ROOT/samples/sdk/build.sh"
 build "bare rom"    "$ROOT/samples/bare/build.sh"
+# nothing a sample compiles may reach for SGDK's header. samples/bench is the exception and says
+# so with -D md-sgdk, which is what puts genesis.h back into its hx.h.
+missing "no sgdk header" "$ROOT/samples/bare/rom/src/hx.h" '#include <genesis.h>'
+codegen "own typedefs"  "$ROOT/samples/bare/rom/src/hx.h" 'typedef unsigned short u16;'
+codegen "own resources" "$ROOT/samples/art/rom/src/hx.h" '\} SpriteDefinition;'
+codegen "own rom header" "$ROOT/samples/bare/rom/src/rom_header.c" '\} ROMHeader;'
+
+# the header layout is SGDK's and the boot came from there, so the copyright field keeps its
+# attribution and ours goes in the notes field beside it
+codegen "sgdk attributed" "$ROOT/samples/bare/rom/src/rom_header.c" '"\(C\)SGDK 2026 {4}"'
+codegen "and hx68k too"  "$ROOT/samples/bare/rom/src/rom_header.c" '"HX68K 2026 {2}\(C\)SGDK 2026 {16}"'
+
 build "harness"     "$HERE/harness/build.sh"
 
 # every check and tool below used to be its own neko build and its own neko run. One hxcpp binary
@@ -207,6 +219,7 @@ build "sound rom" "$ROOT/samples/sound/build.sh"
 echo ""
 echo "--- generated code against the C written beside it, in 68000 cycles ---"
 build "bench rom" "$ROOT/samples/bench/build.sh"
+codegen "sgdk when asked" "$ROOT/samples/bench/rom/src/hx.h" '#include <genesis.h>'
 "$GATE" bench 	"$ROOT/samples/bench/rom/out/release/rom.bin" 	"$ROOT/samples/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c aplib:haxe aplib:asm lz4w:haxe lz4w:asm sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c psg:haxe psg:c fm:haxe fm:c pad:haxe pad:c
 
 echo ""
