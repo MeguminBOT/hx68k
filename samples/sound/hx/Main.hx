@@ -1,18 +1,22 @@
 package;
 
+import md.Boot;
 import md.Fm;
 import md.Memory;
 import md.Probe;
 import md.Psg;
-import md.sgdk.System;
-import md.sgdk.Z80Bus;
-import md.sgdk.Sound;
+import md.Sound;
+import md.System;
+import md.Z80Bus;
 
 class Main {
 	static inline final SETTLED = 0x5350;
 
 	@:md.main
 	static function main():Void {
+		Boot.begin();
+		Boot.listen();
+
 		Psg.reset();
 		Psg.setAttenuation(0, 2);
 		Psg.setTone(0, 0x1A5);
@@ -50,10 +54,16 @@ class Main {
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 200));
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 1000));
 		Probe.report(Memory.readU8(Memory.addressOf(Tunes.beep) + 7000));
+
 		Probe.done();
 
 		while (true) {
 			System.doVBlankProcess();
 		}
+	}
+
+	@:md.vertical
+	static function onVertical():Void {
+		Sound.frame();
 	}
 }
