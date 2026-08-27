@@ -86,7 +86,7 @@ class SettingsPage {
 		scale = widgets.choice(["1x", "2x", "3x"], scale - 1) + 1;
 
 		widgets.say("the viewport sits on the");
-		viewport = switch (widgets.choice(["left", "centre", "right"],
+		viewport = switch (widgets.choice(["left", "center", "right"],
 			viewport == Right ? 2 : (viewport == Middle ? 1 : 0))) {
 			case 2: Right;
 			case 1: Middle;

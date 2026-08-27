@@ -505,7 +505,7 @@ class Workbench {
 	function sideName():String {
 		return switch (viewportSide) {
 			case Right: "right";
-			case Middle: "centre";
+			case Middle: "center";
 			case _: "left";
 		}
 	}
@@ -1443,7 +1443,7 @@ class Workbench {
 
 		viewportSide = switch (settings.text("viewport", "left")) {
 			case "right": Right;
-			case "centre": Middle;
+			case "center": Middle;
 			case _: Left;
 		}
 		tiled = settings.text("arrangement", "grid") != "floating";

@@ -2,7 +2,7 @@
 
 /*
  * Probe channel for the headless harness, which reads these symbols straight out
- * of emulated RAM. hx_seed is volatile so the optimiser cannot constant-fold the
+ * of emulated RAM. hx_seed is volatile so the optimizer cannot constant-fold the
  * loop and recursion tests away.
  */
 

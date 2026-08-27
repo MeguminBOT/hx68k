@@ -169,7 +169,7 @@ class SoundCheck {
 		final offset = count == 0 ? 0.0 : sum / count;
 		final loudness = count == 0 ? 0.0 : Math.sqrt(power / count);
 
-		check(offset > -30 && offset < 30, "the mix sits on centre, off by " + Math.round(offset));
+		check(offset > -30 && offset < 30, "the mix sits on center, off by " + Math.round(offset));
 		check(loudness > 20, "there is something to hear, at " + Math.round(loudness) + " of level");
 		check(loudest < 2600, "nothing ran past what the chips can make, the loudest being " + loudest);
 		check(sound.lost - before == 0,

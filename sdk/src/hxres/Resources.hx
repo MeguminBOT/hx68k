@@ -3,7 +3,7 @@ package hxres;
 #if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
-import hxres.Patterns.Optimisation;
+import hxres.Patterns.Optimization;
 import hxres.Patterns.Ordering;
 import hxres.Sprite.Aim;
 
@@ -70,9 +70,9 @@ class Resources {
 				case "image": {
 					native(entry.pos, () -> {
 						final picture = read(file, true);
-						final patterns = Patterns.of(picture, Optimisation.Every, Ordering.Row, false);
+						final patterns = Patterns.of(picture, Optimization.Every, Ordering.Row, false);
 						emit.image(symbol, picture, patterns,
-							Cells.of(picture, patterns, 0, Optimisation.Every, Ordering.Row));
+							Cells.of(picture, patterns, 0, Optimization.Every, Ordering.Row));
 					});
 					{line: "", type: "Image", symbol: '(&${symbol})', bytes: -1};
 				}
@@ -84,7 +84,7 @@ class Resources {
 					native(entry.pos, () -> {
 						final picture = read(file, true);
 						emit.tileset(symbol, Patterns.of(picture,
-							optimisation(option(arguments, 1, "ALL"), entry.pos), Ordering.Row,
+							optimization(option(arguments, 1, "ALL"), entry.pos), Ordering.Row,
 							false));
 					});
 					{line: "", type: "TileSet", symbol: '(&${symbol})', bytes: -1};
@@ -130,15 +130,15 @@ class Resources {
 		return null;
 	}
 
-	static function optimisation(named:String, pos:Position):Optimisation {
+	static function optimization(named:String, pos:Position):Optimization {
 		return switch (named.toUpperCase()) {
-			case "ALL" | "1": Optimisation.Every;
-			case "DUPLICATE" | "2": Optimisation.Duplicates;
-			case "NONE" | "0": Optimisation.Nothing;
+			case "ALL" | "1": Optimization.Every;
+			case "DUPLICATE" | "2": Optimization.Duplicates;
+			case "NONE" | "0": Optimization.Nothing;
 			case _:
-				Context.error(named + " is not an optimisation level. Use ALL, DUPLICATE or NONE.",
+				Context.error(named + " is not an optimization level. Use ALL, DUPLICATE or NONE.",
 					pos);
-				Optimisation.Every;
+				Optimization.Every;
 		}
 	}
 

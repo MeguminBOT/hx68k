@@ -86,8 +86,8 @@ class Png {
 
 		return switch (kind) {
 			case 3: indexed(rows, width, height, depth, plte);
-			case 0 if (depth == 8): grey(rows, width, height);
-			case 0: indexed(rows, width, height, depth, greyRamp(depth));
+			case 0 if (depth == 8): gray(rows, width, height);
+			case 0: indexed(rows, width, height, depth, grayRamp(depth));
 			case _: color(rows, width, height, samples);
 		}
 	}
@@ -155,7 +155,7 @@ class Png {
 		return toUp <= toCorner ? up : corner;
 	}
 
-	static function greyRamp(depth:Int):Bytes {
+	static function grayRamp(depth:Int):Bytes {
 		final count = 1 << depth;
 		final out = Bytes.alloc(count * 3);
 		final step = Std.int(255 / (count - 1));
@@ -174,7 +174,7 @@ class Png {
 		return new Picture(width, height, depth, indexes, null, palette, declared);
 	}
 
-	static function grey(rows:Bytes, width:Int, height:Int):Picture {
+	static function gray(rows:Bytes, width:Int, height:Int):Picture {
 		final palette = new Array<Int>();
 		for (i in 0...256) palette.push(0xFF000000 | (i << 16) | (i << 8) | i);
 		return new Picture(width, height, 8, rows, null, palette, 256);

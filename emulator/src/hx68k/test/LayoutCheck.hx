@@ -107,12 +107,12 @@ class LayoutCheck {
 		}
 
 		if (both) {
-			ok("centre " + scale + "x puts panels on both sides", before > 0 && after > 0,
+			ok("center " + scale + "x puts panels on both sides", before > 0 && after > 0,
 				before + " to its left and " + after + " to its right");
 			return;
 		}
 
-		ok("centre " + scale + "x falls back to one side rather than shrinking a column",
+		ok("center " + scale + "x falls back to one side rather than shrinking a column",
 			before == 0 || after == 0, before + " to its left and " + after + " to its right");
 	}
 
@@ -141,7 +141,7 @@ class LayoutCheck {
 				before + " to its left and " + after + " to its right");
 			case Right: ok("right puts the viewport rightmost", after == 0 && before > 0,
 				before + " to its left and " + after + " to its right");
-			case _: ok("centre puts the viewport between them", before > 0 && after > 0,
+			case _: ok("center puts the viewport between them", before > 0 && after > 0,
 				before + " to its left and " + after + " to its right");
 		}
 	}
@@ -149,7 +149,7 @@ class LayoutCheck {
 	static function named(side:Side):String {
 		return switch (side) {
 			case Right: " right";
-			case Middle: " centre";
+			case Middle: " center";
 			case _: " left";
 		}
 	}

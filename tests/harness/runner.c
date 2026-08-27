@@ -465,7 +465,7 @@ static const probe_t bare_expected[] = {
 	   with an initial value proves sdk/boot/sega.s copied .data out of ROM into work RAM, and a
 	   vector that was never written proves it cleared the rest. The others prove the VDP came up
 	   from cold with no VDP_init anywhere */
-	{ "an initialised static survived the boot", 0x1234 },
+	{ "an initialized static survived the boot", 0x1234 },
 	{ "and the rest of RAM was cleared", 0 },
 	{ "a color set through the native palette", 0x0EEE },
 	{ "a cell set through the native tilemap", 1 },

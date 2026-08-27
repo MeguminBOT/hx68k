@@ -6,7 +6,7 @@ import haxe.io.BytesBuffer;
 import sys.FileSystem;
 import sys.io.File;
 import hxres.Assembly.Item;
-import hxres.Patterns.Optimisation;
+import hxres.Patterns.Optimization;
 import hxres.Patterns.Ordering;
 import hxres.Sprite.Aim;
 import hxres.Frames.Frame;
@@ -538,8 +538,8 @@ class Check {
 
 		for (each in made) {
 			final picture = Png.read(each.path);
-			final patterns = Patterns.of(picture, Optimisation.Every, Ordering.Row, false);
-			final cells = Cells.of(picture, patterns, 0, Optimisation.Every, Ordering.Row);
+			final patterns = Patterns.of(picture, Optimization.Every, Ordering.Row, false);
+			final cells = Cells.of(picture, patterns, 0, Optimization.Every, Ordering.Row);
 
 			final parts = references(symbols, "i" + each.name);
 			if (parts.length < 3) {

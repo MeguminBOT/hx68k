@@ -2,7 +2,7 @@ package hxres;
 
 #if (macro || md_runtime)
 import hxres.Pattern.Equality;
-import hxres.Patterns.Optimisation;
+import hxres.Patterns.Optimization;
 import hxres.Patterns.Ordering;
 
 class Cells {
@@ -26,14 +26,14 @@ class Cells {
 		this.entries = entries;
 	}
 
-	public static function of(picture:Picture, patterns:Patterns, base:Int, optimise:Optimisation,
+	public static function of(picture:Picture, patterns:Patterns, base:Int, optimize:Optimization,
 			ordering:Ordering):Cells {
 		return within(picture, patterns, base, 0, 0, Std.int(picture.width / Pattern.SIDE),
-			Std.int(picture.height / Pattern.SIDE), optimise, ordering);
+			Std.int(picture.height / Pattern.SIDE), optimize, ordering);
 	}
 
 	public static function within(picture:Picture, patterns:Patterns, base:Int, fromX:Int, fromY:Int,
-			across:Int, down:Int, optimise:Optimisation, ordering:Ordering):Cells {
+			across:Int, down:Int, optimize:Optimization, ordering:Ordering):Cells {
 		final basePriority = (base & (1 << PRIORITY_SHIFT)) != 0;
 		final baseLine = (base >> LINE_SHIFT) & 3;
 		final baseIndex = base & INDEX_MASK;
@@ -49,12 +49,12 @@ class Cells {
 				var index = 0;
 				var equality = Equality.Apart;
 
-				if (optimise == Optimisation.Nothing) {
+				if (optimize == Optimization.Nothing) {
 					index = (ordering == Ordering.Row ? (j * across) + i : (i * down) + j) + baseIndex;
 				} else if (plainAllowed && pattern.isPlain()) {
 					index = pattern.plain;
 				} else {
-					index = patterns.indexOf(pattern, optimise);
+					index = patterns.indexOf(pattern, optimize);
 					if (index == -1)
 						throw new haxe.Exception("The pattern at " + (i + fromX) + "," + (j + fromY)
 							+ " is not in the set built from the same image.");

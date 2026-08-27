@@ -3,7 +3,7 @@ package hxres;
 #if (macro || md_runtime)
 import hxres.Pattern.Equality;
 
-enum Optimisation {
+enum Optimization {
 	Every;
 	Duplicates;
 	Nothing;
@@ -21,13 +21,13 @@ class Patterns {
 
 	public function new() {}
 
-	public static function of(picture:Picture, optimise:Optimisation, ordering:Ordering, blank:Bool):Patterns {
+	public static function of(picture:Picture, optimize:Optimization, ordering:Ordering, blank:Bool):Patterns {
 		return within(picture, 0, 0, Std.int(picture.width / Pattern.SIDE),
-			Std.int(picture.height / Pattern.SIDE), optimise, ordering, blank);
+			Std.int(picture.height / Pattern.SIDE), optimize, ordering, blank);
 	}
 
 	public static function within(picture:Picture, fromX:Int, fromY:Int, across:Int, down:Int,
-			optimise:Optimisation, ordering:Ordering, blank:Bool):Patterns {
+			optimize:Optimization, ordering:Ordering, blank:Bool):Patterns {
 		final out = new Patterns();
 		var sawBlank = false;
 
@@ -42,7 +42,7 @@ class Patterns {
 					(i + fromX) * Pattern.SIDE, (j + fromY) * Pattern.SIDE);
 
 				if (pattern.blank) sawBlank = true;
-				if (out.indexOf(pattern, optimise) == -1) out.add(pattern);
+				if (out.indexOf(pattern, optimize) == -1) out.add(pattern);
 			}
 		}
 
@@ -80,14 +80,14 @@ class Patterns {
 		return index;
 	}
 
-	public function indexOf(pattern:Pattern, optimise:Optimisation):Int {
-		if (optimise == Nothing) return -1;
+	public function indexOf(pattern:Pattern, optimize:Optimization):Int {
+		if (optimize == Nothing) return -1;
 
 		final bucket = buckets.get(pattern.hash);
 		if (bucket == null) return -1;
 
 		for (index in bucket) if (all[index].same(pattern)) return index;
-		if (optimise != Every) return -1;
+		if (optimize != Every) return -1;
 
 		for (index in bucket) if (all[index].flipEquality(pattern) != Equality.Apart) return index;
 		return -1;
