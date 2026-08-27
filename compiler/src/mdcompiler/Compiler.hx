@@ -932,17 +932,17 @@ void md_interrupts_off(void);
 
 		body.push('static $prefix ${prefix}__slots[$capacity];\n'
 			+ 'static u16 ${prefix}__used = 0;\n'
-			+ 'static u16 ${prefix}__free[$capacity];\n'
+			+ 'static $prefix* ${prefix}__free[$capacity];\n'
 			+ 'static u16 ${prefix}__freeCount = 0;');
 
 		body.push('$prefix* ${prefix}_alloc(void)\n{\n'
-			+ '\tif(${prefix}__freeCount > 0) return &${prefix}__slots[${prefix}__free[--${prefix}__freeCount]];\n'
+			+ '\tif(${prefix}__freeCount > 0) return ${prefix}__free[--${prefix}__freeCount];\n'
 			+ '\tif(${prefix}__used < $capacity) return &${prefix}__slots[${prefix}__used++];\n'
 			+ '\treturn NULL;\n}');
 
 		body.push('void ${prefix}_free($prefix* self)\n{\n'
 			+ '\tif(self == NULL) return;\n'
-			+ '\t${prefix}__free[${prefix}__freeCount++] = (u16)(self - ${prefix}__slots);\n}');
+			+ '\t${prefix}__free[${prefix}__freeCount++] = self;\n}');
 
 		body.push('void ${prefix}_reset(void)\n{\n'
 			+ '\t${prefix}__used = 0;\n\t${prefix}__freeCount = 0;\n}');
