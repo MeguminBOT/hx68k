@@ -9,6 +9,20 @@ class Z80Bus {
 
 	public static inline final BANK = 0xA06000;
 
+	public static inline final COMMAND = 0xA00100;
+
+	public static inline final STATUS = 0xA00102;
+
+	public static inline final PARAMETERS = 0xA00104;
+
+	public static inline final READY = 0x80;
+
+	public static inline final NO_DRIVER = -1;
+
+	static var driver:Int16 = NO_DRIVER;
+
+	static var protection:UInt16 = 0;
+
 	public static inline function request():Void {
 		Port.hold();
 	}
@@ -21,11 +35,76 @@ class Z80Bus {
 		return Port.held();
 	}
 
+	public static function requestAndReport():Bool {
+		if (Port.held()) return true;
+		Port.hold();
+		return false;
+	}
+
+	public static inline function startReset():Void {
+		Port.reset(true);
+	}
+
+	public static inline function endReset():Void {
+		Port.reset(false);
+	}
+
 	public static function reset():Void {
 		Port.reset(true);
-		var spin = 0;
-		while (spin < 32) spin++;
+		settle();
 		Port.reset(false);
+	}
+
+	public static inline function loadedDriver():Int16 {
+		return driver;
+	}
+
+	public static function driverReady():Bool {
+		final was:Bool = requestAndReport();
+		final ready:Bool = (Memory.readU8(STATUS) & READY) != 0;
+		if (!was) Port.release();
+		return ready;
+	}
+
+	public static function loadDriver(which:Int16, from:Int, count:UInt16):Void {
+		Port.hold();
+
+		Psg.reset();
+		Fm.reset();
+
+		var i:Int = 0;
+		while (i < SIZE) {
+			Memory.writeU8(RAM + i, 0);
+			i++;
+		}
+
+		final source:Int = from;
+		final size:Int = count;
+		i = 0;
+		while (i < size) {
+			Memory.writeU8(RAM + i, Memory.loadU8(source + i));
+			i++;
+		}
+
+		protection = 0;
+		Port.reset(true);
+		Port.release();
+		settle();
+		Port.reset(false);
+
+		driver = which;
+	}
+
+	public static inline function usesProtection(at:UInt16):Void {
+		protection = at;
+	}
+
+	public static function setProtection(on:Bool):Void {
+		if (protection == 0) return;
+
+		final was:Bool = requestAndReport();
+		Memory.writeU8(RAM + (protection : Int), on ? 1 : 0);
+		if (!was) Port.release();
 	}
 
 	public static inline function readByte(at:UInt16):UInt8 {
@@ -37,7 +116,7 @@ class Z80Bus {
 	}
 
 	public static function upload(to:UInt16, from:Vector<UInt8>, count:UInt16):Void {
-		Port.hold();
+		final was:Bool = requestAndReport();
 
 		final at:Int = to;
 		var i:Int = 0;
@@ -46,11 +125,11 @@ class Z80Bus {
 			i++;
 		}
 
-		Port.release();
+		if (!was) Port.release();
 	}
 
 	public static function download(from:UInt16, into:Vector<UInt8>, count:UInt16):Void {
-		Port.hold();
+		final was:Bool = requestAndReport();
 
 		final at:Int = from;
 		var i:Int = 0;
@@ -59,11 +138,11 @@ class Z80Bus {
 			i++;
 		}
 
-		Port.release();
+		if (!was) Port.release();
 	}
 
 	public static function clear():Void {
-		Port.hold();
+		final was:Bool = requestAndReport();
 
 		var i:Int = 0;
 		while (i < SIZE) {
@@ -71,7 +150,7 @@ class Z80Bus {
 			i++;
 		}
 
-		Port.release();
+		if (!was) Port.release();
 	}
 
 	public static inline function setBank(bank:UInt16):Void {
@@ -82,5 +161,26 @@ class Z80Bus {
 			Memory.writeU8(BANK, (which >> bit) & 1);
 			bit++;
 		}
+	}
+
+	@:md.body("	register u16 count __asm__(\"d0\") = loops;
+
+	__asm__ __volatile__ (
+		\"1:\\n\\t\"
+		\"moveq	#7,%%d1\\n\\t\"
+		\"2:\\n\\t\"
+		\"dbra	%%d1,2b\\n\\t\"
+		\"subq.w	#1,%0\\n\\t\"
+		\"bne.s	1b\\n\"
+		: \"+d\"(count) : : \"d1\", \"cc\");
+")
+	static function spin(loops:UInt16):Void {}
+
+	public static inline function linger():Void {
+		spin(1);
+	}
+
+	static inline function settle():Void {
+		spin(50);
 	}
 }

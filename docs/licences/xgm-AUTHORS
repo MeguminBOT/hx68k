@@ -1,0 +1,21 @@
+sdk/src/md/drivers/xgm.bin
+sdk/src/md/drivers/xgm-stop.bin
+
+	SGDK's XGM sound driver for the z80, and the short XGM sequence that silences it.
+	Copyright Stephane Dallongeville, MIT licensed, which permits copying with attribution.
+
+	xgm.bin is 5888 bytes of assembled z80 code, taken byte for byte out of drv_xgm.o's
+	.rodata section in vendor/SGDK/lib/libmd.a, which is where SGDK's own link takes it from.
+	Its source is vendor/SGDK/src/snd/drv_xgm.s80, and assembling that needs sjasm, so the
+	assembled form is carried here rather than the source: a build of this SDK then needs
+	neither SGDK nor sjasm.
+
+		md5  9923df157defdef8c67f259788556e4b
+
+	xgm-stop.bin is 172 bytes, copied from vendor/SGDK/res/sound/stop_xgm.bin. It is an XGM
+	music stream that turns every channel off and then ends, which is what md.Sound.stop
+	hands the driver in place of the tune it was playing.
+
+	silence.bin beside them is 256 zero bytes written here, not copied: it is the null PCM
+	sample every unused sample slot points at, and a sample of silence is zeroes on any
+	machine.

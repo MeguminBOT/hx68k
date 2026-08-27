@@ -31,12 +31,16 @@ class System {
 		return Memory.readU16(HEADER_CHECKSUM);
 	}
 
-	public static inline function enableInterrupts():Void {
-		md.hw.Cpu.enableInterrupts();
+	static var masked:Int16 = 0;
+
+	public static function disableInterrupts():Void {
+		if (masked == 0) md.hw.Cpu.disableInterrupts();
+		masked = masked + 1;
 	}
 
-	public static inline function disableInterrupts():Void {
-		md.hw.Cpu.disableInterrupts();
+	public static function enableInterrupts():Void {
+		if (masked > 0) masked = masked - 1;
+		if (masked == 0) md.hw.Cpu.enableInterrupts();
 	}
 
 	public static function doVBlankProcess():Void {
