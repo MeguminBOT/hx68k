@@ -1,0 +1,15 @@
+# every ROM here compiles the same way: the backend, the ROM-side standard library, the SDK, and
+# the macro that turns the typed AST into C. A ROM adds -main and whatever define makes it different.
+# Paths are relative to the ROM's own directory, which is where build.sh runs haxe from.
+-cp ../../../compiler/src
+-cp ../../../compiler/std
+-cp ../../../compiler/std/md/_std
+-cp ../../../sdk/src
+-lib reflaxe
+-D md
+-D MegaDrive
+-D md-output=rom/src
+--macro mdcompiler.CompilerInit.Start()
+-cp hx
+-dce full
+-main Main

@@ -1,7 +1,7 @@
 # Resource pipeline notes
 
 What `hxres` reproduces, and how each behaviour was established. This file exists for the same
-reason `68000-NOTES.md` does: a behaviour that no general rule predicts is written down with the
+reason `68000.md` does: a behaviour that no general rule predicts is written down with the
 evidence for it, rather than left as a surprising line of code.
 
 The pipeline is held to `rescomp.jar` byte for byte, so several entries here are facts about
@@ -23,7 +23,7 @@ reversed from the `0xAARRGGBB` a pixel is, and `convertRGBA8888toRGBA4444` then 
 nibble of each channel. The mask is what the VDP keeps: three bits per channel, in bits 1 to 3 of
 each nibble. So a red of `0xB4` reaches CRAM as `0x000A`, not `0x000B`.
 
-Established by decoding `samples/art/gfx/blocks.png` by hand and comparing every entry with
+Established by decoding `tests/roms/art/gfx/blocks.png` by hand and comparing every entry with
 `blocks_palette_data` in rescomp's output.
 
 ### The palette is expanded to `1 << bitDepth` entries, not to the PLTE length
@@ -57,9 +57,9 @@ color does **not** repeat, which the first measurement missed because the fixtur
 was black and the two answers are indistinguishable there. The fixture that found it declares one
 non-black color.
 
-`samples/art/gfx/blocks.png` declares sixteen colors, so this rule decides what its palette lines
+`tests/roms/art/gfx/blocks.png` declares sixteen colors, so this rule decides what its palette lines
 1, 2 and 3 hold: the brightest color of the image rather than black. No observable in
-`samples/art` reads them, but the picture depends on it.
+`tests/roms/art` reads them, but the picture depends on it.
 
 Held by `Png.EXPANDS_BY_REPEAT` and by twenty four generated fixtures in `hxres.Check`, which cover
 palette sizes 1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 32, 64, 65, 200 and 256 at eight bits and 1, 2
@@ -178,7 +178,7 @@ Established by `hxres.Check.binaries`, which compares nine blob sizes against fi
 
 ## The 68000 unpackers
 
-Measured on `samples/bench`, unpacking the same blob, pinned to logical processors 16 to 23:
+Measured on `tests/roms/bench`, unpacking the same blob, pinned to logical processors 16 to 23:
 
 | | cycles | against the assembly beside it |
 | --- | --- | --- |

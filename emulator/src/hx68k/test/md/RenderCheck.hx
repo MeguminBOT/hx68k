@@ -375,7 +375,7 @@ class RenderCheck {
 
 	static function drawnText(root:String):Void {
 		final machine = new Machine();
-		machine.load(haxe.io.Path.join([root, "samples/spike/rom/out/release/rom.bin"]));
+		machine.load(haxe.io.Path.join([root, "tests/roms/spike/rom/out/release/rom.bin"]));
 
 		for (frame in 0...40) machine.runFrame();
 

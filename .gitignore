@@ -5,13 +5,13 @@ _realRomTest/
 _romFromHaxe/
 
 # generated ROM sources and build output, all reproducible from build.sh
-samples/*/rom/out/
-samples/*/rom/res/*
-samples/*/rom/src/*
-!samples/*/rom/src/testio.c
-!samples/*/rom/src/testio.h
-!samples/*/rom/src/native.c
-!samples/*/rom/src/native.h
+tests/roms/*/rom/out/
+tests/roms/*/rom/res/*
+tests/roms/*/rom/src/*
+!tests/roms/*/rom/src/testio.c
+!tests/roms/*/rom/src/testio.h
+!tests/roms/*/rom/src/native.c
+!tests/roms/*/rom/src/native.h
 
 emulator/bin/
 tests/harness/.build/

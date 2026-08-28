@@ -97,7 +97,7 @@ class Check {
 	}
 
 	static function decoding(root:String):Void {
-		final blocks = Png.read(root + "/samples/art/gfx/blocks.png");
+		final blocks = Png.read(root + "/tests/roms/art/gfx/blocks.png");
 		ok("blocks.png is 32 by 32", blocks.width == 32 && blocks.height == 32,
 			"got " + blocks.width + " by " + blocks.height);
 		ok("blocks.png is eight bits indexed", blocks.bits == 8 && blocks.indexed(), "got " + blocks.bits + " bits");
@@ -110,7 +110,7 @@ class Check {
 		ok("the sixteenth color is the brightest", entries[15] == 0x0CCE, hex(entries[15]));
 		ok("a color past the palette repeats the last", entries[16] == 0x0CCE, hex(entries[16]));
 
-		final diamond = Png.read(root + "/samples/art/gfx/diamond.png");
+		final diamond = Png.read(root + "/tests/roms/art/gfx/diamond.png");
 		ok("diamond.png is 16 by 16", diamond.width == 16 && diamond.height == 16,
 			"got " + diamond.width + " by " + diamond.height);
 
@@ -414,8 +414,8 @@ class Check {
 		FileSystem.createDirectory(scratch);
 
 		final fixtures = new Array<Fixture>();
-		fixtures.push({name: "blocks", path: root + "/samples/art/gfx/blocks.png", depth: 8, declared: 16});
-		fixtures.push({name: "diamond", path: root + "/samples/art/gfx/diamond.png", depth: 8, declared: 16});
+		fixtures.push({name: "blocks", path: root + "/tests/roms/art/gfx/blocks.png", depth: 8, declared: 16});
+		fixtures.push({name: "diamond", path: root + "/tests/roms/art/gfx/diamond.png", depth: 8, declared: 16});
 
 		for (declared in [1, 2, 3, 4, 5, 7, 8, 9, 15, 16, 17, 32, 64, 65, 200, 256]) {
 			final name = "wide" + declared;
@@ -510,7 +510,7 @@ class Check {
 	static function images(root:String, scratch:String, jar:String):Void {
 		final made = new Array<{name:String, path:String}>();
 
-		made.push({name: "blocks", path: full(root + "/samples/art/gfx/blocks.png")});
+		made.push({name: "blocks", path: full(root + "/tests/roms/art/gfx/blocks.png")});
 		for (shape in ["flat", "dupes", "flips", "lines", "priority", "mixed"]) {
 			final path = scratch + "/" + shape + ".png";
 			File.saveBytes(path, drawing(shape));
@@ -844,7 +844,7 @@ class Check {
 
 	static function cuts(root:String, scratch:String, jar:String):Void {
 		final made = new Array<{name:String, path:String, across:Int, down:Int}>();
-		made.push({name: "diamond", path: full(root + "/samples/art/gfx/diamond.png"), across: 2, down: 2});
+		made.push({name: "diamond", path: full(root + "/tests/roms/art/gfx/diamond.png"), across: 2, down: 2});
 
 		for (shape in ["blob", "ring", "cross", "corners", "sparse", "tall", "wideframes", "twoanims",
 				"bigblob", "bigring", "bigcross", "diagonal", "scatter", "hook", "samemask"]) {

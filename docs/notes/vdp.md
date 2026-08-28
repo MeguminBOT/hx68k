@@ -131,7 +131,7 @@ a FIFO holding what is on its way to video memory would do. Filling it from ever
 CRAM and VSRAM keep of the word they are given makes no difference once the read exposes the latch,
 so the store masks are left as they are.
 
-**The Musashi harness had to be taught it too.** `samples/hardware` writes 0E80h to color 0, writes 1234h to
+**The Musashi harness had to be taught it too.** `tests/roms/hardware` writes 0E80h to color 0, writes 1234h to
 VRAM, then reads color 0 back through the port. With the latch that read returns 1E90h, and the
 Musashi harness still answered 0E80h, so the two emulators disagreed and the gate said so. The
 harness now holds the same latch, and the check that used to be called "color 0 through the port"

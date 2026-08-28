@@ -63,7 +63,7 @@ static void vram_write_word(uint32_t a, uint16_t v)
 /* Reading CRAM or VSRAM back exposes, in the bits they do not store, the data field of the FIFO
    slot the next write will go into: four writes ago, since the FIFO is four deep and nothing
    clears an entry once it has been popped. Nemesis' VDP port access ROM reads 100% on both pages
-   with this and 60.9% without it, and samples/hardware is the case that reaches it here. There is
+   with this and 60.9% without it, and tests/roms/hardware is the case that reaches it here. There is
    no timing in this harness, so the FIFO is always drained and the exposed slot is simply the
    oldest of the last four writes. */
 static uint16_t vdp_fifo[4];

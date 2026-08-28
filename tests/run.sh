@@ -12,7 +12,7 @@ mkdir -p "$HERE"
 # -Wuninitialized and which nothing else notices until an observable comes back wrong.
 # Musashi is vendored and is compiled as it arrives, so its own warnings are not ours to answer for.
 # make skips a translation unit whose source has not changed, so a warning already in the tree stops
-# being printed and the check above passes on an object file nobody compiled. Each sample therefore
+# being printed and the check above passes on an object file nobody compiled. Each ROM therefore
 # gets its object directory removed once per run, before the first build of it.
 SCRUBBED=""
 build() {
@@ -93,54 +93,54 @@ absent() {
 	local name="$1"
 	local pattern="$2"
 	printf "codegen %-16s" "$name"
-	if grep -rqE "$pattern" "$ROOT"/samples/*/rom/src/*.c; then
+	if grep -rqE "$pattern" "$ROOT"/tests/roms/*/rom/src/*.c; then
 		echo "FAILED"
-		grep -rnE "$pattern" "$ROOT"/samples/*/rom/src/*.c | head -3
+		grep -rnE "$pattern" "$ROOT"/tests/roms/*/rom/src/*.c | head -3
 		exit 1
 	fi
 	echo "ok"
 }
 
-build "spike rom"   "$ROOT/samples/spike/build.sh"
-build "conformance" "$ROOT/samples/conformance/build.sh"
-build "hardware rom" "$ROOT/samples/hardware/build.sh"
-build "pal rom" "$ROOT/samples/pal/build.sh"
+build "spike rom"   "$ROOT/tests/roms/spike/build.sh"
+build "conformance" "$ROOT/tests/roms/conformance/build.sh"
+build "hardware rom" "$ROOT/tests/roms/hardware/build.sh"
+build "pal rom" "$ROOT/tests/roms/pal/build.sh"
 
 # the backend writes rom_header.c itself, which is how -D md-pal reaches the cartridge header:
 # SGDK's makefile only copies its own template when the file is not already there
 # a generated type carries its package into its C name, so nothing in md.* can collide with a
 # framework, a game or a hand-written struct. The default package keeps its bare name on purpose.
-codegen "package prefix" "$ROOT/samples/spike/rom/src/Main.c" 'md_Boot_begin\('
-missing "no bare prefix" "$ROOT/samples/spike/rom/src/Main.c" '[^_A-Za-z]Boot_begin\('
-codegen "default bare"  "$ROOT/samples/spike/rom/src/Main.c" 'Main_ramp\('
+codegen "package prefix" "$ROOT/tests/roms/spike/rom/src/Main.c" 'md_Boot_begin\('
+missing "no bare prefix" "$ROOT/tests/roms/spike/rom/src/Main.c" '[^_A-Za-z]Boot_begin\('
+codegen "default bare"  "$ROOT/tests/roms/spike/rom/src/Main.c" 'Main_ramp\('
 
-codegen "pal region" "$ROOT/samples/pal/rom/src/rom_header.c" '"E {15}"'
-codegen "ntsc region" "$ROOT/samples/spike/rom/src/rom_header.c" '"JUE {13}"' 
-build "art rom"     "$ROOT/samples/art/build.sh"
-build "events rom"  "$ROOT/samples/events/build.sh"
-build "sdk rom"     "$ROOT/samples/sdk/build.sh"
-build "bare rom"    "$ROOT/samples/bare/build.sh"
-# nothing a sample compiles may reach for SGDK's header. samples/bench is the exception and says
+codegen "pal region" "$ROOT/tests/roms/pal/rom/src/rom_header.c" '"E {15}"'
+codegen "ntsc region" "$ROOT/tests/roms/spike/rom/src/rom_header.c" '"JUE {13}"' 
+build "art rom"     "$ROOT/tests/roms/art/build.sh"
+build "events rom"  "$ROOT/tests/roms/events/build.sh"
+build "sdk rom"     "$ROOT/tests/roms/sdk/build.sh"
+build "bare rom"    "$ROOT/tests/roms/bare/build.sh"
+# nothing a ROM compiles may reach for SGDK's header. tests/roms/bench is the exception and says
 # so with -D md-sgdk, which is what puts genesis.h back into its hx.h.
-missing "no sgdk header" "$ROOT/samples/bare/rom/src/hx.h" '#include <genesis.h>'
-codegen "own typedefs"  "$ROOT/samples/bare/rom/src/hx.h" 'typedef unsigned short u16;'
-codegen "own resources" "$ROOT/samples/art/rom/src/hx.h" '\} SpriteDefinition;'
+missing "no sgdk header" "$ROOT/tests/roms/bare/rom/src/hx.h" '#include <genesis.h>'
+codegen "own typedefs"  "$ROOT/tests/roms/bare/rom/src/hx.h" 'typedef unsigned short u16;'
+codegen "own resources" "$ROOT/tests/roms/art/rom/src/hx.h" '\} SpriteDefinition;'
 # a resource symbol carries the name of the class that declared it, for the same reason
-codegen "resource prefix" "$ROOT/samples/art/rom/src/art.h" 'extern const u8 art_table\['
-codegen "own rom header" "$ROOT/samples/bare/rom/src/rom_header.c" '\} ROMHeader;'
+codegen "resource prefix" "$ROOT/tests/roms/art/rom/src/art.h" 'extern const u8 art_table\['
+codegen "own rom header" "$ROOT/tests/roms/bare/rom/src/rom_header.c" '\} ROMHeader;'
 
 # the header layout is SGDK's and the boot came from there, so the copyright field keeps its
 # attribution and ours goes in the notes field beside it
-codegen "sgdk attributed" "$ROOT/samples/bare/rom/src/rom_header.c" '"\(C\)SGDK 2026 {4}"'
-codegen "and hx68k too"  "$ROOT/samples/bare/rom/src/rom_header.c" '"HX68K 2026 {2}\(C\)SGDK 2026 {16}"'
+codegen "sgdk attributed" "$ROOT/tests/roms/bare/rom/src/rom_header.c" '"\(C\)SGDK 2026 {4}"'
+codegen "and hx68k too"  "$ROOT/tests/roms/bare/rom/src/rom_header.c" '"HX68K 2026 {2}\(C\)SGDK 2026 {16}"'
 
 # a build reaches into vendor/SGDK for the m68k toolchain and nothing else: its bin directory and
 # the libgcc beside it, which is where that toolchain keeps its own runtime. Every other path the
 # build names is this repository's. Renaming SGDK's inc, src, res, md.ld, makefile.gen, common.mk
-# and libmd.a out of the way and building every sample was how this was first established; the
+# and libmd.a out of the way and building every ROM was how this was first established; the
 # scan below is what holds it, since it needs nothing moved.
 printf "build %-18s" "toolchain only"
-REACHED="$( (cd "$ROOT/samples/bare" && bash -x "$ROOT/sdk/rom.sh" 2>&1) 	| grep -oE "[^ '\"]*vendor/SGDK/[^ '\"]*" 	| sed "s|.*vendor/SGDK/||" 	| grep -vE "^bin(/|$)" || true)"
+REACHED="$( (cd "$ROOT/tests/roms/bare" && bash -x "$ROOT/sdk/rom.sh" 2>&1) 	| grep -oE "[^ '\"]*vendor/SGDK/[^ '\"]*" 	| sed "s|.*vendor/SGDK/||" 	| grep -vE "^bin(/|$)" || true)"
 if [ -z "$REACHED" ]; then
 	echo "ok"
 else
@@ -162,12 +162,12 @@ GATE="$ROOT/emulator/bin/gate/Gate.exe"
 [ -x "$GATE" ] || GATE="$ROOT/emulator/bin/gate/Gate"
 export GATE_BUILT=1
 
-CONF="$ROOT/samples/conformance/rom/src/Main.c"
-HDR="$ROOT/samples/conformance/rom/src/hx.h"
+CONF="$ROOT/tests/roms/conformance/rom/src/Main.c"
+HDR="$ROOT/tests/roms/conformance/rom/src/hx.h"
 
 codegen "jump table"  "$CONF" 'switch\(\(\(.*\)\.tag\)\)'
 codegen "tagged union" "$HDR" 'union \{'
-codegen "pool storage" "$ROOT/samples/spike/rom/src/Entity.c" 'static Entity Entity__slots\[64\]'
+codegen "pool storage" "$ROOT/tests/roms/spike/rom/src/Entity.c" 'static Entity Entity__slots\[64\]'
 codegen "rom table"   "$CONF" 'const s32 Main_digitsOfPi\[8\] = \{'
 codegen "vtable call" "$CONF" '[a-z]->__vt\)->area\('
 codegen "final direct" "$CONF" 'Tile_area\('
@@ -177,21 +177,21 @@ missing "no idle slot" "$HDR" '\(\*tag\)'
 codegen "rom fold"     "$CONF" 'tempLeft = 4;'
 codegen "noinline"     "$CONF" '__attribute__\(\(noinline\)\)'
 codegen "section"      "$CONF" '__attribute__\(\(section\(".data"\)\)\)'
-codegen "handler table" "$ROOT/samples/events/rom/src/Main.c" 's32 \(\*Main_handlers\[4\]\)\(s32\);'
-codegen "lifted lambda" "$ROOT/samples/events/rom/src/Main.c" 'Main_lambda0'
+codegen "handler table" "$ROOT/tests/roms/events/rom/src/Main.c" 's32 \(\*Main_handlers\[4\]\)\(s32\);'
+codegen "lifted lambda" "$ROOT/tests/roms/events/rom/src/Main.c" 'Main_lambda0'
 codegen "fat pointer"  "$HDR" 'const Sized__vt\* vt;'
 codegen "interface call" "$CONF" '\.vt->span\('
-codegen "interface table" "$ROOT/samples/conformance/rom/src/hx_interfaces.c" 'const Sized__vt Square__Sized'
-missing "no debug cost" "$ROOT/samples/spike/rom/src/Main.c" 'hx_bounds\('
-missing "no vtable cost" "$ROOT/samples/spike/rom/src/hx.h" '__vt'
+codegen "interface table" "$ROOT/tests/roms/conformance/rom/src/hx_interfaces.c" 'const Sized__vt Square__Sized'
+missing "no debug cost" "$ROOT/tests/roms/spike/rom/src/Main.c" 'hx_bounds\('
+missing "no vtable cost" "$ROOT/tests/roms/spike/rom/src/hx.h" '__vt'
 
 # a ROM address has no RAM mirror prefix, so the table really is in the cartridge
 printf "codegen %-16s" "rom placement"
-if awk '$3 == "Main_digitsOfPi" && strtonum("0x" $1) < 0x400000 { found = 1 } END { exit !found }' 	"$ROOT/samples/conformance/rom/out/release/symbol.txt"; then
+if awk '$3 == "Main_digitsOfPi" && strtonum("0x" $1) < 0x400000 { found = 1 } END { exit !found }' 	"$ROOT/tests/roms/conformance/rom/out/release/symbol.txt"; then
 	echo "ok"
 else
 	echo "FAILED"
-	grep -w Main_digitsOfPi "$ROOT/samples/conformance/rom/out/release/symbol.txt" || true
+	grep -w Main_digitsOfPi "$ROOT/tests/roms/conformance/rom/out/release/symbol.txt" || true
 	exit 1
 fi
 absent  "no heap"     '\b(malloc|calloc|realloc|free)\('
@@ -204,7 +204,7 @@ RAW="$HERE/.pad"
 if command -v java > /dev/null 2>&1 && [ -f "$SIZEBND_JAR" ]; then
 	rm -rf "$RAW"
 	mkdir -p "$RAW"
-	"$ROOT/vendor/SGDK/bin/objcopy" -O binary "$ROOT/samples/spike/rom/out/release/rom.out" "$RAW/theirs.bin"
+	"$ROOT/vendor/SGDK/bin/objcopy" -O binary "$ROOT/tests/roms/spike/rom/out/release/rom.out" "$RAW/theirs.bin"
 	cp "$RAW/theirs.bin" "$RAW/ours.bin"
 	java -jar "$SIZEBND_JAR" "$RAW/theirs.bin" -sizealign 131072 -checksum > "$LOG" 2>&1
 	haxelib run hx68k pad "$RAW/ours.bin" -sizealign 131072 -checksum > "$LOG" 2>&1
@@ -238,24 +238,24 @@ echo "--- the VDP renderer against the hardware documentation ---"
 
 echo ""
 echo "--- the sound driver, on the only emulator here with a Z80 ---"
-build "sound rom" "$ROOT/samples/sound/build.sh"
+build "sound rom" "$ROOT/tests/roms/sound/build.sh"
 "$GATE" sound "$ROOT"
 
 echo ""
 echo "--- generated code against the C written beside it, in 68000 cycles ---"
-build "bench rom" "$ROOT/samples/bench/build.sh"
-codegen "sgdk when asked" "$ROOT/samples/bench/rom/src/hx.h" '#include <genesis.h>'
-"$GATE" bench 	"$ROOT/samples/bench/rom/out/release/rom.bin" 	"$ROOT/samples/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c aplib:haxe aplib:asm lz4w:haxe lz4w:asm sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c psg:haxe psg:c fm:haxe fm:c pad:haxe pad:c
+build "bench rom" "$ROOT/tests/roms/bench/build.sh"
+codegen "sgdk when asked" "$ROOT/tests/roms/bench/rom/src/hx.h" '#include <genesis.h>'
+"$GATE" bench 	"$ROOT/tests/roms/bench/rom/out/release/rom.bin" 	"$ROOT/tests/roms/bench/rom/out/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c aplib:haxe aplib:asm lz4w:haxe lz4w:asm sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c psg:haxe psg:c fm:haxe fm:c pad:haxe pad:c
 
 echo ""
 echo "--- source map (Haxe line to 68000 address) ---"
 
 # the debug profile keeps DWARF and stops inlining, and writes over out/rom.bin as it goes,
 # so it runs once the release ROM has been through the harness
-build "debug rom" "$ROOT/samples/conformance/build.sh" debug
+build "debug rom" "$ROOT/tests/roms/conformance/build.sh" debug
 
-DEBUG_ROM="$ROOT/samples/conformance/rom/out/debug/rom.out"
-GENERATED="$ROOT/samples/conformance/rom/src"
+DEBUG_ROM="$ROOT/tests/roms/conformance/rom/out/debug/rom.out"
+GENERATED="$ROOT/tests/roms/conformance/rom/src"
 
 printf "map %-20s" "named site"
 SITE="$("$GATE" map "$DEBUG_ROM" "$GENERATED" Main_virtualDispatch)"
@@ -282,18 +282,18 @@ echo "--- a ROM with no SGDK in it ---"
 
 NM="$ROOT/vendor/SGDK/bin/nm"
 
-# every symbol libmd.a defines. A sample's link is held against this list: the ones that must be
+# every symbol libmd.a defines. A ROM's link is held against this list: the ones that must be
 # empty are named in FREE, and the rest have their count printed so the move off SGDK is a number
 # rather than an impression.
 "$NM" --defined-only "$ROOT/vendor/SGDK/lib/libmd.a" | awk '$2=="T"||$2=="D"||$2=="B"||$2=="R"{print $3}' | sort -u > "$ROOT/tests/.libmd.txt"
 
-# every sample but one must link nothing out of libmd.a. samples/bench is the exception on
+# every ROM but one must link nothing out of libmd.a. tests/roms/bench is the exception on
 # purpose: it measures md.* against the SGDK calls it replaces, so it links both and declares its
-# own SGDK externs under samples/bench/hx/sgdk rather than the SDK carrying any.
+# own SGDK externs under tests/roms/bench/hx/sgdk rather than the SDK carrying any.
 BOUND="bench"
 
 for name in bare hardware pal spike conformance events sdk art sound bench bug; do
-	out="$ROOT/samples/$name/rom/out/release/rom.out"
+	out="$ROOT/tests/roms/$name/rom/out/release/rom.out"
 	[ -f "$out" ] || continue
 
 	printf "%-12s %-13s" "$name" "SGDK symbols"
@@ -315,7 +315,7 @@ for name in bare hardware pal spike conformance events sdk art sound bench bug; 
 done
 
 printf "bare %-20s" "boots and draws"
-DREW="$("$GATE" game "$ROOT/samples/bare/rom/out/release/rom.bin" 60)"
+DREW="$("$GATE" game "$ROOT/tests/roms/bare/rom/out/release/rom.bin" 60)"
 case "$DREW" in
 	*"display=on"*) echo "ok" ;;
 	*) echo "FAILED"; echo "$DREW"; exit 1 ;;
@@ -348,7 +348,7 @@ echo "$BOOTED" | grep -E "screen |digest "
 
 echo ""
 echo "--- a planted bug, found by stepping Haxe ---"
-build "bug rom" "$ROOT/samples/bug/build.sh" debug
+build "bug rom" "$ROOT/tests/roms/bug/build.sh" debug
 
 # nothing reachable from debug.hxml may import a display library, and this neko build is what says
 # so: the gate binary links the window's own pure parts and cannot make the same claim
@@ -356,11 +356,11 @@ compile "no display" "$ROOT/emulator" debug.hxml
 
 # the line the bug sits on is found by the wrong arithmetic itself, so moving it moves the
 # expectation and nothing has to be kept in step by hand
-WANT="$(grep -n "total = total + i + i;" "$ROOT/samples/bug/hx/Main.hx" | cut -d: -f1)"
+WANT="$(grep -n "total = total + i + i;" "$ROOT/tests/roms/bug/hx/Main.hx" | cut -d: -f1)"
 SESSION="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" \
 	--break Main.accumulate --watch Main.total --expect 1,5,14,30)"
 
 echo "$SESSION" | sed 's/^/  /'
@@ -374,25 +374,25 @@ esac
 echo ""
 echo "--- what DWARF says a function's parameters and locals are ---"
 LOCALS="$("$GATE" map \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --locals Main_accumulate)"
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --locals Main_accumulate)"
 echo "$LOCALS" | sed 's/^/  /'
 
-# the names come from the sample, so renaming what it declares moves the expectation with it
-BUG_SAMPLE="$ROOT/samples/bug/hx/Main.hx"
-WANT_PARAMETER="$(sed -n 's/.*function accumulate(\([a-zA-Z_][a-zA-Z0-9_]*\):.*/\1/p' "$BUG_SAMPLE")"
-WANT_LOCAL="$(sed -n 's/.*var \([a-zA-Z_][a-zA-Z0-9_]*\) = 1;.*/\1/p' "$BUG_SAMPLE")"
+# the names come from the ROM, so renaming what it declares moves the expectation with it
+BUG_SOURCE="$ROOT/tests/roms/bug/hx/Main.hx"
+WANT_PARAMETER="$(sed -n 's/.*function accumulate(\([a-zA-Z_][a-zA-Z0-9_]*\):.*/\1/p' "$BUG_SOURCE")"
+WANT_LOCAL="$(sed -n 's/.*var \([a-zA-Z_][a-zA-Z0-9_]*\) = 1;.*/\1/p' "$BUG_SOURCE")"
 
 printf "locals %-17s" "the parameter"
 case "$LOCALS" in
 	*"  $WANT_PARAMETER "*parameter*) echo "ok" ;;
-	*) echo "FAILED"; echo "  no parameter named $WANT_PARAMETER, which is what the sample declares"; exit 1 ;;
+	*) echo "FAILED"; echo "  no parameter named $WANT_PARAMETER, which is what the ROM declares"; exit 1 ;;
 esac
 
 printf "locals %-17s" "the local"
 case "$LOCALS" in
 	*"  $WANT_LOCAL "*local*) echo "ok" ;;
-	*) echo "FAILED"; echo "  no local named $WANT_LOCAL, which is what the sample declares"; exit 1 ;;
+	*) echo "FAILED"; echo "  no local named $WANT_LOCAL, which is what the ROM declares"; exit 1 ;;
 esac
 
 # every frame base gcc writes here is the call frame address, which is what a CFI reader resolves
@@ -403,11 +403,11 @@ case "$LOCALS" in
 esac
 
 # reading it needs the frame rule out of .debug_frame, so the value proves that chain end to end
-WANT_ARGUMENT="$(sed -n 's/.*accumulate(\([0-9]*\));.*/\1/p' "$BUG_SAMPLE")"
+WANT_ARGUMENT="$(sed -n 's/.*accumulate(\([0-9]*\));.*/\1/p' "$BUG_SOURCE")"
 PARAMETER="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" \
 	--break Main.accumulate --read "$WANT_PARAMETER" | tail -1)"
 echo "  $PARAMETER"
 
@@ -416,7 +416,7 @@ if [ "${PARAMETER##*= }" = "$WANT_ARGUMENT" ]; then
 	echo "ok"
 else
 	echo "FAILED"
-	echo "  wanted $WANT_ARGUMENT, which is what the sample passes to accumulate"
+	echo "  wanted $WANT_ARGUMENT, which is what the ROM passes to accumulate"
 	exit 1
 fi
 
@@ -427,9 +427,9 @@ fi
 STOP=$((WANT_ARGUMENT + 1))
 
 PASSES="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" \
 	--break "Main.hx:$WANT" --read "$WANT_LOCAL" --hits "$(seq -s, 1 "$STOP")" || true)"
 
 PASS=1
@@ -459,24 +459,24 @@ echo ""
 echo "--- the gdb remote serial protocol, spoken to itself ---"
 "$GATE" gdb
 
-# and then spoken to the real thing. SGDK ships m68k-elf-gdb, so the same sample is debugged again
+# and then spoken to the real thing. SGDK ships m68k-elf-gdb, so the same ROM is debugged again
 # with gdb driving it: gdb reads DWARF out of rom.out on its own and reaches the machine only
 # through the stub, so every value it prints came back over the protocol. The line it stops on is
-# the generated C that steps the loop variable, found by the name the sample declares, and the
+# the generated C that steps the loop variable, found by the name the ROM declares, and the
 # values it reads there have to be the ones the debugger above already read a different way.
 echo ""
 echo "--- the same machine, debugged by gdb itself ---"
 
 GDB_WORK="$HERE/.gdb"
-GDB_LINE="$(grep -n "^	*$WANT_LOCAL++;" "$ROOT/samples/bug/rom/src/Main.c" | cut -d: -f1)"
+GDB_LINE="$(grep -n "^	*$WANT_LOCAL++;" "$ROOT/tests/roms/bug/rom/src/Main.c" | cut -d: -f1)"
 
 rm -rf "$GDB_WORK"
 mkdir -p "$GDB_WORK"
 
 "$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/stub.txt" 2>&1 &
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/stub.txt" 2>&1 &
 STUB=$!
 
 WAITED=0
@@ -516,7 +516,7 @@ fi
 # a stub that never stops leaves gdb waiting for a stop reply that is not coming, so the session
 # is held to two minutes and one that runs out of them fails on what it did not print
 SEEN="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/session.gdb" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" 2>&1 \
 	| grep -v "host encoding" | grep -v "please file a bug report")"
 wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
 
@@ -571,9 +571,9 @@ echo "--- who called whom, read off the stack ---"
 
 backtrace() {
 	"$GATE" debug \
-		"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
-		"$ROOT/samples/conformance/rom/out/debug/rom.out" \
-		"$ROOT/samples/conformance/rom/src" \
+		"$ROOT/tests/roms/conformance/rom/out/debug/rom.bin" \
+		"$ROOT/tests/roms/conformance/rom/out/debug/rom.out" \
+		"$ROOT/tests/roms/conformance/rom/src" \
 		--break Main.fib --stack --hits "$1"
 }
 
@@ -620,22 +620,22 @@ fi
 echo ""
 echo "--- Haxe statics read at the width they were declared with ---"
 
-SAMPLE="$ROOT/samples/conformance/hx/Main.hx"
+PROGRAM="$ROOT/tests/roms/conformance/hx/Main.hx"
 
 # all three come off one run, which reaches the breakpoint once instead of three times
 STATICS_READ="$("$GATE" debug \
-	"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
-	"$ROOT/samples/conformance/rom/out/debug/rom.out" \
-	"$ROOT/samples/conformance/rom/src" \
+	"$ROOT/tests/roms/conformance/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/conformance/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/conformance/rom/src" \
 	--break Main.interfaceCall --read Main.digitsOfPi,Main.placed,Main.buffer)"
 
 read_static() {
 	echo "$STATICS_READ" | grep "^$1 " | tail -1
 }
 
-# the values come from the sample, so changing what it declares moves the expectation with it
-WANT_PI="$(sed -n 's/.*@:romData(\[\([0-9]*\),.*/\1/p' "$SAMPLE")"
-WANT_PLACED="$(sed -n 's/.*static var placed:Int = \([0-9]*\);.*/\1/p' "$SAMPLE")"
+# the values come from the ROM, so changing what it declares moves the expectation with it
+WANT_PI="$(sed -n 's/.*@:romData(\[\([0-9]*\),.*/\1/p' "$PROGRAM")"
+WANT_PLACED="$(sed -n 's/.*static var placed:Int = \([0-9]*\);.*/\1/p' "$PROGRAM")"
 
 for WATCH in Main.digitsOfPi:"$WANT_PI" Main.placed:"$WANT_PLACED"; do
 	NAME="${WATCH%%:*}"
@@ -647,7 +647,7 @@ for WATCH in Main.digitsOfPi:"$WANT_PI" Main.placed:"$WANT_PLACED"; do
 		echo "ok"
 	else
 		echo "FAILED"
-		echo "  wanted $WANT, which is what the sample declares"
+		echo "  wanted $WANT, which is what the ROM declares"
 		exit 1
 	fi
 done
@@ -671,9 +671,9 @@ echo "--- a trace in Haxe, checked against the core that ran it ---"
 # the tool exits nonzero when the trace does not account for itself, and set -e would take
 # the script out before the check below could say why
 if TRACE="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" \
 	--break Main.accumulate --trace 20000)"; then
 	TRACED=0
 else
@@ -707,9 +707,9 @@ fi
 echo ""
 echo "--- where a frame went, in Haxe function names ---"
 if PROFILE="$("$GATE" debug \
-	"$ROOT/samples/conformance/rom/out/debug/rom.bin" \
-	"$ROOT/samples/conformance/rom/out/debug/rom.out" \
-	"$ROOT/samples/conformance/rom/src" \
+	"$ROOT/tests/roms/conformance/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/conformance/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/conformance/rom/src" \
 	--break Main.main --profile 3)"; then
 	PROFILED=0
 else
@@ -735,7 +735,7 @@ case "$(echo "$PROFILE" | sed -n '4p')" in
 esac
 
 # every unit this project compiles is DWARF 4, and version 5 lays a unit header out differently and
-# keeps its location lists in .debug_loclists rather than .debug_loc. The same sample is rebuilt at
+# keeps its location lists in .debug_loclists rather than .debug_loc. The same ROM is rebuilt at
 # -gdwarf-5 here so both halves are read. Main_masked's step is kept in a location list rather than
 # at a frame offset, and what it reads is held to what gdb reads for the same variable at the same
 # address, since gdb brings its own DWARF reader and reaches the machine only through the stub.
@@ -743,11 +743,11 @@ echo ""
 echo "--- the same, out of a version 5 unit ---"
 
 export DWARF=5
-build "bug rom, dwarf 5" "$ROOT/samples/bug/build.sh" debug
+build "bug rom, dwarf 5" "$ROOT/tests/roms/bug/build.sh" debug
 unset DWARF
 
-LIBRARY="$("$GATE" map "$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --locals Main_masked)"
+LIBRARY="$("$GATE" map "$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --locals Main_masked)"
 echo "$LIBRARY" | sed 's/^/  /'
 
 printf "dwarf5 %-19s" "reads the unit"
@@ -763,9 +763,9 @@ case "$LIBRARY" in
 esac
 
 FORCED="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --break Main.masked --read value | tail -1)"
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --break Main.masked --read value | tail -1)"
 echo "  $FORCED"
 
 printf "dwarf5 %-19s" "reads a parameter"
@@ -773,13 +773,13 @@ if [ "${FORCED##*= }" = "72" ]; then
 	echo "ok"
 else
 	echo "FAILED"
-	echo "  the sample calls masked with 0x48, so value should read 72"
+	echo "  the ROM calls masked with 0x48, so value should read 72"
 	exit 1
 fi
 
 # the entry comes out of the symbol table, so relinking moves the sweep with it, and the first
 # address where the list resolves is where gdb is pointed rather than an offset written down here
-ENTRY="$("$ROOT/vendor/SGDK/bin/nm.exe" "$ROOT/samples/bug/rom/out/debug/rom.out" \
+ENTRY="$("$ROOT/vendor/SGDK/bin/nm.exe" "$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
 	| sed -n 's/^0*\([0-9a-fA-F][0-9a-fA-F]*\) [Tt] Main_masked$/\1/p')"
 
 if [ -z "$ENTRY" ]; then
@@ -792,9 +792,9 @@ LIVE_AT=""
 for STRIDE in 6 8 10 12 14 16 18 20 22 24 26 28 30 32; do
 	WHERE="$(printf '0x%X' $(( 0x$ENTRY + STRIDE )))"
 	SEEN="$("$GATE" debug \
-		"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-		"$ROOT/samples/bug/rom/out/debug/rom.out" \
-		"$ROOT/samples/bug/rom/src" --break "$WHERE" --read step,value 2>/dev/null || true)"
+		"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+		"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+		"$ROOT/tests/roms/bug/rom/src" --break "$WHERE" --read step,value 2>/dev/null || true)"
 	OURS_STEP="$(echo "$SEEN" | sed -n 's/^step .*= \([0-9][0-9]*\)$/\1/p')"
 	OURS_VALUE="$(echo "$SEEN" | sed -n 's/^value .*= \([0-9][0-9]*\)$/\1/p')"
 	if [ -z "$OURS_STEP" ]; then continue; fi
@@ -817,9 +817,9 @@ rm -rf "$GDB_WORK"
 mkdir -p "$GDB_WORK"
 
 "$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/library.txt" 2>&1 &
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --settle 0 --gdb 2159 > "$GDB_WORK/library.txt" 2>&1 &
 STUB=$!
 
 WAITED=0
@@ -842,7 +842,7 @@ GDB_PORT="$(sed -n 's/.*127\.0\.0\.1:\([0-9]*\),.*/\1/p' "$GDB_WORK/library.txt"
 } > "$GDB_WORK/library.gdb"
 
 THEIRS="$(timeout 120 "$ROOT/vendor/SGDK/bin/gdb.exe" -q -batch -x "$GDB_WORK/library.gdb" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" 2>&1 \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" 2>&1 \
 	| grep -v "host encoding" | grep -v "please file a bug report")"
 wait "$STUB" 2>/dev/null || kill "$STUB" 2>/dev/null || true
 
@@ -866,9 +866,9 @@ fi
 # take the first operation for a place and read the memory it names, which would come back as a
 # number and be wrong.
 COMPUTED="$("$GATE" debug \
-	"$ROOT/samples/bug/rom/out/debug/rom.bin" \
-	"$ROOT/samples/bug/rom/out/debug/rom.out" \
-	"$ROOT/samples/bug/rom/src" --break "$LIVE_AT" --read held 2>/dev/null || true)"
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/bug/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/bug/rom/src" --break "$LIVE_AT" --read held 2>/dev/null || true)"
 echo "  $(echo "$COMPUTED" | tail -1)"
 
 printf "dwarf5 %-19s" "and an expression"
@@ -931,15 +931,15 @@ echo ""
 echo "--- the VDP read back in the terms the documentation uses ---"
 "$GATE" view
 
-# the art ROM carries a sprite the sample declares the size of, so the view is checked against
+# the art ROM carries a sprite the program declares the size of, so the view is checked against
 # the Haxe that asked for it rather than against a number written here. The raster overlay below
 # names the Haxe function behind every write, so both read the debug build.
-build "art rom, debug" "$ROOT/samples/art/build.sh" debug
+build "art rom, debug" "$ROOT/tests/roms/art/build.sh" debug
 
 if VIEW="$("$GATE" debug \
-	"$ROOT/samples/art/rom/out/debug/rom.bin" \
-	"$ROOT/samples/art/rom/out/debug/rom.out" \
-	"$ROOT/samples/art/rom/src" \
+	"$ROOT/tests/roms/art/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/art/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/art/rom/src" \
 	--view --settle 40)"; then
 	VIEWED=0
 else
@@ -958,7 +958,7 @@ else
 fi
 
 WANT_SPRITE="$(sed -n 's/.*@:sprite("gfx\/diamond.png", \([0-9]*\), \([0-9]*\)).*/\1x\2/p' \
-	"$ROOT/samples/art/hx/Art.hx")"
+	"$ROOT/tests/roms/art/hx/Art.hx")"
 
 printf "view %-19s" "declared sprite"
 case "$VIEW" in
@@ -978,9 +978,9 @@ fi
 echo ""
 echo "--- where the beam was when the code touched the VDP ---"
 if RASTER="$("$GATE" debug \
-	"$ROOT/samples/art/rom/out/debug/rom.bin" \
-	"$ROOT/samples/art/rom/out/debug/rom.out" \
-	"$ROOT/samples/art/rom/src" \
+	"$ROOT/tests/roms/art/rom/out/debug/rom.bin" \
+	"$ROOT/tests/roms/art/rom/out/debug/rom.out" \
+	"$ROOT/tests/roms/art/rom/src" \
 	--raster 60 --settle 0)"; then
 	RASTERED=0
 else
@@ -1013,7 +1013,7 @@ esac
 # frame looked at is that one.
 echo ""
 echo "--- what a frame's VDP access slots went on ---"
-SPEND="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 3 --slots 1)"
+SPEND="$("$GATE" debug "$ROOT/tests/roms/art/rom/out/release/rom.bin" --settle 3 --slots 1)"
 echo "$SPEND"
 
 printf "slots %-18s" "none overspent"
@@ -1035,7 +1035,7 @@ else
 fi
 
 # the window draws the same tallies as a panel, so the panel is read back here on the same frame
-PANEL="$("$GATE" debug "$ROOT/samples/art/rom/out/release/rom.bin" --settle 4 --views \
+PANEL="$("$GATE" debug "$ROOT/tests/roms/art/rom/out/release/rom.bin" --settle 4 --views \
 	| sed -n '/--- slots ---/,/^--- /p')"
 echo "$PANEL" | sed 's/^/  /'
 

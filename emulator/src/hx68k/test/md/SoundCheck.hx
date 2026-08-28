@@ -29,9 +29,9 @@ class SoundCheck {
 		final root = args[0];
 		final machine = new Machine();
 		machine.vdp.rendering = false;
-		machine.load(haxe.io.Path.join([root, "samples/sound/rom/out/release/rom.bin"]));
+		machine.load(haxe.io.Path.join([root, "tests/roms/sound/rom/out/release/rom.bin"]));
 
-		final elf = new Elf(haxe.io.Path.join([root, "samples/sound/rom/out/release/rom.out"]));
+		final elf = new Elf(haxe.io.Path.join([root, "tests/roms/sound/rom/out/release/rom.out"]));
 		final done = address(elf, "hx_probe_done");
 		final probe = address(elf, "hx_probe");
 		final counted = address(elf, "hx_probe_count");

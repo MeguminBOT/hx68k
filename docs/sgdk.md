@@ -8,7 +8,7 @@ SGDK is MIT. Reading it, porting it and copying it with attribution are all perm
 why the first table exists at all.
 
 **The short answer, as of the move off it.** No ROM this repository builds links `libmd.a`, and no
-generated C includes `genesis.h`, with one deliberate exception: `samples/bench` links both, because
+generated C includes `genesis.h`, with one deliberate exception: `tests/roms/bench` links both, because
 it exists to measure `md.*` against the SGDK calls it replaces. What a build still opens is the
 m68k toolchain in `bin/` and the `libgcc.a` beside it. Everything else is reference material, or
 the checks that hold this claim.
@@ -19,10 +19,10 @@ the checks that hold this claim.
 
 `md.hw.*` sits below all of this and has no SGDK counterpart: it is one volatile access per call.
 The bindings that used to live in `sdk/src/md/sgdk` are gone; what is left of them is nine externs
-under `samples/bench/hx/sgdk`, which exist so the benchmark can call both sides of each row below
+under `tests/roms/bench/hx/sgdk`, which exist so the benchmark can call both sides of each row below
 in the same ROM.
 
-The cycle counts are `samples/bench`, which runs both sides of a row in one ROM and counts 68000
+The cycle counts are `tests/roms/bench`, which runs both sides of a row in one ROM and counts 68000
 cycles over the same span. They are the numbers `./tests/run.sh` last printed, not remembered ones.
 
 | SGDK source | lines | native Haxe | 68000 cycles, ours against theirs |
@@ -95,8 +95,8 @@ any path under `vendor/SGDK` that is not in `bin/`.
 
 | path | what for |
 | --- | --- |
-| `lib/libmd.a` | the list of symbols every sample's link is held against, and what `samples/bench` links |
-| `inc/`, `src/boot/sega.s` | what `samples/bench` compiles and boots with, since it is the SGDK comparison |
+| `lib/libmd.a` | the list of symbols every sample's link is held against, and what `tests/roms/bench` links |
+| `inc/`, `src/boot/sega.s` | what `tests/roms/bench` compiles and boots with, since it is the SGDK comparison |
 | `bin/rescomp.jar`, `apj.jar`, `lz4w.jar`, `xgmtool.exe` | what the resource checks compare `hxres` against where a JVM is present |
 
 **Carried only to be read.** Not opened by anything, and worth keeping, because every hardware
