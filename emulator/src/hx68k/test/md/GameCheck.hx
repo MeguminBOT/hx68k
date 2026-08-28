@@ -10,7 +10,8 @@ class GameCheck {
 
 	public static function run(args:Array<String>):Void {
 		if (args.length < 1) {
-			Sys.println("usage: game <rom> [frames]");
+			Sys.println("usage: game <rom> [frames] [--png file] [--wav file]"
+				+ " [--press button@frame[:held][,...]]");
 			Sys.exit(2);
 		}
 
@@ -24,6 +25,7 @@ class GameCheck {
 		var picture:Null<String> = null;
 		var tune:Null<String> = null;
 		var expected:Null<String> = null;
+		var pressing = "";
 		final checkpoints = new Map<Int, String>();
 
 		var i = 1;
@@ -32,6 +34,7 @@ class GameCheck {
 				case "--png": picture = args[++i];
 				case "--wav": tune = args[++i];
 				case "--digest": expected = wanted(args[++i], checkpoints);
+				case "--press": pressing = pressing == "" ? args[++i] : pressing + "," + args[++i];
 				case _: frames = Std.parseInt(args[i]);
 			}
 			i++;
@@ -48,9 +51,13 @@ class GameCheck {
 		final heard:Array<Int> = [];
 		final taken = new haxe.ds.Vector<Int>(2048);
 
+		final pressed:Map<Int, Int> = pressing == "" ? null : hx68k.debug.Schedule.of(pressing);
+
 		final started = haxe.Timer.stamp();
 		while (ran < frames) {
 			try {
+				if (pressed != null)
+					machine.buttons[0] = pressed.exists(ran) ? pressed.get(ran) : 0;
 				machine.runFrame();
 				if (tune != null) hx68k.debug.Recording.drain(machine.sound, taken, heard);
 			} catch (e:Dynamic) {

@@ -19,7 +19,7 @@ class DebugTool {
 				+ " --break <Class.function|File.hx:line> [--watch <Class.static> [--expect n,n,n]]"
 				+ " [--trace n] [--profile frames] [--view] [--raster frames]"
 				+ " [--read Class.static[,...]] [--stack] [--views] [--settle frames] [--hits n[,...]]"
-				+ " [--gdb port] [--slots frames] [--symbols <file>] [--press button@frame[:held][,...]] [--top n] [--peek addr:bytes:file] [--vgm file --record frames]");
+				+ " [--gdb port] [--slots frames] [--symbols <file>] [--press button@frame[:held][,...]] [--hold button] [--top n] [--peek addr:bytes:file] [--vgm file --record frames]");
 			Sys.exit(2);
 		}
 
@@ -36,6 +36,7 @@ class DebugTool {
 		var expected:Array<Int> = [];
 		var symbolFile = "";
 		var pressing = "";
+		var holding = 0;
 		var top = 12;
 		var peeking = "";
 		var logging = "";
@@ -62,7 +63,10 @@ class DebugTool {
 				case "--gdb": serving = count(args, i);
 				case "--slots": spending = count(args, i);
 				case "--symbols": symbolFile = value(args, i);
-				case "--press": pressing = value(args, i);
+				case "--press":
+					final more = value(args, i);
+					pressing = pressing == "" ? more : pressing + "," + more;
+				case "--hold": holding = holding | Schedule.bit(value(args, i));
 				case "--top": top = count(args, i);
 				case "--peek": peeking = value(args, i);
 				case "--vgm": logging = value(args, i);
@@ -104,6 +108,8 @@ class DebugTool {
 			press(machine, pressing, settle);
 			settle = 0;
 		}
+
+		if (holding != 0) machine.buttons[0] = holding;
 
 		final once = hits[hits.length - 1];
 
@@ -464,38 +470,8 @@ class DebugTool {
 		return out.toString();
 	}
 
-	static inline final HELD_FRAMES = 6;
-
-	static function buttonBit(name:String):Int {
-		return switch (StringTools.trim(name).toLowerCase()) {
-			case "up": 0x01;
-			case "down": 0x02;
-			case "left": 0x04;
-			case "right": 0x08;
-			case "b": 0x10;
-			case "c": 0x20;
-			case "a": 0x40;
-			case "start": 0x80;
-			case _: 0;
-		}
-	}
-
 	static function press(machine:Machine, schedule:String, frames:Int):Void {
-		final at:Map<Int, Int> = [];
-
-		for (entry in schedule.split(",")) {
-			final split = entry.indexOf("@");
-			if (split <= 0) continue;
-
-			final bit = buttonBit(entry.substr(0, split));
-			final tail = entry.substr(split + 1);
-			final colon = tail.indexOf(":");
-			final when = Std.parseInt(colon > 0 ? tail.substr(0, colon) : tail);
-			final held = colon > 0 ? Std.parseInt(tail.substr(colon + 1)) : HELD_FRAMES;
-			if (bit == 0 || when == null || held == null) continue;
-
-			for (frame in when...when + held) at.set(frame, (at.exists(frame) ? at.get(frame) : 0) | bit);
-		}
+		final at:Map<Int, Int> = Schedule.of(schedule);
 
 		var applied = 0;
 		for (frame in 0...frames) {
