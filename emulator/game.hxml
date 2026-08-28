@@ -1,3 +1,0 @@
--cp src
--main hx68k.test.md.GameCheck
--neko ../export/md/tests/bin/game.n

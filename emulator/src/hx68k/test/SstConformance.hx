@@ -15,7 +15,7 @@ typedef Score = {
 }
 
 class SstConformance {
-	static inline final SUITE = "../vendor/SingleStepTests-m68000/v1";
+	static final SUITE = Root.vendor("SingleStepTests-m68000/v1");
 
 	static function main():Void {
 		run(Sys.args());

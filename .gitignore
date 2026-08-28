@@ -19,8 +19,12 @@ tests/.run-copy.sh
 *.bin
 *.out
 
-# the window type check, which writes nothing it keeps
+# the type checks, which write nothing they keep
 tests/.hostcheck/
+tests/.typed.n
+
+# the player source generation the separation check reads
+tests/.player/
 
 # where the pad comparison puts the two ROMs it holds to each other
 tests/.pad/

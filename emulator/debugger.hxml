@@ -1,0 +1,16 @@
+# the emulator with the debugger in it: panels, DWARF, disassembly, profiling, savestates and a gdb
+# remote.
+#
+#     haxelib run hx68k build
+#     haxelib run hx68k run <rom.bin>
+#
+-cp src
+-main hx68k.host.Workbench
+-cpp ../export/md/emulator/obj
+
+-D analyzer-optimize
+-D HXCPP_OPTIMIZE_LINK
+-D HXCPP_GC_GENERATIONAL
+
+# SDL3PATH, MINIAUDIOPATH and NATIVEPATH are handed in by the build command, since a plain .hxml
+# cannot see the repository's own absolute path and hxcpp's build.xml wants one to find them

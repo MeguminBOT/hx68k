@@ -1,3 +1,0 @@
--cp src
--main hx68k.test.md.RomCheck
--neko ../export/md/tests/bin/rom.n

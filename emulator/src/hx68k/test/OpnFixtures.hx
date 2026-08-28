@@ -8,8 +8,7 @@ class OpnFixtures {
 
 	static final APART = [[0xA9, 0xAD], [0xAA, 0xAE], [0xA8, 0xAC]];
 
-	static function main():Void {
-		final args = Sys.args();
+	public static function run(args:Array<String>):Void {
 		final into = args.length > 0 ? args[0] : "tests/opn2/.build/scripts";
 
 		if (!FileSystem.exists(into)) FileSystem.createDirectory(into);

@@ -1,3 +1,0 @@
--cp src
--main hx68k.test.SstDump
--neko ../export/md/tests/bin/dump.n

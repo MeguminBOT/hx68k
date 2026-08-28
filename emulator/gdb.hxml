@@ -1,5 +1,0 @@
-# the gdb remote serial protocol, spoken to itself over a loopback socket:
-#   ./gate.sh gdb
--cp src
--main hx68k.test.GdbCheck
--neko ../export/md/tests/bin/gdb.n

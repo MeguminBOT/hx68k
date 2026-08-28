@@ -8,5 +8,8 @@
   "classPath": "tools/src",
   "main": "Run",
   "releasenote": "",
-  "dependencies": {}
+  "dependencies": {
+    "reflaxe": "4.0.0-beta",
+    "hxcpp": ""
+  }
 }

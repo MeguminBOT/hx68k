@@ -1,5 +1,8 @@
-# the resource pipeline, held to rescomp where a JVM is present to compare against:
-#   ./sdk/run-resources.sh [repository-root]
+# the resource pipeline, held to SGDK's rescomp where a JVM is present to compare against:
+#
+#     haxelib run hx68k build check
+#     export/md/tests/bin/check <repository root>
+#
 -cp src
 -main hxres.Check
 -D md_runtime

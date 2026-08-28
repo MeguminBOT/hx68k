@@ -36,7 +36,7 @@ class Run {
 		{
 			name: "SDL3", group: "build",
 			url: "", present: "SDL3/include", size: "12 MB",
-			about: "the window, called directly by emulator/native"
+			about: "the window, called directly. A system package off Windows"
 		},
 		{
 			name: "miniaudio", group: "build",
@@ -111,7 +111,11 @@ class Run {
 			case "check": check(root);
 			case "list": list(root);
 			case "build": build(root, chosen(root, flags), flags.indexOf("--debug") >= 0);
+			case "rom": buildRom(root, called, flags);
+			case "player": buildPlayer(root, called, flags);
 			case "run": play(root, flags);
+			case "gate": gate(root, flags);
+			case "test": suite(root, flags);
 			case "pad": padRom(called, flags);
 			case "new": scaffold(root, called, flags);
 			case _: help();
@@ -121,21 +125,107 @@ class Run {
 	static function help():Void {
 		Sys.println("");
 		Sys.println("  haxelib run hx68k setup              everything needed to build and to pass the gate");
-		Sys.println("  haxelib run hx68k setup --minimal    only what is needed to build a ROM and the window");
+		Sys.println("  haxelib run hx68k setup --minimal    only what is needed to build a ROM and the emulator");
 		Sys.println("  haxelib run hx68k check              what is present and what is missing");
 		Sys.println("");
-		Sys.println("  haxelib run hx68k build              the emulator window");
+		Sys.println("  haxelib run hx68k new <name>         a project that builds and boots, ready to edit");
+		Sys.println("  haxelib run hx68k rom [dir] [debug]  build that project into a ROM");
+		Sys.println("  haxelib run hx68k run <rom>          run it in the debugger emulator");
+		Sys.println("  haxelib run hx68k player <rom>       one executable with that ROM inside it");
+		Sys.println("");
+		Sys.println("  haxelib run hx68k build              the debugger emulator");
 		Sys.println("  haxelib run hx68k build sst z80      those targets");
 		Sys.println("  haxelib run hx68k build --all        every target");
 		Sys.println("  haxelib run hx68k build --debug      the same, carrying debug information");
 		Sys.println("  haxelib run hx68k list               every target and where it is put");
-		Sys.println("  haxelib run hx68k run <rom>          build the window and run it");
 		Sys.println("");
-		Sys.println("  haxelib run hx68k new <name>         a project that builds and boots, ready to edit");
+		Sys.println("  haxelib run hx68k test               the gate: every check, in order");
+		Sys.println("  haxelib run hx68k gate               every check and tool the gate can run alone");
+		Sys.println("  haxelib run hx68k gate sst MOVE.w -f one of them, on one group");
 		Sys.println("");
 		Sys.println("  haxelib run hx68k pad <rom.bin> -sizealign 131072 -checksum");
 		Sys.println("                                       pad a ROM and write its header checksum");
 		Sys.println("");
+		Sys.println("  everything a build makes goes under export/md, and nothing else is written.");
+		Sys.println("");
+	}
+
+	static function buildRom(root:String, called:String, flags:Array<String>):Void {
+		final named = flags.filter(f -> !StringTools.startsWith(f, "-"));
+		final profile = named.length > 0 && named[named.length - 1] == "debug" ? "debug" : "";
+		if (profile != "") named.pop();
+
+		final where = named.length > 0 ? absolute(called, named[0]) : called;
+
+		if (!FileSystem.exists(where + "/build.hxml")) {
+			Sys.println("hx68k: no build.hxml in " + where);
+			Sys.exit(1);
+		}
+
+		Sys.exit(shell(where, [root + "/sdk/rom.sh"].concat(profile == "" ? [] : [profile])));
+	}
+
+	static function buildPlayer(root:String, called:String, flags:Array<String>):Void {
+		final named = flags.filter(f -> !StringTools.startsWith(f, "-"));
+		if (named.length == 0) {
+			Sys.println("hx68k: player needs a ROM, as in haxelib run hx68k player mygame.bin");
+			Sys.exit(1);
+		}
+
+		final rom = absolute(called, named[0]);
+		if (!FileSystem.exists(rom)) {
+			Sys.println("hx68k: no file at " + rom);
+			Sys.exit(1);
+		}
+
+		final title = haxe.io.Path.withoutExtension(haxe.io.Path.withoutDirectory(rom));
+		release(title);
+		built(root, "player", flags.indexOf("--debug") >= 0,
+			["-resource", nativePath(rom) + "@" + title]);
+		ship(root, "player", title);
+
+		Sys.println("");
+		Sys.println("  export/md/player/bin/" + title + exeSuffix());
+		Sys.println("");
+	}
+
+	static function gate(root:String, flags:Array<String>):Void {
+		if (Sys.getEnv("GATE_BUILT") != "1") {
+			built(root, "gate", false, []);
+			ship(root, "gate");
+		}
+
+		final binary = root + "/export/md/tests/bin/gate" + exeSuffix();
+		if (!FileSystem.exists(binary)) {
+			Sys.println("hx68k: the gate binary is not at " + binary);
+			Sys.exit(1);
+		}
+
+		Sys.exit(Sys.command(binary, flags));
+	}
+
+	static function suite(root:String, flags:Array<String>):Void {
+		Sys.exit(shell(root, [root + "/tests/run.sh"].concat(flags)));
+	}
+
+	static function shell(where:String, command:Array<String>):Int {
+		final here = Sys.getCwd();
+		Sys.setCwd(where);
+
+		var code = 0;
+		try {
+			code = Sys.command("bash", command);
+		} catch (e:Dynamic) {
+			Sys.println("hx68k: bash is needed to run " + command[0]);
+			code = 1;
+		}
+
+		Sys.setCwd(here);
+		return code;
+	}
+
+	static function exeSuffix():String {
+		return Sys.systemName() == "Windows" ? ".exe" : "";
 	}
 
 	static function scaffold(root:String, where:String, flags:Array<String>):Void {
@@ -158,7 +248,6 @@ class Run {
 		FileSystem.createDirectory(at + "/hx");
 
 		File.saveContent(at + "/build.hxml", buildFile(posix, name));
-		File.saveContent(at + "/build.sh", buildScript(posix, name));
 		File.saveContent(at + "/hx/Main.hx", firstProgram(name));
 		File.saveContent(at + "/.gitignore", "export/\n");
 
@@ -167,7 +256,8 @@ class Run {
 		Sys.println("");
 		Sys.println("  " + at);
 		Sys.println("");
-		Sys.println("  cd " + name + " && ./build.sh          builds " + built);
+		Sys.println("  cd " + name);
+		Sys.println("  haxelib run hx68k rom                builds " + built);
 		Sys.println("  haxelib run hx68k run " + built + "   runs it in the emulator");
 		Sys.println("");
 	}
@@ -185,15 +275,6 @@ class Run {
 			+ "-cp hx\n"
 			+ "-dce full\n"
 			+ "-main Main\n";
-	}
-
-	static function buildScript(root:String, name:String):String {
-		return "#!/usr/bin/env bash\n"
-			+ "# builds hx/Main.hx into export/md/rom/" + name + "/bin/release/rom.bin. Pass debug\n"
-			+ "# for the other profile, and -D md-pal in build.hxml for a PAL ROM.\n"
-			+ "set -e\n"
-			+ "cd \"$(dirname \"$0\")\"\n"
-			+ "exec '" + root + "/sdk/rom.sh' \"$@\"\n";
 	}
 
 	static function firstProgram(name:String):String {
@@ -277,6 +358,17 @@ class Run {
 		Sys.println("");
 	}
 
+	static function jvm():Bool {
+		try {
+			final probe = new sys.io.Process("java", ["-version"]);
+			final code = probe.exitCode();
+			probe.close();
+			return code == 0;
+		} catch (e:Dynamic) {
+			return false;
+		}
+	}
+
 	static function check(root:String):Void {
 		final vendor = root + "/vendor";
 		Sys.println("");
@@ -289,6 +381,11 @@ class Run {
 					+ StringTools.lpad(source.size, " ", 8) + "   " + source.about);
 			}
 		}
+
+		Sys.println("");
+		Sys.println("  optional");
+		Sys.println("    " + (jvm() ? "[x] " : "[ ] ") + pad("a JVM") + StringTools.lpad("", " ", 8)
+			+ "   the resource pipeline is held to SGDK's rescomp where one is present");
 		Sys.println("");
 	}
 
@@ -427,18 +524,31 @@ class Run {
 		return StringTools.rpad(name, " ", 24);
 	}
 
+	static final HOMES:Array<String> = ["emulator", "sdk"];
+
 	static function targets(root:String):Array<String> {
 		final out = [];
-		for (entry in FileSystem.readDirectory(root + "/emulator")) {
-			if (StringTools.endsWith(entry, ".hxml")) out.push(entry.substr(0, entry.length - 5));
+		for (home in HOMES) {
+			for (entry in FileSystem.readDirectory(root + "/" + home)) {
+				if (StringTools.endsWith(entry, ".hxml")) out.push(entry.substr(0, entry.length - 5));
+			}
 		}
 		out.sort((a, b) -> a < b ? -1 : (a > b ? 1 : 0));
 		return out;
 	}
 
+	static function homeOf(root:String, target:String):String {
+		for (home in HOMES) {
+			if (FileSystem.exists(root + "/" + home + "/" + target + ".hxml")) return home;
+		}
+		return "";
+	}
+
 	static function setting(root:String, target:String, flag:String):String {
-		final path = root + "/emulator/" + target + ".hxml";
-		if (!FileSystem.exists(path)) return "";
+		final home = homeOf(root, target);
+		if (home == "") return "";
+
+		final path = root + "/" + home + "/" + target + ".hxml";
 		for (line in File.getContent(path).split("
 ")) {
 			final trimmed = StringTools.trim(line);
@@ -452,7 +562,7 @@ class Run {
 	static function chosen(root:String, flags:Array<String>):Array<String> {
 		if (flags.indexOf("--all") >= 0) return targets(root);
 		final named = flags.filter(f -> !StringTools.startsWith(f, "-"));
-		return named.length == 0 ? ["window"] : named;
+		return named.length == 0 ? ["debugger"] : named;
 	}
 
 	static function nativePath(path:String):String {
@@ -462,42 +572,20 @@ class Run {
 	static function list(root:String):Void {
 		Sys.println("");
 		for (target in targets(root)) {
-			final cpp = setting(root, target, "-cpp");
-			final neko = setting(root, target, "-neko");
-			Sys.println("  " + pad(target) + (cpp != "" ? cpp : neko));
+			final shipped = "export/md/" + kindOf(target) + "/bin/" + shipName(target)
+				+ (setting(root, target, "-neko") != "" ? ".n" : exeSuffix());
+			Sys.println("  " + pad(target) + shipped);
 		}
+		Sys.println("");
+		Sys.println("  every check and tool the gate runs is inside 'gate', chosen by its first");
+		Sys.println("  argument: haxelib run hx68k gate");
 		Sys.println("");
 	}
 
 	static function build(root:String, names:Array<String>, debug:Bool):Void {
-		final vendor = root + "/vendor";
-		if (!FileSystem.exists(vendor + "/SDL3/lib/SDL3.lib")) {
-			Sys.println("SDL3 is missing from vendor/. Run: haxelib run hx68k setup");
-			Sys.exit(1);
-		}
-
-		final flags = [
-			"-D", "SDL3PATH=" + nativePath(vendor + "/SDL3"),
-			"-D", "MINIAUDIOPATH=" + nativePath(vendor + "/miniaudio"),
-			"-D", "NATIVEPATH=" + nativePath(root + "/emulator/native")
-		];
-		if (debug) flags.push("-debug");
-
-		final here = Sys.getCwd();
 		for (name in names) {
-			if (!FileSystem.exists(root + "/emulator/" + name + ".hxml")) {
-				Sys.println("no target called " + name + ". Try: haxelib run hx68k list");
-				Sys.exit(1);
-			}
-
 			release(name);
-
-			Sys.println("  " + pad(name) + "building");
-			Sys.setCwd(root + "/emulator");
-			final code = Sys.command("haxe", [name + ".hxml"].concat(flags));
-			Sys.setCwd(here);
-
-			if (code != 0) Sys.exit(code);
+			built(root, name, debug, []);
 			ship(root, name);
 		}
 
@@ -506,11 +594,49 @@ class Run {
 		Sys.println("");
 	}
 
-	static final SHIPPED:Map<String, String> = ["window" => "hx68k"];
+	static function built(root:String, name:String, debug:Bool, extra:Array<String>):Void {
+		final vendor = root + "/vendor";
+		if (Sys.systemName() == "Windows" && !FileSystem.exists(vendor + "/SDL3/lib/SDL3.lib")) {
+			Sys.println("SDL3 is missing from vendor/. Run: haxelib run hx68k setup");
+			Sys.exit(1);
+		}
+
+		final home = homeOf(root, name);
+		if (home == "") {
+			Sys.println("no target called " + name + ". Try: haxelib run hx68k list");
+			Sys.exit(1);
+		}
+
+		final flags = [
+			"-D", "SDL3PATH=" + nativePath(vendor + "/SDL3"),
+			"-D", "MINIAUDIOPATH=" + nativePath(vendor + "/miniaudio"),
+			"-D", "NATIVEPATH=" + nativePath(root + "/emulator/native")
+		].concat(extra);
+		if (debug) flags.push("-debug");
+
+		Sys.println("  " + pad(name) + "building");
+
+		final here = Sys.getCwd();
+		Sys.setCwd(root + "/" + home);
+		final code = Sys.command("haxe", [name + ".hxml"].concat(flags));
+		Sys.setCwd(here);
+
+		if (code != 0) Sys.exit(code);
+	}
+
+	static final SHIPPED:Map<String, String> = ["debugger" => "hx68k-debugger"];
 
 	static function shipName(target:String):String {
 		final named = SHIPPED.get(target);
 		return named == null ? target : named;
+	}
+
+	static function kindOf(target:String):String {
+		return switch (target) {
+			case "debugger": "emulator";
+			case "player": "player";
+			case _: "tests";
+		};
 	}
 
 	static function release(target:String):Void {
@@ -522,12 +648,12 @@ class Run {
 		} catch (e:Dynamic) {}
 	}
 
-	static function ship(root:String, name:String):Void {
+	static function ship(root:String, name:String, ?as:String):Void {
 		final into = setting(root, name, "-cpp");
 		final main = setting(root, name, "-main");
 		if (into == "" || main == "") return;
 
-		final dir = haxe.io.Path.normalize(root + "/emulator/" + into);
+		final dir = haxe.io.Path.normalize(root + "/" + homeOf(root, name) + "/" + into);
 		final stem = main.split(".").pop();
 
 		var exe = dir + "/" + stem + ".exe";
@@ -538,11 +664,12 @@ class Run {
 		}
 		if (!FileSystem.exists(exe)) return;
 
-		final bin = haxe.io.Path.normalize(dir + "/../bin");
+		final bin = haxe.io.Path.normalize(root + "/export/md/" + kindOf(name) + "/bin");
 		if (!FileSystem.exists(bin)) FileSystem.createDirectory(bin);
-		File.copy(exe, bin + "/" + shipName(name) + suffix);
+		File.copy(exe, bin + "/" + (as == null ? shipName(name) : as) + suffix);
 
-		final source = File.getContent(root + "/emulator/src/" + main.split(".").join("/") + ".hx");
+		final source = File.getContent(root + "/" + homeOf(root, name) + "/src/"
+			+ main.split(".").join("/") + ".hx");
 		if (source.indexOf("hx68k.host") >= 0 && Sys.systemName() == "Windows") {
 			File.copy(root + "/vendor/SDL3/lib/SDL3.dll", bin + "/SDL3.dll");
 		}
@@ -625,7 +752,7 @@ class Run {
 		final given = flags.filter(f -> !StringTools.startsWith(f, "-"));
 		build(root, ["window"], false);
 
-		final exe = root + "/export/md/emulator/bin/hx68k.exe";
+		final exe = root + "/export/md/emulator/bin/hx68k-debugger" + exeSuffix();
 		final rom = given.length > 0 ? FileSystem.absolutePath(given[0]) : null;
 		Sys.exit(Sys.command(exe, rom == null ? [] : [rom]));
 	}

@@ -5,7 +5,7 @@ import hx68k.cpu.z80.Z80;
 import hx68k.test.Z80Format;
 
 class Z80Conformance {
-	static inline final SUITE = "../vendor/SingleStepTests-z80/v1bin";
+	static final SUITE = Root.vendor("SingleStepTests-z80/v1bin");
 
 	static function main():Void {
 		run(Sys.args());
@@ -17,7 +17,7 @@ class Z80Conformance {
 
 		if (!sys.FileSystem.exists(SUITE)) {
 			Sys.println("converted fixtures not found at " + SUITE);
-			Sys.println("run: neko bin/z80convert.n");
+			Sys.println("run: haxelib run hx68k gate z80convert");
 			Sys.exit(2);
 		}
 

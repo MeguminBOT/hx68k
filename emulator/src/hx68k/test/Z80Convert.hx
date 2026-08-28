@@ -3,11 +3,11 @@ package hx68k.test;
 import hx68k.test.Z80Format;
 
 class Z80Convert {
-	static inline final SOURCE = "../vendor/SingleStepTests-z80/v1";
-	static inline final TARGET = "../vendor/SingleStepTests-z80/v1bin";
+	static final SOURCE = Root.vendor("SingleStepTests-z80/v1");
+	static final TARGET = Root.vendor("SingleStepTests-z80/v1bin");
 
-	static function main():Void {
-		final filter = Sys.args().length > 0 ? Sys.args()[0] : null;
+	public static function run(args:Array<String>):Void {
+		final filter = args.length > 0 ? args[0] : null;
 
 		if (!sys.FileSystem.exists(SOURCE)) {
 			Sys.println("fixtures not found at " + SOURCE);

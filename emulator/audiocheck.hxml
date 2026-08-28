@@ -1,3 +1,7 @@
+# the audio device, which needs miniaudio and so cannot live inside gate:
+#
+#     haxelib run hx68k build audiocheck
+#
 -cp src
 -main hx68k.test.AudioCheck
 -cpp ../export/md/tests/obj/audiocheck

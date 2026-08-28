@@ -15,14 +15,41 @@ mkdir -p "$HERE"
 # being printed and the check above passes on an object file nobody compiled. Each ROM therefore
 # gets its object directory removed once per run, before the first build of it.
 SCRUBBED=""
+warned() {
+	local ours
+	ours="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" | grep "warning:" | grep -v "/\.build/musashi/" || true)"
+	if [ -n "$ours" ]; then
+		echo "FAILED"
+		echo "  the build warned, and a warning here is a failure:"
+		echo "$ours" | sed 's/^/  /' | head -20
+		exit 1
+	fi
+	echo "ok"
+}
+
+# a script that builds something, with its log shown only if it failed or warned
 build() {
 	local name="$1"
 	local script="$2"
 	shift 2
 	printf "building %-16s" "$name"
 
-	local base
-	base="$(dirname "$script")"
+	if ! "$script" "$@" > "$LOG" 2>&1; then
+		echo "FAILED"
+		cat "$LOG"
+		exit 1
+	fi
+
+	warned
+}
+
+# a ROM, through the one entry point, from the directory holding its build.hxml
+rom() {
+	local name="$1"
+	local base="$2"
+	shift 2
+	printf "building %-16s" "$name"
+
 	case " $SCRUBBED " in
 		*" $base "*) ;;
 		*)
@@ -36,30 +63,37 @@ build() {
 			SCRUBBED="$SCRUBBED $base"
 			;;
 	esac
-	if ! "$script" "$@" > "$LOG" 2>&1; then
+
+	if ! (cd "$base" && haxelib run hx68k rom "$@") > "$LOG" 2>&1; then
 		echo "FAILED"
 		cat "$LOG"
 		exit 1
 	fi
 
-	local ours
-	ours="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG" | grep "warning:" | grep -v "/\.build/musashi/" || true)"
-	if [ -n "$ours" ]; then
-		echo "FAILED"
-		echo "  the build warned, and a warning here is a failure:"
-		echo "$ours" | sed 's/^/  /' | head -20
-		exit 1
-	fi
-	echo "ok"
+	warned
 }
 
-# haxe, from a directory, with the log shown only if it failed
-compile() {
+# one of the five build targets, through the one entry point
+made() {
 	local name="$1"
-	local directory="$2"
-	local file="$3"
+	local target="$2"
 	printf "building %-16s" "$name"
-	if (cd "$directory" && haxe "$file") > "$LOG" 2>&1; then
+	if (cd "$ROOT" && haxelib run hx68k build "$target") > "$LOG" 2>&1; then
+		echo "ok"
+	else
+		echo "FAILED"
+		cat "$LOG"
+		exit 1
+	fi
+}
+
+# type checking to neko, which is what says a module reaches no display library: nothing that
+# imports SDL can be typed for neko at all
+typed() {
+	local name="$1"
+	shift
+	printf "building %-16s" "$name"
+	if (cd "$ROOT/emulator" && haxe -cp src -neko "$HERE/.typed.n" --no-output "$@") > "$LOG" 2>&1; then
 		echo "ok"
 	else
 		echo "FAILED"
@@ -107,10 +141,10 @@ absent() {
 	echo "ok"
 }
 
-build "spike rom"   "$ROOT/tests/roms/spike/build.sh"
-build "conformance" "$ROOT/tests/roms/conformance/build.sh"
-build "hardware rom" "$ROOT/tests/roms/hardware/build.sh"
-build "pal rom" "$ROOT/tests/roms/pal/build.sh"
+rom "spike rom"   "$ROOT/tests/roms/spike"
+rom "conformance" "$ROOT/tests/roms/conformance"
+rom "hardware rom" "$ROOT/tests/roms/hardware"
+rom "pal rom" "$ROOT/tests/roms/pal"
 
 # the backend writes rom_header.c itself, which is how -D md-pal reaches the cartridge header:
 # SGDK's makefile only copies its own template when the file is not already there
@@ -122,10 +156,10 @@ codegen "default bare"  "$ROOT/export/md/rom/spike/src/Main.c" 'Main_ramp\('
 
 codegen "pal region" "$ROOT/export/md/rom/pal/src/rom_header.c" '"E {15}"'
 codegen "ntsc region" "$ROOT/export/md/rom/spike/src/rom_header.c" '"JUE {13}"' 
-build "art rom"     "$ROOT/tests/roms/art/build.sh"
-build "events rom"  "$ROOT/tests/roms/events/build.sh"
-build "sdk rom"     "$ROOT/tests/roms/sdk/build.sh"
-build "bare rom"    "$ROOT/tests/roms/bare/build.sh"
+rom "art rom"     "$ROOT/tests/roms/art"
+rom "events rom"  "$ROOT/tests/roms/events"
+rom "sdk rom"     "$ROOT/tests/roms/sdk"
+rom "bare rom"    "$ROOT/tests/roms/bare"
 # nothing a ROM compiles may reach for SGDK's header. tests/roms/bench is the exception and says
 # so with -D md-sgdk, which is what puts genesis.h back into its hx.h.
 missing "no sgdk header" "$ROOT/export/md/rom/bare/src/hx.h" '#include <genesis.h>'
@@ -162,10 +196,10 @@ build "harness"     "$HERE/harness/build.sh"
 # holds all of them, chosen by its first argument, built with the three defines the window is built
 # with. Measured on the eight cores this is pinned to, that took the whole gate from 940 seconds to
 # 61, while adding the 240p walk, the PSG and four more frames of the commercial ROM to it.
-compile "gate" "$ROOT/emulator" gate.hxml
+made "gate" gate
 
-GATE="$ROOT/export/md/tests/obj/gate/Gate.exe"
-[ -x "$GATE" ] || GATE="$ROOT/export/md/tests/obj/gate/Gate"
+GATE="$ROOT/export/md/tests/bin/gate.exe"
+[ -x "$GATE" ] || GATE="$ROOT/export/md/tests/bin/gate"
 export GATE_BUILT=1
 
 CONF="$ROOT/export/md/rom/conformance/src/Main.c"
@@ -228,8 +262,8 @@ fi
 
 echo ""
 echo "--- the resource pipeline, against the tool it replaces ---"
-compile "resource check" "$ROOT/sdk" check.hxml
-"$ROOT/export/md/tests/obj/check/Check" "$ROOT"
+made "resource check" check
+"$ROOT/export/md/tests/bin/check.exe" "$ROOT"
 
 echo ""
 "$HERE/harness/.build/mdtest" "$ROOT" "$@"
@@ -244,12 +278,12 @@ echo "--- the VDP renderer against the hardware documentation ---"
 
 echo ""
 echo "--- the sound driver, on the only emulator here with a Z80 ---"
-build "sound rom" "$ROOT/tests/roms/sound/build.sh"
+rom "sound rom" "$ROOT/tests/roms/sound"
 "$GATE" sound "$ROOT"
 
 echo ""
 echo "--- generated code against the C written beside it, in 68000 cycles ---"
-build "bench rom" "$ROOT/tests/roms/bench/build.sh"
+rom "bench rom" "$ROOT/tests/roms/bench"
 codegen "sgdk when asked" "$ROOT/export/md/rom/bench/src/hx.h" '#include <genesis.h>'
 "$GATE" bench 	"$ROOT/export/md/rom/bench/bin/release/rom.bin" 	"$ROOT/export/md/rom/bench/bin/release/rom.out" 	array:c array:haxe wide:haxe wide:c objects:haxe objects:c palette:haxe palette:c cell:haxe cell:c fill:haxe fill:c patterns:haxe patterns:c aplib:haxe aplib:asm lz4w:haxe lz4w:asm sprite:haxe sprite:c transfer:haxe transfer:c dma:haxe dma:c psg:haxe psg:c fm:haxe fm:c pad:haxe pad:c
 
@@ -258,7 +292,7 @@ echo "--- source map (Haxe line to 68000 address) ---"
 
 # the debug profile keeps DWARF and stops inlining, and writes over out/rom.bin as it goes,
 # so it runs once the release ROM has been through the harness
-build "debug rom" "$ROOT/tests/roms/conformance/build.sh" debug
+rom "debug rom" "$ROOT/tests/roms/conformance" debug
 
 DEBUG_ROM="$ROOT/export/md/rom/conformance/bin/debug/rom.out"
 GENERATED="$ROOT/export/md/rom/conformance/src"
@@ -342,7 +376,7 @@ else
 	echo "FAILED"; cat "$LOG"; exit 1
 fi
 
-build "template rom" "$TEMPLATE/demo/build.sh"
+rom "template rom" "$TEMPLATE/demo"
 
 printf "template %-16s" "boots"
 BOOTED="$("$GATE" game "$TEMPLATE/demo/export/md/rom/demo/bin/rom.bin" 90)"
@@ -354,11 +388,22 @@ echo "$BOOTED" | grep -E "screen |digest "
 
 echo ""
 echo "--- a planted bug, found by stepping Haxe ---"
-build "bug rom" "$ROOT/tests/roms/bug/build.sh" debug
+rom "bug rom" "$ROOT/tests/roms/bug" debug
 
-# nothing reachable from debug.hxml may import a display library, and this neko build is what says
+# nothing the debugger reaches may import a display library, and typing it for neko is what says
 # so: the gate binary links the window's own pure parts and cannot make the same claim
-compile "no display" "$ROOT/emulator" debug.hxml
+typed "no display" hx68k.debug.DebugTool hx68k.map.MapTool
+
+# and nothing a build makes may land outside export/
+printf "build %-20s" "writes only export"
+STRAY="$(find "$ROOT/emulator" "$ROOT/sdk" "$ROOT/tests/roms" -maxdepth 2 -type d \
+	\( -name bin -o -name out \) 2>/dev/null || true)"
+if [ -n "$STRAY" ]; then
+	echo "FAILED"
+	echo "$STRAY" | sed 's/^/  /'
+	exit 1
+fi
+echo "ok"
 
 # the line the bug sits on is found by the wrong arithmetic itself, so moving it moves the
 # expectation and nothing has to be kept in step by hand
@@ -749,7 +794,7 @@ echo ""
 echo "--- the same, out of a version 5 unit ---"
 
 export DWARF=5
-build "bug rom, dwarf 5" "$ROOT/tests/roms/bug/build.sh" debug
+rom "bug rom, dwarf 5" "$ROOT/tests/roms/bug" debug
 unset DWARF
 
 LIBRARY="$("$GATE" map "$ROOT/export/md/rom/bug/bin/debug/rom.out" \
@@ -940,7 +985,7 @@ echo "--- the VDP read back in the terms the documentation uses ---"
 # the art ROM carries a sprite the program declares the size of, so the view is checked against
 # the Haxe that asked for it rather than against a number written here. The raster overlay below
 # names the Haxe function behind every write, so both read the debug build.
-build "art rom, debug" "$ROOT/tests/roms/art/build.sh" debug
+rom "art rom, debug" "$ROOT/tests/roms/art" debug
 
 if VIEW="$("$GATE" debug \
 	"$ROOT/export/md/rom/art/bin/debug/rom.bin" \
@@ -1104,18 +1149,31 @@ fi
 
 echo ""
 echo "--- 68000 cycle-accuracy conformance (SingleStepTests) ---"
-"$ROOT/emulator/run-sst.sh" 2>&1 | tail -12
+if [ -d "$ROOT/vendor/SingleStepTests-m68000/v1" ]; then
+	"$GATE" sst 2>&1 | tail -12
+else
+	echo "SingleStepTests suite missing; skipping 68000 conformance."
+fi
 
 echo ""
 echo "--- z80 cycle-accuracy conformance (SingleStepTests) ---"
-"$ROOT/emulator/run-z80.sh" 2>&1 | tail -9
+if [ -d "$ROOT/vendor/SingleStepTests-z80/v1bin" ]; then
+	"$GATE" z80 2>&1 | tail -9
+else
+	echo "z80 fixtures not converted; skipping z80 conformance."
+	echo "run: haxelib run hx68k gate z80convert"
+fi
 
 echo ""
 echo "--- the disassembler against the same 68000 fixtures ---"
-"$ROOT/emulator/run-disassembly.sh" --ci
+if [ -d "$ROOT/vendor/SingleStepTests-m68000/v1" ]; then
+	"$GATE" disassembly --ci
+else
+	echo "SingleStepTests suite missing; skipping disassembly conformance."
+fi
 
 # the FM chip is a tracked progress metric, not yet a gate: the registers it does not implement at
 # all are listed in docs/notes/ym2612.md, and until they are there the number cannot reach the top.
 echo ""
 echo "--- the FM chip against Nuked OPN2 ---"
-"$ROOT/emulator/run-opn.sh" 2>&1 | tail -20
+"$HERE/opn2/run.sh" 2>&1 | tail -20

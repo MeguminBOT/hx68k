@@ -1,3 +1,0 @@
--cp src
--main hx68k.test.Z80Convert
--neko ../export/md/tests/bin/z80convert.n

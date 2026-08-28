@@ -1,5 +1,0 @@
-# the VDP's external access slots and its write FIFO, driven through the ports with no ROM:
-# neko bin/slot.n
--cp src
--main hx68k.test.md.SlotCheck
--neko ../export/md/tests/bin/slot.n

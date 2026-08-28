@@ -1,5 +1,0 @@
-# the SN76489, driven through its one port with nothing else in the machine:
-#   ./gate.sh psg
--cp src
--main hx68k.test.md.PsgCheck
--neko ../export/md/tests/bin/psg.n

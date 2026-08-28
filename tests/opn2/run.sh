@@ -3,12 +3,12 @@
 # The FM chip against Nuked OPN2. Generates the fixtures, renders both chips over every one of them,
 # and reports how many came out bit identical, by group.
 #
-#   ./emulator/run-opn.sh                     the whole suite, counted by group
-#   ./emulator/run-opn.sh main-algorithm-0    one fixture, printing where the two part company
+#   ./tests/opn2/run.sh                     the whole suite, counted by group
+#   ./tests/opn2/run.sh main-algorithm-0    one fixture, printing where the two part company
 #
 set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/.." && pwd)"
+ROOT="$(cd "$HERE/../.." && pwd)"
 BUILD="$ROOT/tests/opn2/.build"
 SCRIPTS="$BUILD/scripts"
 SOUNDS="$BUILD/sounds"
@@ -23,12 +23,13 @@ fi
 
 # the check is built to C rather than to neko: the same numbers, and fifty times faster, which is
 # what makes a suite of this size something the gate can run
-if [ "${GATE_BUILT:-}" != "1" ]; then
-	(cd "$HERE" && haxe gate.hxml) > /dev/null
+GATE="$ROOT/export/md/tests/bin/gate.exe"
+[ -x "$GATE" ] || GATE="$ROOT/export/md/tests/bin/gate"
+if [ "${GATE_BUILT:-}" != "1" ] || [ ! -x "$GATE" ]; then
+	(cd "$ROOT" && haxelib run hx68k build gate) > /dev/null
 fi
-(cd "$HERE" && haxe fixtures.hxml) > /dev/null
 
-neko "$ROOT/export/md/tests/bin/fixtures.n" "$SCRIPTS" > /dev/null
+"$GATE" fixtures "$SCRIPTS" > /dev/null
 mkdir -p "$SOUNDS"
 
 # only what changed is rendered again, since the reference for a fixture depends on nothing else.
@@ -60,10 +61,8 @@ if [ -s "$LADDER" ]; then
 	"$BUILD/opn2.exe" "$SAMPLES" "$(cygpath -m "$LADDER")" ladder
 fi
 
-export GATE_BUILT=1
-
 if [ -n "$1" ]; then
-	"$HERE/gate.sh" opn "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
+	"$GATE" opn "$SCRIPTS/$1.txt" "$SOUNDS/$1.pcm"
 else
-	"$HERE/gate.sh" opn "$SCRIPTS" "$SOUNDS"
+	"$GATE" opn "$SCRIPTS" "$SOUNDS"
 fi

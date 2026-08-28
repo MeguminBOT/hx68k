@@ -25,7 +25,7 @@ typedef Tally = {
 }
 
 class DisassemblyCheck {
-	static inline final SUITE = "../vendor/SingleStepTests-m68000/v1";
+	static final SUITE = Root.vendor("SingleStepTests-m68000/v1");
 
 	static final FLOW = [
 		"BSR", "Bcc", "DBcc", "JMP", "JSR", "RTE", "RTR", "RTS", "TRAP", "TRAPV", "CHK",

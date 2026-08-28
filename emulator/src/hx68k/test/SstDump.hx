@@ -4,10 +4,9 @@ import hx68k.test.SstFormat;
 import haxe.io.Path;
 
 class SstDump {
-	static inline final SUITE = "../vendor/SingleStepTests-m68000/v1";
+	static final SUITE = Root.vendor("SingleStepTests-m68000/v1");
 
-	static function main() {
-		final args = Sys.args();
+	public static function run(args:Array<String>):Void {
 		final file = args[0];
 		final count = args.length > 1 ? Std.parseInt(args[1]) : 4;
 		final skip = args.length > 2 ? Std.parseInt(args[2]) : 0;

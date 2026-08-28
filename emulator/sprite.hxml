@@ -1,5 +1,0 @@
-# Nemesis' sprite masking and overflow test ROM, in both widths:
-#   ./gate.sh sprite <repository root> [directory for PNGs]
--cp src
--main hx68k.test.md.SpriteCheck
--neko ../export/md/tests/bin/sprite.n

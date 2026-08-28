@@ -10,6 +10,7 @@ import hx68k.test.md.RomCheck;
 import hx68k.test.md.SlotCheck;
 import hx68k.test.md.SoundCheck;
 import hx68k.test.md.Speed;
+import hx68k.test.OpnFixtures;
 import hx68k.test.md.SpriteCheck;
 import hx68k.test.md.StateCheck;
 import hx68k.test.md.ViewCheck;
@@ -28,7 +29,9 @@ class Gate {
 			case "bench": Bench.run(rest);
 			case "debug": hx68k.debug.DebugTool.run(rest);
 			case "disassembly": DisassemblyCheck.run(rest);
+			case "dump": SstDump.run(rest);
 			case "fifo": FifoCheck.run(rest);
+			case "fixtures": OpnFixtures.run(rest);
 			case "game": GameCheck.run(rest);
 			case "gdb": GdbCheck.run();
 			case "layout": LayoutCheck.run();
@@ -42,11 +45,13 @@ class Gate {
 			case "slot": SlotCheck.run();
 			case "sound": SoundCheck.run(rest);
 			case "sprite": SpriteCheck.run(rest);
+			case "speed": Speed.run(rest);
 			case "sst": SstConformance.run(rest);
 			case "state": StateCheck.run(rest);
 			case "view": ViewCheck.run();
 			case "widget": WidgetCheck.run();
 			case "z80": Z80Conformance.run(rest);
+			case "z80convert": Z80Convert.run(rest);
 			case _:
 				Sys.println("no program named " + args[0]);
 				usage();
@@ -56,7 +61,8 @@ class Gate {
 
 	static function usage():Void {
 		Sys.println("usage: gate <program> [arguments]");
-		Sys.println("  bench debug disassembly fifo game gdb layout map opn pattern");
-		Sys.println("  psg render rom settings slot sound sprite sst state view widget z80");
+		Sys.println("  bench debug disassembly dump fifo fixtures game gdb layout map opn");
+		Sys.println("  pattern psg render rom settings slot sound speed sprite sst state");
+		Sys.println("  view widget z80 z80convert");
 	}
 }

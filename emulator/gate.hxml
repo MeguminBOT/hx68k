@@ -1,10 +1,15 @@
-# every program the gate runs, in one binary, chosen by its first argument:
-#   ./gate.sh <program> [arguments]
+# every check and tool the gate runs, in one binary, chosen by its first argument:
+#
+#     haxelib run hx68k gate <program> [arguments]
+#
+# Thirty separate builds of the same sources cost more to rebuild than one, so a program that needs
+# no window lives here rather than in a target of its own. Adding one means adding run(args) to it
+# and a case in hx68k.test.Gate.
 -cp src
 -main hx68k.test.Gate
 -cpp ../export/md/tests/obj/gate
 
-# the same three the window is built with, so a check measures the build that ships
+# the same three the emulator is built with, so a check measures the build that ships
 -D analyzer-optimize
 -D HXCPP_OPTIMIZE_LINK
 -D HXCPP_GC_GENERATIONAL

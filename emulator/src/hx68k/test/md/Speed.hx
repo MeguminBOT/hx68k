@@ -3,8 +3,7 @@ package hx68k.test.md;
 import hx68k.md.Machine;
 
 class Speed {
-	static function main():Void {
-		final args = Sys.args();
+	public static function run(args:Array<String>):Void {
 		if (args.length < 1) {
 			Sys.println("usage: speed <rom> [frames]");
 			Sys.exit(2);

@@ -1,8 +1,0 @@
--cp src
--main hx68k.test.md.Speed
--cpp ../export/md/tests/obj/speed
-
-# what the window is built with, so what is measured here is what runs there
--D analyzer-optimize
--D HXCPP_OPTIMIZE_LINK
--D HXCPP_GC_GENERATIONAL
