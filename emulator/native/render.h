@@ -20,6 +20,7 @@ int host_window_pixel_width(SDL_Window *window);
 int host_window_pixel_height(SDL_Window *window);
 void host_window_set_size(SDL_Window *window, int width, int height);
 void host_window_set_minimum_size(SDL_Window *window, int width, int height);
+void host_window_set_fullscreen(SDL_Window *window, int on);
 float host_window_display_scale(SDL_Window *window);
 void host_text_input_start(SDL_Window *window);
 void host_text_input_stop(SDL_Window *window);

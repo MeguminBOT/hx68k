@@ -247,7 +247,7 @@ class SettingsCheck {
 		same("a file naming one key leaves the rest alone", partial.chord("pause") + " "
 			+ partial.chord("flat out"), "ctrl+p tab");
 
-		for (action in Shortcuts.actions()) {
+		for (action in partial.actions()) {
 			ok("the settings key for " + action + " can be stored",
 				SettingsFile.storable(Shortcuts.settingOf(action)),
 				"it is " + Shortcuts.settingOf(action));

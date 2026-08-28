@@ -6,6 +6,10 @@ class Shortcuts {
 		"keep a state", "restore a state", "back a frame", "preferences"
 	];
 
+	public static final PLAYING:Array<String> = [
+		"pause", "fullscreen", "restart", "preferences"
+	];
+
 	public static final BUTTONS:Array<String> = [
 		"pad up", "pad down", "pad left", "pad right", "pad B", "pad C", "pad A", "pad start"
 	];
@@ -19,6 +23,8 @@ class Shortcuts {
 		"restore a state" => "f9",
 		"back a frame" => "backspace",
 		"preferences" => "f1",
+		"fullscreen" => "f11",
+		"restart" => "f2",
 		"pad up" => "up",
 		"pad down" => "down",
 		"pad left" => "left",
@@ -31,17 +37,20 @@ class Shortcuts {
 
 	final chords:Map<String, String> = [];
 
-	public function new() {
+	final commands:Array<String>;
+
+	public function new(?commands:Array<String>) {
+		this.commands = commands == null ? COMMANDS : commands;
 		reset();
 	}
 
 	public function reset():Void {
 		chords.clear();
-		for (action in DEFAULTS.keys()) chords.set(action, DEFAULTS.get(action));
+		for (action in actions()) chords.set(action, fallback(action));
 	}
 
-	public static function actions():Array<String> {
-		return COMMANDS.concat(BUTTONS);
+	public function actions():Array<String> {
+		return commands.concat(BUTTONS);
 	}
 
 	public static function isButton(action:String):Bool {

@@ -20,7 +20,8 @@ package hx68k.host;
 	<file name="${NATIVEPATH}/render.cpp" />
 </files>
 <target id="haxe">
-	<lib name="${SDL3PATH}/lib/SDL3.lib" />
+	<lib name="${SDL3PATH}/lib/SDL3.lib" if="windows" />
+	<lib name="-lSDL3" unless="windows" />
 	<files id="hx68k_native" />
 </target>
 ')

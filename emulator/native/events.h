@@ -40,6 +40,25 @@ enum {
 	HOST_PAD_START = 0x80
 };
 
+enum {
+	HOST_GAMEPAD_SOUTH = 0,
+	HOST_GAMEPAD_EAST = 1,
+	HOST_GAMEPAD_WEST = 2,
+	HOST_GAMEPAD_NORTH = 3,
+	HOST_GAMEPAD_BACK = 4,
+	HOST_GAMEPAD_GUIDE = 5,
+	HOST_GAMEPAD_START = 6,
+	HOST_GAMEPAD_LEFT_STICK = 7,
+	HOST_GAMEPAD_RIGHT_STICK = 8,
+	HOST_GAMEPAD_LEFT_SHOULDER = 9,
+	HOST_GAMEPAD_RIGHT_SHOULDER = 10,
+	HOST_GAMEPAD_UP = 11,
+	HOST_GAMEPAD_DOWN = 12,
+	HOST_GAMEPAD_LEFT = 13,
+	HOST_GAMEPAD_RIGHT = 14,
+	HOST_GAMEPAD_COUNT = 15
+};
+
 #define HOST_EVENT_TEXT_BYTES 32
 
 typedef struct {
@@ -58,6 +77,7 @@ const char *host_event_text(const HostEvent *event);
 
 int host_pad_open(void);
 int host_pad_state(void);
+int host_pad_raw(void);
 void host_pad_close(void);
 
 #ifdef __cplusplus

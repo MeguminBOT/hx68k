@@ -1,0 +1,16 @@
+# the emulator with no debugger in it: a window, a pad, sound and the settings a person playing a
+# game wants. Built with a ROM inside it by
+#
+#     haxelib run hx68k player <rom.bin>
+#
+# which adds -resource. Built plain, it takes a ROM path on the command line. Nothing reachable
+# from here imports hx68k.map, and nothing under hx68k.debug but Row, which the widget layer holds
+# a table of; the gate checks both against the sources this generates.
+-cp src
+-main hx68k.host.Player
+-cpp ../export/md/player/obj
+
+# the same three the debugger is built with
+-D analyzer-optimize
+-D HXCPP_OPTIMIZE_LINK
+-D HXCPP_GC_GENERATIONAL

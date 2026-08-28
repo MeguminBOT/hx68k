@@ -32,6 +32,9 @@ extern class Sdl {
 	@:native("host_pad_state")
 	public static function padState():Int;
 
+	@:native("host_pad_raw")
+	public static function padRaw():Int;
+
 	@:native("host_pad_close")
 	public static function padClose():Void;
 
@@ -67,6 +70,9 @@ extern class Sdl {
 
 	@:native("host_window_set_minimum_size")
 	public static function setWindowMinimumSize(window:cpp.Star<Window>, width:Int, height:Int):Void;
+
+	@:native("host_window_set_fullscreen")
+	public static function setWindowFullscreen(window:cpp.Star<Window>, on:Int):Void;
 
 	@:native("host_window_display_scale")
 	public static function windowDisplayScale(window:cpp.Star<Window>):Single;

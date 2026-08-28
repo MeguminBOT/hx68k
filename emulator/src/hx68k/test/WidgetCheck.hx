@@ -238,9 +238,9 @@ class WidgetCheck {
 			+ table.chord("pause") + " " + table.chord("flat out"), "f11 space tab");
 		ok("and they are the standard ones again", table.standard("step a line"), "it says otherwise");
 
-		ok("every action has a key", Shortcuts.actions().length == 16,
-			Shortcuts.actions().length + " actions");
-		for (action in Shortcuts.actions()) {
+		ok("every action has a key", table.actions().length == 16,
+			table.actions().length + " actions");
+		for (action in table.actions()) {
 			ok("the key for " + action + " is one this build knows",
 				Keys.codeOf(table.chord(action)) != Keys.UNBOUND, "it is " + table.chord(action));
 		}

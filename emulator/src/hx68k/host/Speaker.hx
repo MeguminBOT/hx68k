@@ -6,7 +6,7 @@ import hx68k.md.Sound;
 class Speaker {
 	static inline final CHUNK = 256;
 
-	static inline final GAIN = 21;
+	public var gain:Int = 21;
 
 	public var playing(default, null):Bool = false;
 
@@ -31,7 +31,7 @@ class Speaker {
 			final got = sound.take(taken, CHUNK);
 			if (got < CHUNK) break;
 
-			for (i in 0...CHUNK * 2) shaped[i] = clamp(taken[i]);
+			for (i in 0...CHUNK * 2) shaped[i] = clamp(taken[i], gain);
 
 			var pushed = 0;
 			while (pushed < CHUNK) {
@@ -62,8 +62,8 @@ class Speaker {
 		return Std.int(1000 * queued() / Sound.RATE);
 	}
 
-	static inline function clamp(sample:Int):Int {
-		final scaled = sample * GAIN;
+	static inline function clamp(sample:Int, gain:Int):Int {
+		final scaled = sample * gain;
 		if (scaled > 32767) return 32767;
 		if (scaled < -32768) return -32768;
 		return scaled;

@@ -79,7 +79,11 @@ class Machine implements Bus implements Memory {
 	public static inline final REGION_LENGTH = 16;
 
 	public function load(path:String):Void {
-		rom = sys.io.File.getBytes(path);
+		insert(sys.io.File.getBytes(path));
+	}
+
+	public function insert(cartridge:Bytes):Void {
+		rom = cartridge;
 		declaredSave();
 		vdp.standard(palByHeader(rom));
 		sound.standard(vdp.masterHz);

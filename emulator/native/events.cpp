@@ -40,6 +40,44 @@ extern "C" void host_pad_close(void) {
 	hostPad = nullptr;
 }
 
+static const SDL_GamepadButton hostGamepadButtons[HOST_GAMEPAD_COUNT] = {
+	SDL_GAMEPAD_BUTTON_SOUTH,
+	SDL_GAMEPAD_BUTTON_EAST,
+	SDL_GAMEPAD_BUTTON_WEST,
+	SDL_GAMEPAD_BUTTON_NORTH,
+	SDL_GAMEPAD_BUTTON_BACK,
+	SDL_GAMEPAD_BUTTON_GUIDE,
+	SDL_GAMEPAD_BUTTON_START,
+	SDL_GAMEPAD_BUTTON_LEFT_STICK,
+	SDL_GAMEPAD_BUTTON_RIGHT_STICK,
+	SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,
+	SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,
+	SDL_GAMEPAD_BUTTON_DPAD_UP,
+	SDL_GAMEPAD_BUTTON_DPAD_DOWN,
+	SDL_GAMEPAD_BUTTON_DPAD_LEFT,
+	SDL_GAMEPAD_BUTTON_DPAD_RIGHT
+};
+
+extern "C" int host_pad_raw(void) {
+	if (hostPad == nullptr) return 0;
+
+	int out = 0;
+	for (int at = 0; at < HOST_GAMEPAD_COUNT; at++) {
+		if (SDL_GetGamepadButton(hostPad, hostGamepadButtons[at])) out |= 1 << at;
+	}
+
+	const int dead = 12000;
+	const int x = SDL_GetGamepadAxis(hostPad, SDL_GAMEPAD_AXIS_LEFTX);
+	const int y = SDL_GetGamepadAxis(hostPad, SDL_GAMEPAD_AXIS_LEFTY);
+
+	if (x < -dead) out |= 1 << HOST_GAMEPAD_LEFT;
+	if (x > dead) out |= 1 << HOST_GAMEPAD_RIGHT;
+	if (y < -dead) out |= 1 << HOST_GAMEPAD_UP;
+	if (y > dead) out |= 1 << HOST_GAMEPAD_DOWN;
+
+	return out;
+}
+
 extern "C" int host_pad_state(void) {
 	if (hostPad == nullptr) return 0;
 

@@ -394,6 +394,37 @@ rom "bug rom" "$ROOT/tests/roms/bug" debug
 # so: the gate binary links the window's own pure parts and cannot make the same claim
 typed "no display" hx68k.debug.DebugTool hx68k.map.MapTool
 
+# and the other direction: the player is the emulator with the debugger left out, so the sources it
+# generates must name nothing under hx68k/map and nothing under hx68k/debug but Row, which Ui holds
+# a table of. Generated rather than compiled, which takes under a second.
+PLAYER="$HERE/.player"
+rm -rf "$PLAYER"
+printf "building %-16s" "no debugger"
+if (cd "$ROOT/emulator" && haxe -cp src -main hx68k.host.Player -cpp "$PLAYER" \
+		-D no-compilation) > "$LOG" 2>&1; then
+	echo "ok"
+else
+	echo "FAILED"; cat "$LOG"; exit 1
+fi
+
+printf "player %-19s" "no map"
+if [ -d "$PLAYER/src/hx68k/map" ]; then
+	echo "FAILED"
+	ls "$PLAYER/src/hx68k/map" | sed 's/^/  /'
+	exit 1
+fi
+echo "ok"
+
+printf "player %-19s" "debugger left out"
+REACHED="$(find "$PLAYER/src/hx68k/debug" -name "*.cpp" -exec basename {} ";" 2>/dev/null \
+	| grep -v "^Row.cpp$" || true)"
+if [ -n "$REACHED" ]; then
+	echo "FAILED"
+	echo "$REACHED" | sed 's/^/  /'
+	exit 1
+fi
+echo "ok"
+
 # and nothing a build makes may land outside export/
 printf "build %-20s" "writes only export"
 STRAY="$(find "$ROOT/emulator" "$ROOT/sdk" "$ROOT/tests/roms" -maxdepth 2 -type d \

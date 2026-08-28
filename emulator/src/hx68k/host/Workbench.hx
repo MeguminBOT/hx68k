@@ -197,7 +197,7 @@ class Workbench {
 		final rom = romPath();
 		remembered();
 
-		window = Sdl.createWindow("hx68k", width, height);
+		window = Sdl.createWindow("hx68k Debugger Emulator", width, height);
 		if (window == null) {
 			Sys.println("the window failed to open");
 			Sys.exit(1);
@@ -279,7 +279,8 @@ class Workbench {
 	}
 
 	function setTitle(rom:Null<String>):Void {
-		Sdl.setWindowTitle(window, "hx68k  " + (rom == null ? "no ROM" : haxe.io.Path.withoutDirectory(rom)));
+		Sdl.setWindowTitle(window, "hx68k Debugger Emulator  "
+			+ (rom == null ? "no ROM" : haxe.io.Path.withoutDirectory(rom)));
 	}
 
 	function popOut(title:String):Void {
@@ -1507,7 +1508,7 @@ class Workbench {
 		final out = new Array<String>();
 		var line = "  ";
 
-		for (action in Shortcuts.actions()) {
+		for (action in bindings.actions()) {
 			final said = action + " " + bindings.chord(action) + "   ";
 			if (line.length + said.length > 100) {
 				out.push(line);

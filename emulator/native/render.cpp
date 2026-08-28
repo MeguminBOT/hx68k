@@ -57,6 +57,11 @@ extern "C" void host_window_set_minimum_size(SDL_Window *window, int width, int 
 	SDL_SetWindowMinimumSize(window, width, height);
 }
 
+extern "C" void host_window_set_fullscreen(SDL_Window *window, int on) {
+	SDL_SetWindowFullscreen(window, on != 0);
+	SDL_SyncWindow(window);
+}
+
 extern "C" float host_window_display_scale(SDL_Window *window) {
 	const float scale = SDL_GetWindowDisplayScale(window);
 	return scale <= 0.0f ? 1.0f : scale;
