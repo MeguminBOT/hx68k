@@ -1,2 +1,3 @@
 ../common.hxml
 -D md-debug
+-D md-output=../../../export/md/rom/conformance/src

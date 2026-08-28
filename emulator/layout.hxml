@@ -1,4 +1,4 @@
 # the layout model on its own, with no window and no SDL: neko, so ./tests/run.sh can gate it
 -cp src
 -main hx68k.test.LayoutCheck
--neko bin/layout.n
+-neko ../export/md/tests/bin/layout.n

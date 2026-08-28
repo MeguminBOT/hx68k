@@ -350,7 +350,7 @@ nonzero on any failure. About seventy seconds.
 
 ```
 cd tests/roms/conformance && ./build.sh debug
-./emulator/gate.sh map tests/roms/conformance/rom/out/debug/rom.out tests/roms/conformance/rom/src 0x000D58
+./emulator/gate.sh map export/md/rom/conformance/bin/debug/rom.out export/md/rom/conformance/src 0x000D58
 ```
 
 With no address it checks every function it recorded; with `--statics` it lists each Haxe static
@@ -363,7 +363,7 @@ cd tests/roms/spike
 ./build.sh
 ```
 
-Produces `tests/roms/spike/rom/out/rom.bin`.
+Produces `export/md/rom/spike/bin/rom.bin`.
 
 ## Layout
 

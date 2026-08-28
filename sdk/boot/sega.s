@@ -24,7 +24,7 @@ _Vectors:
     dc.l    _Ignore, _Ignore, _Ignore, _Ignore, _Ignore, _Ignore, _Ignore, _Ignore
 
 rom_header:
-    .incbin "out/rom_header.bin", 0, 0x100
+    .incbin "obj/rom_header.bin", 0, 0x100
 
 _Entry:
     move    #0x2700, %sr

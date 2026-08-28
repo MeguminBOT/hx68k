@@ -4,4 +4,4 @@
 -main hxres.Check
 -D md_runtime
 -D analyzer-optimize
--cpp bin/check
+-cpp ../export/md/tests/obj/check

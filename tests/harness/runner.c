@@ -20,7 +20,7 @@ static void dump_rom(const char *name, const char *dir)
 {
 	if (!g_dump)
 		return;
-	fprintf(g_dump, "rom %s %s/rom/out/release/rom.bin %s/rom/out/release/rom.out\n",
+	fprintf(g_dump, "rom %s %s/bin/release/rom.bin %s/bin/release/rom.out\n",
 	        name, dir, dir);
 }
 
@@ -259,7 +259,7 @@ static void suite_spike(const char *rom, const char *sym)
 	check(text_ok, "the font tilemap matches the string's repeat pattern (%s)",
 	      text_which >= 0 ? base_names[text_which] : "not found");
 
-	dump_rom("spike", "tests/roms/spike");
+	dump_rom("spike", "export/md/rom/spike");
 	dump_line("until Main_frame 4 %d 90", last_frame_value);
 	dump_line("value Main_live 0 4 %d", (int32_t)md_read_ram32(live_addr));
 	dump_line("value Main_sum 0 4 %d", (int32_t)md_read_ram32(sum_addr));
@@ -384,7 +384,7 @@ static void suite_conformance(const char *rom, const char *sym)
 		      conformance_expected[i].name, got, want);
 	}
 
-	dump_rom("conformance", "tests/roms/conformance");
+	dump_rom("conformance", "export/md/rom/conformance");
 	dump_line("until hx_probe_done 2 1 60");
 	dump_line("value hx_probe_count 0 2 %u", reported);
 	for (i = 0; i < reported; i++)
@@ -649,63 +649,63 @@ int main(int argc, char **argv)
 	snprintf(rom, sizeof(rom), "%s/tests/.observables.txt", root);
 	g_dump = fopen(rom, "w");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/spike/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/spike/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/spike/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/spike/bin/release/symbol.txt", root);
 	suite_spike(rom, sym);
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/conformance/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/conformance/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/conformance/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/conformance/bin/release/symbol.txt", root);
 	if (file_exists(rom))
 		suite_conformance(rom, sym);
 	else
 		printf("\nconformance: skipped (rom not built)\n");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/hardware/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/hardware/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/hardware/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/hardware/bin/release/symbol.txt", root);
 	if (file_exists(rom)) {
-		suite_probe_rom("hardware: md.hw with no SGDK call in it", "hardware", "tests/roms/hardware",
+		suite_probe_rom("hardware: md.hw with no SGDK call in it", "hardware", "export/md/rom/hardware",
 			rom, sym, hardware_expected, COUNT(hardware_expected), 0x88);
 		check(md_cram[0] == 0x0E80, "color 0 landed in CRAM (got 0x%04X)", md_cram[0]);
 	} else {
 		printf("\nhardware: skipped (rom not built)\n");
 	}
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/pal/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/pal/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/pal/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/pal/bin/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("pal: a cartridge built for the 50 Hz machine", "pal", "tests/roms/pal",
+		suite_probe_rom("pal: a cartridge built for the 50 Hz machine", "pal", "export/md/rom/pal",
 			rom, sym, pal_expected, COUNT(pal_expected), 0);
 	else
 		printf("\npal: skipped (rom not built)\n");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/art/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/art/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/art/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/art/bin/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("art: every resource through hxres, with no rescomp", "art", "tests/roms/art",
+		suite_probe_rom("art: every resource through hxres, with no rescomp", "art", "export/md/rom/art",
 			rom, sym, art_expected, COUNT(art_expected), 0x51);
 	else
 		printf("\nart: skipped (rom not built)\n");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/bare/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/bare/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/bare/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/bare/bin/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("bare: a ROM that boots without SGDK", "bare", "tests/roms/bare",
+		suite_probe_rom("bare: a ROM that boots without SGDK", "bare", "export/md/rom/bare",
 			rom, sym, bare_expected, COUNT(bare_expected), 0);
 	else
 		printf("\nbare: skipped (rom not built)\n");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/events/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/events/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/events/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/events/bin/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("events: function references and callbacks", "events", "tests/roms/events",
+		suite_probe_rom("events: function references and callbacks", "events", "export/md/rom/events",
 			rom, sym, events_expected, COUNT(events_expected), 0);
 	else
 		printf("\nevents: skipped (rom not built)\n");
 
-	snprintf(rom, sizeof(rom), "%s/tests/roms/sdk/rom/out/release/rom.bin", root);
-	snprintf(sym, sizeof(sym), "%s/tests/roms/sdk/rom/out/release/symbol.txt", root);
+	snprintf(rom, sizeof(rom), "%s/export/md/rom/sdk/bin/release/rom.bin", root);
+	snprintf(sym, sizeof(sym), "%s/export/md/rom/sdk/bin/release/symbol.txt", root);
 	if (file_exists(rom))
-		suite_probe_rom("sdk: the native SDK, end to end", "sdk", "tests/roms/sdk",
+		suite_probe_rom("sdk: the native SDK, end to end", "sdk", "export/md/rom/sdk",
 			rom, sym, sdk_expected, COUNT(sdk_expected), 0x88);
 	else
 		printf("\nsdk: skipped (rom not built)\n");

@@ -1,3 +1,3 @@
 -cp src
 -main hx68k.test.Bench
--neko bin/bench.n
+-neko ../export/md/tests/bin/bench.n

@@ -14,6 +14,6 @@ if [ "${GATE_BUILT:-}" != "1" ]; then
 	(cd "$HERE" && haxe gate.hxml) > /dev/null
 fi
 
-BIN="$HERE/bin/gate/Gate.exe"
-[ -x "$BIN" ] || BIN="$HERE/bin/gate/Gate"
+BIN="$HERE/../export/md/tests/obj/gate/Gate.exe"
+[ -x "$BIN" ] || BIN="$HERE/../export/md/tests/obj/gate/Gate"
 "$BIN" "$@"

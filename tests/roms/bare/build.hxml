@@ -1,1 +1,2 @@
 ../common.hxml
+-D md-output=../../../export/md/rom/bare/src

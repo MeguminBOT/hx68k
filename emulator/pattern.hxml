@@ -2,4 +2,4 @@
 # neko bin/pattern.n <repository root> [directory for PNGs] [name:digest,...]
 -cp src
 -main hx68k.test.md.PatternCheck
--neko bin/pattern.n
+-neko ../export/md/tests/bin/pattern.n

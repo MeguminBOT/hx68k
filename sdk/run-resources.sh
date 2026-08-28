@@ -6,4 +6,4 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "${1:-$HERE/..}" && pwd)"
 cd "$HERE"
 haxe check.hxml
-exec ./bin/check/Check "$ROOT"
+exec ../export/md/tests/obj/check/Check "$ROOT"

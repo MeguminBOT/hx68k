@@ -1,6 +1,6 @@
 -cp src
 -main hx68k.test.md.Speed
--cpp bin/speed
+-cpp ../export/md/tests/obj/speed
 
 # what the window is built with, so what is measured here is what runs there
 -D analyzer-optimize

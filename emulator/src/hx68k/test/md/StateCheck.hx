@@ -20,12 +20,12 @@ class StateCheck {
 	public static function run(args:Array<String>):Void {
 		final root = args.length > 0 ? args[0] : ".";
 
-		roundTrip(Path.join([root, "tests/roms/spike/rom/out/release/rom.bin"]), "spike");
-		roundTrip(Path.join([root, "tests/roms/art/rom/out/release/rom.bin"]), "art");
+		roundTrip(Path.join([root, "export/md/rom/spike/bin/release/rom.bin"]), "spike");
+		roundTrip(Path.join([root, "export/md/rom/art/bin/release/rom.bin"]), "art");
 
-		roundTrip(Path.join([root, "tests/roms/sound/rom/out/release/rom.bin"]), "sound");
-		chips(Path.join([root, "tests/roms/spike/rom/out/release/rom.bin"]));
-		rewinds(Path.join([root, "tests/roms/spike/rom/out/release/rom.bin"]));
+		roundTrip(Path.join([root, "export/md/rom/sound/bin/release/rom.bin"]), "sound");
+		chips(Path.join([root, "export/md/rom/spike/bin/release/rom.bin"]));
+		rewinds(Path.join([root, "export/md/rom/spike/bin/release/rom.bin"]));
 
 		Sys.println("");
 		Sys.println(checks + " state checks, " + failures + " failures");

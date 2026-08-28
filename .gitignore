@@ -4,16 +4,9 @@ vendor/
 _realRomTest/
 _romFromHaxe/
 
-# generated ROM sources and build output, all reproducible from build.sh
-tests/roms/*/rom/out/
-tests/roms/*/rom/res/*
-tests/roms/*/rom/src/*
-!tests/roms/*/rom/src/testio.c
-!tests/roms/*/rom/src/testio.h
-!tests/roms/*/rom/src/native.c
-!tests/roms/*/rom/src/native.h
+# every build writes here and nothing else does
+export/
 
-emulator/bin/
 tests/harness/.build/
 tests/.build.log
 tests/.observables.txt
@@ -39,8 +32,7 @@ tests/opn2/.build/
 # the gdb session the remote protocol check drives, and what the stub said while it ran
 tests/.gdb/
 
-# the resource pipeline check, built on demand
-sdk/bin/
+# the resource pipeline check
 tests/.resources/
 
 # permission entries this tooling writes for itself

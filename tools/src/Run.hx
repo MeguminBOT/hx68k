@@ -156,22 +156,23 @@ class Run {
 		final posix = StringTools.replace(root, "\\", "/");
 
 		FileSystem.createDirectory(at + "/hx");
-		FileSystem.createDirectory(at + "/rom/src");
 
-		File.saveContent(at + "/build.hxml", buildFile(posix));
-		File.saveContent(at + "/build.sh", buildScript(posix));
+		File.saveContent(at + "/build.hxml", buildFile(posix, name));
+		File.saveContent(at + "/build.sh", buildScript(posix, name));
 		File.saveContent(at + "/hx/Main.hx", firstProgram(name));
-		File.saveContent(at + "/.gitignore", "rom/out/\nrom/src/\n");
+		File.saveContent(at + "/.gitignore", "export/\n");
+
+		final built = "export/md/rom/" + name + "/bin/rom.bin";
 
 		Sys.println("");
 		Sys.println("  " + at);
 		Sys.println("");
-		Sys.println("  cd " + name + " && ./build.sh          builds rom/out/rom.bin");
-		Sys.println("  haxelib run hx68k run rom/out/rom.bin   runs it in the window");
+		Sys.println("  cd " + name + " && ./build.sh          builds " + built);
+		Sys.println("  haxelib run hx68k run " + built + "   runs it in the emulator");
 		Sys.println("");
 	}
 
-	static function buildFile(root:String):String {
+	static function buildFile(root:String, name:String):String {
 		return "-cp " + root + "/compiler/src\n"
 			+ "-cp " + root + "/compiler/std\n"
 			+ "-cp " + root + "/compiler/std/md/_std\n"
@@ -179,17 +180,17 @@ class Run {
 			+ "-lib reflaxe\n"
 			+ "-D md\n"
 			+ "-D MegaDrive\n"
-			+ "-D md-output=rom/src\n"
+			+ "-D md-output=export/md/rom/" + name + "/src\n"
 			+ "--macro mdcompiler.CompilerInit.Start()\n"
 			+ "-cp hx\n"
 			+ "-dce full\n"
 			+ "-main Main\n";
 	}
 
-	static function buildScript(root:String):String {
+	static function buildScript(root:String, name:String):String {
 		return "#!/usr/bin/env bash\n"
-			+ "# builds hx/Main.hx into rom/out/release/rom.bin. Pass debug for the other profile,\n"
-			+ "# and -D md-pal in build.hxml for a PAL ROM.\n"
+			+ "# builds hx/Main.hx into export/md/rom/" + name + "/bin/release/rom.bin. Pass debug\n"
+			+ "# for the other profile, and -D md-pal in build.hxml for a PAL ROM.\n"
 			+ "set -e\n"
 			+ "cd \"$(dirname \"$0\")\"\n"
 			+ "exec '" + root + "/sdk/rom.sh' \"$@\"\n";
@@ -489,7 +490,7 @@ class Run {
 				Sys.exit(1);
 			}
 
-			if (name == "window") release();
+			release(name);
 
 			Sys.println("  " + pad(name) + "building");
 			Sys.setCwd(root + "/emulator");
@@ -505,10 +506,17 @@ class Run {
 		Sys.println("");
 	}
 
-	static function release():Void {
+	static final SHIPPED:Map<String, String> = ["window" => "hx68k"];
+
+	static function shipName(target:String):String {
+		final named = SHIPPED.get(target);
+		return named == null ? target : named;
+	}
+
+	static function release(target:String):Void {
 		if (Sys.systemName() != "Windows") return;
 		try {
-			final killer = new sys.io.Process("taskkill", ["/F", "/IM", "hx68k.exe"]);
+			final killer = new sys.io.Process("taskkill", ["/F", "/IM", shipName(target) + ".exe"]);
 			killer.exitCode();
 			killer.close();
 		} catch (e:Dynamic) {}
@@ -519,16 +527,25 @@ class Run {
 		final main = setting(root, name, "-main");
 		if (into == "" || main == "") return;
 
-		final dir = root + "/emulator/" + into;
-		final exe = dir + "/" + main.split(".").pop() + ".exe";
+		final dir = haxe.io.Path.normalize(root + "/emulator/" + into);
+		final stem = main.split(".").pop();
+
+		var exe = dir + "/" + stem + ".exe";
+		var suffix = ".exe";
+		if (!FileSystem.exists(exe)) {
+			exe = dir + "/" + stem;
+			suffix = "";
+		}
 		if (!FileSystem.exists(exe)) return;
 
-		final source = File.getContent(root + "/emulator/src/" + main.split(".").join("/") + ".hx");
-		if (source.indexOf("hx68k.host") >= 0) {
-			File.copy(root + "/vendor/SDL3/lib/SDL3.dll", dir + "/SDL3.dll");
-		}
+		final bin = haxe.io.Path.normalize(dir + "/../bin");
+		if (!FileSystem.exists(bin)) FileSystem.createDirectory(bin);
+		File.copy(exe, bin + "/" + shipName(name) + suffix);
 
-		if (name == "window") File.copy(exe, dir + "/hx68k.exe");
+		final source = File.getContent(root + "/emulator/src/" + main.split(".").join("/") + ".hx");
+		if (source.indexOf("hx68k.host") >= 0 && Sys.systemName() == "Windows") {
+			File.copy(root + "/vendor/SDL3/lib/SDL3.dll", bin + "/SDL3.dll");
+		}
 	}
 
 	static function padRom(called:String, flags:Array<String>):Void {
@@ -608,7 +625,7 @@ class Run {
 		final given = flags.filter(f -> !StringTools.startsWith(f, "-"));
 		build(root, ["window"], false);
 
-		final exe = root + "/emulator/bin/window/hx68k.exe";
+		final exe = root + "/export/md/emulator/bin/hx68k.exe";
 		final rom = given.length > 0 ? FileSystem.absolutePath(given[0]) : null;
 		Sys.exit(Sys.command(exe, rom == null ? [] : [rom]));
 	}

@@ -1,6 +1,6 @@
 -cp src
 -main hx68k.host.Workbench
--cpp bin/window
+-cpp ../export/md/emulator/obj
 
 # the same three the window is built with, so what a check measures against it stays honest
 -D analyzer-optimize

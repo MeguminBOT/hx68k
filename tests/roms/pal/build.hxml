@@ -1,2 +1,3 @@
 ../common.hxml
 -D md-pal
+-D md-output=../../../export/md/rom/pal/src

@@ -28,7 +28,7 @@ if [ "${GATE_BUILT:-}" != "1" ]; then
 fi
 (cd "$HERE" && haxe fixtures.hxml) > /dev/null
 
-neko "$HERE/bin/fixtures.n" "$SCRIPTS" > /dev/null
+neko "$ROOT/export/md/tests/bin/fixtures.n" "$SCRIPTS" > /dev/null
 mkdir -p "$SOUNDS"
 
 # only what changed is rendered again, since the reference for a fixture depends on nothing else.

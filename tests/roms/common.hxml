@@ -8,8 +8,8 @@
 -lib reflaxe
 -D md
 -D MegaDrive
--D md-output=rom/src
 --macro mdcompiler.CompilerInit.Start()
+-cp ../common/hx
 -cp hx
 -dce full
 -main Main
